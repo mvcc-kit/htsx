@@ -68,6 +68,8 @@ export interface RouteFiles {
 
 export interface FileRoutesInput {
   routes: RouteFiles[]
+  /** Pasta raiz das rotas (layout, load e +error da raiz), usada no 404 sem rota. */
+  root?: RouteLevel
   /** Matchers de `src/params/<nome>.ts` (`export function match`). */
   params?: Record<string, { match: ParamMatcher }>
 }
@@ -124,24 +126,37 @@ async function runLoads(r: RouteFiles, event: RequestEvent): Promise<Data> {
   return { ...(await parent), ...asData((settled.at(-1) as PromiseFulfilledResult<unknown>).value, `${r.levels.at(-1)!.dir}/+page.server.ts`) }
 }
 
+/**
+ * Dados de cada nível (raiz → folha). Sem `load` rodado (erro antes, ou endpoint), só os níveis
+ * sem `load` em nenhum nível acima têm dados (`{}`); o resto fica `undefined`.
+ */
+function levelData(r: RouteFiles, event: RequestEvent): Array<Data | undefined> {
+  const state = STATE.get(event)
+  if (state) return r.levels.map((_, i) => state.data[i])
+  const firstLoad = r.levels.findIndex(l => l.layoutServer?.load)
+  return r.levels.map((_, i) => (firstLoad === -1 || i < firstLoad ? {} : undefined))
+}
+
 /** Envolve `children` nos layouts dos níveis 0..`upTo`, da folha para a raiz, com os dados de cada nível. */
 function wrap(r: RouteFiles, event: RequestEvent, children: unknown, upTo: number): unknown {
-  const state = STATE.get(event)
+  const data = levelData(r, event)
   let node = children
   for (let i = upTo; i >= 0; i--) {
     const level = r.levels[i]!
-    if (!level.layout) continue
-    const data = state?.data[i] ?? (i === 0 && !r.levels[0]!.layoutServer?.load ? {} : undefined)
-    if (data === undefined) return children // load deste nível não terminou: sem os layouts de cima
-    node = level.layout.default({ children: node, data, params: event.params, event })
+    // sem dados (o load deste nível falhou ou não rodou): pula este layout, mantém os de cima
+    if (!level.layout || data[i] === undefined) continue
+    node = level.layout.default({ children: node, data: data[i], params: event.params, event })
   }
   return node
 }
 
 function errorFor(r: RouteFiles): ErrorPage {
   return ({ status, message, event }) => {
-    // erro mais próximo da rota, subindo as pastas
-    let at = r.levels.length - 1
+    // +error.tsx mais próximo, mas acima do primeiro nível sem dados: o erro não pode ficar
+    // dentro de um layout cujo load falhou (como no SvelteKit)
+    const data = levelData(r, event)
+    const broken = data.findIndex(d => d === undefined)
+    let at = (broken === -1 ? r.levels.length : broken) - 1
     while (at >= 0 && !r.levels[at]!.error) at--
     const node = at >= 0 ? r.levels[at]!.error!.default({ status, message, event }) : [h('h1', {}, String(status)), h('p', {}, message)]
     // fica dentro dos layouts até a pasta do +error.tsx (sem +error: só o layout raiz)
@@ -162,7 +177,12 @@ export function fileRoutes(input: FileRoutesInput): FileRoutes {
     if (r.pageServer && !r.page) throw new Error(`htsx: ${dir}/+page.server.ts existe sem ${dir}/+page.tsx; crie a página ou troque por +server.ts`)
     if (!r.page && !r.endpoint) continue
     const hasLayout = r.levels.some(l => l.layout)
-    const inherited = [...r.levels].reverse().find(l => l.layoutServer?.prerender !== undefined)?.layoutServer?.prerender
+    // páginas herdam `prerender` do +layout.server.ts mais próximo; +server.ts sozinho não herda (como no SvelteKit)
+    const from = [...r.levels].reverse().find(l => l.layoutServer?.prerender !== undefined)
+    const inherited = r.page ? from?.layoutServer?.prerender : undefined
+    if (inherited && r.pageServer?.actions && r.pageServer.prerender === undefined) {
+      throw new Error(`htsx: ${from!.dir}/+layout.server.ts marca prerender, mas ${dir}/+page.server.ts tem actions, que precisam de servidor; ponha export const prerender = false em ${dir}/+page.server.ts`)
+    }
     const def: RouteDef<string, Data, Record<string, AnyFn>> = {
       prerender: r.pageServer?.prerender ?? r.endpoint?.prerender ?? inherited,
       entries: r.pageServer?.entries ?? r.endpoint?.entries,
@@ -193,8 +213,8 @@ export function fileRoutes(input: FileRoutesInput): FileRoutes {
   }
 
   // 404 sem rota: +error.tsx e +layout.tsx da raiz
-  const root = input.routes.find(r => r.levels.length === 1)?.levels[0] ?? input.routes[0]?.levels[0]
-  const rootRoute: RouteFiles = { id: '/', levels: root ? [root] : [{ dir: 'src/routes' }] }
+  const root = input.root ?? input.routes[0]?.levels[0]
+  const rootRoute: RouteFiles = { id: '/', levels: [root ?? { dir: 'src/routes' }] }
   const rootError = errorFor(rootRoute)
   const errorPage: ErrorPage = async props => {
     if (!STATE.has(props.event) && root?.layoutServer?.load) {

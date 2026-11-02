@@ -106,4 +106,19 @@ describe('modo Cloudflare: Worker', () => {
     expect(() => cloudflarePlatform({ platform: undefined, prerendering: true })).toThrow(/não existe no prerender/)
     expect(() => cloudflarePlatform({ platform: undefined, prerendering: false })).toThrow(/rode o app com cloudflare\(app\)/)
   })
+
+  it('página pré-renderizada com acento no caminho vem dos assets', async () => {
+    const { defineApp, route } = await import('../app')
+    const tmp = path.join(import.meta.dir, '..', '.cache', 'adapters', 'cf-acento')
+    const app = defineApp({ prerender: true, routes: [route('/olá', { page: () => <p>oi</p> })] })
+    const r = await buildCloudflare(app, { root: tmp, wrangler: false, vendor: false })
+    expect(r.manifest.prerendered).toEqual(['/olá'])
+    const seen: string[] = []
+    const assets = await assetsFromDir(r.outDir)
+    const w = cloudflare(app, { manifest: r.manifest })
+    const res = await w.fetch(new Request('https://x/ol%C3%A1'), { ASSETS: { fetch: (q: Request | string) => { seen.push('assets'); return assets.fetch(q) } } }, ctx)
+    expect(seen).toEqual(['assets'])
+    expect(await res.text()).toBe('<p>oi</p>')
+  })
 })
+

@@ -156,8 +156,6 @@ export function sequence(...handlers: Handle[]): Handle {
 }
 
 const FORM_TYPES = ['application/x-www-form-urlencoded', 'multipart/form-data', 'text/plain']
-const html = (body: string, status: number, headers?: HeadersInit) =>
-  new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8', ...headers } })
 
 async function renderNode(node: unknown): Promise<string> {
   return String(await Fragment({ children: node }))
@@ -175,7 +173,12 @@ export function defineApp(options: AppOptions): App {
     }
   }
 
+  // rotas sem parâmetro: busca direta, sem testar expressões regulares
+  const fixed = new Map(routes.filter(r => r.parsed.params.length === 0).map(r => [encodeURI(r.id), r]))
+
   function find(pathname: string): { route: Route; params: Record<string, string> } | null {
+    const exact = fixed.get(pathname)
+    if (exact) return { route: exact, params: {} }
     for (const r of routes) {
       const params = matchRoute(r.parsed, pathname, matchers)
       if (params) return { route: r, params }
@@ -189,9 +192,15 @@ export function defineApp(options: AppOptions): App {
       return Response.json({ message }, { status, headers })
     }
     const errorPage = routes.find(r => r.id === event.route.id)?.def.errorPage ?? options.errorPage
-    const page = errorPage
-      ? await renderNode(errorPage({ status, message, event }))
-      : `<h1>${status}</h1><p>${String(await Fragment({ children: message }))}</p>`
+    const plain = async () => `<h1>${status}</h1><p>${String(await Fragment({ children: message }))}</p>`
+    let page: string
+    try {
+      page = errorPage ? await renderNode(errorPage({ status, message, event })) : await plain()
+    } catch (err) {
+      // a própria página de erro falhou (ex.: um layout): responde a versão simples, sem quebrar a resposta
+      console.error('htsx: a página de erro falhou ao renderizar', err)
+      page = await plain()
+    }
     headers.set('content-type', 'text/html; charset=utf-8')
     return new Response(event.isFragment ? page : `<!DOCTYPE html>${page}`, { status, headers })
   }
@@ -248,7 +257,8 @@ export function defineApp(options: AppOptions): App {
       const fixed = p === '/' ? p : slash === 'never' && p.endsWith('/') ? p.replace(/\/+$/, '') : slash === 'always' && !p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p) ? p + '/' : p
       if (fixed !== p) return new Response(null, { status: 308, headers: { location: fixed + url.search } })
     }
-    const match = find(slash === 'always' && url.pathname !== '/' ? url.pathname.replace(/\/$/, '') : url.pathname)
+    // barra no fim não muda a rota (POST para /contato/ casa com /contato)
+    const match = find(url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : url.pathname)
     const headers = new Headers()
     const isHtmxReq = request.headers.get('hx-request') === 'true'
     const event: RequestEvent = {
@@ -258,7 +268,8 @@ export function defineApp(options: AppOptions): App {
       route: { id: match?.route.id ?? null },
       locals: {},
       platform: opts.platform,
-      cookies: createCookies(request, !(url.protocol === 'http:' && url.hostname === 'localhost')),
+      // Secure sempre, menos em http local (o navegador recusa cookie Secure em http)
+      cookies: createCookies(request, !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))),
       setHeaders(h) {
         for (const [k, v] of Object.entries(h)) {
           if (k.toLowerCase() === 'set-cookie') throw new Error('htsx: use event.cookies.set() em vez de setHeaders({ "set-cookie" })')

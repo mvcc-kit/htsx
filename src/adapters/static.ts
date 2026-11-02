@@ -3,7 +3,7 @@
 // Como o adapter-static do SvelteKit: falha se alguma rota precisar de servidor.
 import path from 'node:path'
 import type { App } from '../app/app'
-import { cleanDir, copyAssets, copyVendor, redirectHtml, writePrerendered } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, redirectHtml, writePrerendered } from '../build/files'
 import { outputFile, prerender, type PrerenderOptions } from '../build/prerender'
 
 export interface StaticOptions {
@@ -53,8 +53,10 @@ export async function buildStatic(app: App, opts: StaticOptions = {}): Promise<B
     ].join('\n'))
   }
 
+  const assetsDir = path.resolve(root, opts.assets ?? 'static')
+  assertSafeOutDir(outDir, root, assetsDir)
   await cleanDir(outDir)
-  const assets = new Set(await copyAssets(path.resolve(root, opts.assets ?? 'static'), outDir))
+  const assets = new Set(await copyAssets(assetsDir, outDir))
   if (opts.vendor ?? true) for (const f of await copyVendor(outDir)) assets.add(f)
 
   const result = await prerender(app, { ...opts.prerender, assets })
@@ -67,6 +69,9 @@ export async function buildStatic(app: App, opts: StaticOptions = {}): Promise<B
   const fallback = opts.fallback ?? '404.html'
   if (fallback) {
     const res = await app.respond(new Request(`${opts.prerender?.origin ?? 'http://localhost'}/__htsx_fallback__`, { headers: { accept: 'text/html' } }), { prerendering: true })
+    if (res.status !== 404) {
+      throw new Error(`htsx: para gerar ${fallback}, o app devia responder 404 a um caminho inexistente, mas respondeu ${res.status} (uma rota como [...rest] pega tudo?); passe fallback: false ou trate o caminho na rota`)
+    }
     await Bun.write(path.join(outDir, fallback), await res.text())
   }
 

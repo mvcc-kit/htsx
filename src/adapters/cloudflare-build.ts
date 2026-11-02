@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { App } from '../app/app'
-import { cleanDir, copyAssets, copyVendor, listFiles, writePrerendered } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, listFiles, writePrerendered } from '../build/files'
 import { prerender, type PrerenderOptions } from '../build/prerender'
 import { VENDOR_PATH } from '../vendor-path'
 import type { AssetsFetcher, CloudflareManifest } from './cloudflare'
@@ -100,6 +100,7 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
     if (existsSync(path.join(assetsDir, f))) throw new Error(`htsx: ${f} deve ficar na raiz do projeto, não em ${path.relative(cwd, assetsDir)}/`)
   }
 
+  assertSafeOutDir(outDir, cwd, assetsDir)
   await cleanDir(outDir)
   const assets = new Set(await copyAssets(assetsDir, outDir))
   if (opts.vendor ?? true) for (const f of await copyVendor(outDir)) assets.add(f)
@@ -117,7 +118,8 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
   if (redirects) await Bun.write(path.join(outDir, '_redirects'), redirects + '\n')
   await Bun.write(path.join(outDir, '.assetsignore'), '_worker.js\n_routes.json\n')
 
-  const manifest: CloudflareManifest = { prerendered: result.files.filter(f => f.contentType.startsWith('text/html')).map(f => f.path) }
+  // caminhos decodificados: o Worker compara com o pathname já decodificado (/olá, não /ol%C3%A1)
+  const manifest: CloudflareManifest = { prerendered: result.files.filter(f => f.contentType.startsWith('text/html')).map(f => decodeURIComponent(f.path)) }
   await Bun.write(path.resolve(cwd, opts.manifest ?? '.htsx/cloudflare-manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
 
   return { outDir, manifest, dynamic: result.dynamic.map(r => r.id) }

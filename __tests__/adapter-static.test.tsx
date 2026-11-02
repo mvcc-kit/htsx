@@ -65,4 +65,16 @@ describe('modo estático: buildStatic', () => {
     expect(r.files).toEqual(['/p/1', '/p/2', '/robots.txt'])
     expect(await read('p/2/index.html')).toBe('<p>2</p>')
   })
+
+  it('recusa outDir que apagaria o projeto, src/ ou a pasta static', async () => {
+    for (const [outDir, msg] of [['.', 'é a raiz do projeto'], ['..', 'é a raiz do projeto ou está acima'], ['static', 'se sobrepõem'], ['static/sub', 'se sobrepõem']] as const) {
+      expect((await buildError(buildStatic(staticApp, { root: ROOT, outDir }))).message).toContain(msg)
+    }
+    expect(await Bun.file(path.join(ROOT, 'static', 'robots.txt')).exists()).toBe(true)
+  })
+
+  it('rota [...rest] que pega tudo → erro em vez de 404.html errado', async () => {
+    const app = defineApp({ prerender: true, routes: [route('/[...rest]', { entries: () => [{ rest: 'a' }], page: () => <p>x</p> })] })
+    expect((await buildError(buildStatic(app, { root: ROOT, outDir: OUT, vendor: false }))).message).toContain('respondeu 200 (uma rota como [...rest] pega tudo?)')
+  })
 })

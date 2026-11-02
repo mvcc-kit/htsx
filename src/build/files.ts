@@ -22,6 +22,21 @@ export async function listFiles(dir: string): Promise<string[]> {
     .sort()
 }
 
+const inside = (child: string, parent: string) => child === parent || child.startsWith(parent + path.sep)
+
+/**
+ * A pasta de saída é apagada antes do build: recusa caminhos que levariam junto o projeto
+ * ou a pasta de arquivos estáticos (ex.: `outDir: '.'` ou `outDir: 'static'`).
+ */
+export function assertSafeOutDir(outDir: string, root: string, assetsDir: string): void {
+  const rel = path.relative(root, outDir) || '.'
+  if (inside(root, outDir)) throw new Error(`htsx: outDir "${rel}" é a raiz do projeto ou está acima dela; o build apaga essa pasta. Use uma subpasta, ex.: "build"`)
+  if (inside(outDir, assetsDir) || inside(assetsDir, outDir)) throw new Error(`htsx: outDir "${rel}" e a pasta de arquivos estáticos "${path.relative(root, assetsDir)}" se sobrepõem; o build apagaria os arquivos. Use pastas separadas`)
+  for (const keep of ['src', 'node_modules', '.git']) {
+    if (inside(path.join(root, keep), outDir)) throw new Error(`htsx: outDir "${rel}" contém ${keep}/; o build apaga essa pasta. Use uma subpasta só para a saída, ex.: "build"`)
+  }
+}
+
 export async function cleanDir(dir: string): Promise<void> {
   await rm(dir, { recursive: true, force: true })
   await mkdir(dir, { recursive: true })

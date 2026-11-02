@@ -45,7 +45,8 @@ export function parseRouteId(id: string): ParsedRoute {
     if (segment.includes('[') || segment.includes(']')) {
       throw new Error(`htsx: segmento ${JSON.stringify(segment)} em ${JSON.stringify(id)} mistura texto e parâmetro; use um segmento só para o parâmetro`)
     }
-    source += '/' + escapeRe(segment)
+    // a URL chega codificada (/olá → /ol%C3%A1): compara com o segmento codificado
+    source += '/' + escapeRe(encodeURI(segment))
   }
   const names = params.map(p => p.name)
   const dup = names.find((n, i) => names.indexOf(n) !== i)

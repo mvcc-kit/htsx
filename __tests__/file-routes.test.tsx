@@ -50,9 +50,8 @@ describe('rotas por arquivos: htsx sync', () => {
     const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-dup')
     await rm(tmp, { recursive: true, force: true })
     for (const g of ['(a)', '(b)']) await Bun.write(path.join(tmp, 'src', 'routes', g, 'x', '+page.tsx'), 'export default () => "x"\n')
-    await syncRoutes({ root: tmp, pkg: '@repo/htsx' })
-    const err = await import(path.join(tmp, '.htsx', 'routes.ts')).then(() => null, e => e as Error)
-    expect(err?.message).toContain('htsx: a rota "/x" aparece em mais de uma pasta (src/routes/(a)/x, src/routes/(b)/x)')
+    const err = await syncRoutes({ root: tmp }).then(() => null, e => e as Error)
+    expect(err?.message).toContain('a rota "/x" aparece em mais de uma pasta (src/routes/(a)/x, src/routes/(b)/x); grupos (nome) não mudam a URL')
   })
 })
 
@@ -87,6 +86,32 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     expect(await p.byTestId('erro-post')).toMatchObject({ text: 'Post "nada" não existe' })
     expect(await p.text('[data-testid=blog] h2')).toBe('Meu site / Blog')
     expect(await p.text('header b')).toBe('Meu site')
+  })
+
+  it('load de layout falha: +error.tsx acima dele, dentro só dos layouts que carregaram', async () => {
+    const res = await req('/blog/ola?falhar')
+    expect(res.status).toBe(503)
+    const p = await page(res)
+    expect(await p.byTestId('erro-post')).toBeNull()            // o +error do [slug] ficaria dentro do layout que falhou
+    expect(await p.text('[data-testid=erro-raiz] p')).toBe('Blog fora do ar')
+    expect(await p.text('[data-testid=blog] h2')).toBeNull()     // layout do blog pulado
+    expect(await p.text('header b')).toBe('Meu site')             // layout raiz mantido
+  })
+
+  it('id inválido e +page.server.ts sem página: erro já no sync', async () => {
+    const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-bad-id')
+    await rm(tmp, { recursive: true, force: true })
+    await Bun.write(path.join(tmp, 'src', 'routes', 'a-[x]', '+page.tsx'), '')
+    await Bun.write(path.join(tmp, 'src', 'routes', 'b', '+page.server.ts'), '')
+    const err = await syncRoutes({ root: tmp }).then(() => null, e => e as Error)
+    expect(err?.message).toContain('src/routes/a-[x]: segmento "a-[x]" em "/a-[x]" mistura texto e parâmetro')
+    expect(err?.message).toContain('src/routes/b: +page.server.ts sem +page.tsx')
+  })
+
+  it('prerender herdado + actions → erro dizendo onde marcar prerender = false', () => {
+    const mod = { default: () => 'x' }
+    expect(() => fileRoutes({ routes: [{ id: '/f', levels: [{ dir: 'src/routes', layoutServer: { prerender: true } }, { dir: 'src/routes/f' }], page: mod, pageServer: { actions: { default: () => ({}) } } }] }))
+      .toThrow('htsx: src/routes/+layout.server.ts marca prerender, mas src/routes/f/+page.server.ts tem actions, que precisam de servidor; ponha export const prerender = false em src/routes/f/+page.server.ts')
   })
 
   it('404 sem rota: +error.tsx da raiz com o layout raiz', async () => {

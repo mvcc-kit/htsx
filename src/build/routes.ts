@@ -3,6 +3,7 @@
 // como o `.svelte-kit/types` do SvelteKit. Só build (usa node:fs).
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { parseRouteId } from '../app/routing'
 
 const KINDS = ['+page', '+page.server', '+layout', '+layout.server', '+server', '+error'] as const
 type Kind = (typeof KINDS)[number]
@@ -74,6 +75,18 @@ export async function scanRoutes(root: string, routesDir: string): Promise<Scann
     }
   }
   await walk(abs, [], null)
+  // checagens que o manifesto também faz, mas aqui com a pasta e já no `htsx sync`
+  const byId = new Map<string, string[]>()
+  for (const d of out) {
+    const isRoute = d.files['+page'] || d.files['+server'] || d.files['+page.server']
+    if (!isRoute) continue
+    try { parseRouteId(d.id) } catch (e) { problems.push(`${d.dir}: ${(e as Error).message.replace(/^htsx: /, '')}`) }
+    if (d.files['+page.server'] && !d.files['+page']) problems.push(`${d.dir}: +page.server.ts sem +page.tsx; crie a página ou troque por +server.ts`)
+    byId.set(d.id, [...(byId.get(d.id) ?? []), d.dir])
+  }
+  for (const [id, where] of byId) {
+    if (where.length > 1) problems.push(`a rota "${id}" aparece em mais de uma pasta (${where.join(', ')}); grupos (nome) não mudam a URL`)
+  }
   if (problems.length) throw new Error(`htsx: arquivos de rota inválidos:\n${problems.map(p => `  - ${p}`).join('\n')}`)
   return out
 }
@@ -136,12 +149,14 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
     }
   } catch (e) { if ((e as { code?: string }).code !== 'ENOENT') throw e }
 
+  const rootLevel = level(dirs[0]!)   // antes de juntar os imports, para incluir os da raiz
   const manifest = [
     '// Gerado por `htsx sync` a partir de ' + routesDir + '. Não edite.',
     `import { fileRoutes } from ${JSON.stringify(pkg + '/app')}`,
     ...imports,
     '',
     'export const files = fileRoutes({',
+    `  root: ${rootLevel},`,
     '  routes: [',
     ...routeEntries,
     '  ],',
@@ -157,7 +172,7 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
   // ── tipos ──
   for (const d of dirs) await Bun.write(path.join(out, 'types', d.dir, '$types.d.ts'), typesFor(d, root, out, pkg))
   await Bun.write(path.join(out, 'tsconfig.json'), JSON.stringify({
-    compilerOptions: { rootDirs: ['..', './types'] },
+    compilerOptions: { rootDirs: [posix(path.relative(out, root)) || '.', './types'] },
   }, null, 2) + '\n')
 
   return { manifest: path.join(out, 'routes.ts'), routes: dirs.filter(d => d.files['+page'] || d.files['+server']).map(d => d.id), dirs }

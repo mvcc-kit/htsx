@@ -53,7 +53,8 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
   const reached = new Set<Route>()
   const problems: string[] = []
 
-  const normalize = (p: string) => (p !== '/' ? p.replace(/\/+$/, '') : p)
+  // mesma forma da URL real (codificada), para /olá e /ol%C3%A1 serem o mesmo caminho
+  const normalize = (p: string) => { const u = new URL(p, origin).pathname; return u !== '/' ? u.replace(/\/+$/, '') : u }
   const enqueue = (path: string, from: string | null) => {
     const p = normalize(path)
     if (seen.has(p)) return

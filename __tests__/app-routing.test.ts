@@ -18,6 +18,11 @@ describe('rotas no formato do SvelteKit', () => {
     expect(m('/item/[id=int]', '/item/abc', int)).toBeNull()
   })
 
+  it('segmento com acento casa com a URL codificada', () => {
+    expect(m('/olá', new URL('http://x/olá').pathname)).toEqual({})
+    expect(m('/olá/[x]', '/ol%C3%A1/%C3%A9')).toEqual({ x: 'é' })
+  })
+
   it('URL malformada não casa', () => expect(m('/blog/[slug]', '/blog/%E0%A4%A')).toBeNull())
 
   it('id inválido dá erro com a correção', () => {

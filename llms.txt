@@ -281,13 +281,15 @@ export default function Post({ data, form, params }: PageProps) {
 Regras:
 - Os `load` dos layouts rodam em paralelo, e cada `parent()` espera os de cima. Mesma chave: o nível de baixo vence.
 - O `load` devolve objeto. O id da rota vem das pastas: `[slug]`, `[[opcional]]`, `[...rest]`, `[id=matcher]`, e os grupos `(nome)` não entram na URL.
-- Uma requisição htmx parcial recebe só a página, sem layouts. O `+error.tsx` fica dentro dos layouts acima dele que carregaram.
-- Nome de arquivo desconhecido, a mesma URL em dois grupos, `+page.server.ts` sem `+page.tsx` e `+page.tsx` sem `export default` dão erro com a correção.
+- Uma requisição htmx parcial recebe só a página, sem layouts.
+- Vale o `+error.tsx` mais próximo, mas sempre acima de um layout cujo `load` falhou. Ele aparece dentro dos layouts que carregaram. Se a própria página de erro falhar, sai uma versão simples, sem derrubar a resposta.
+- `prerender` de um `+layout.server.ts` vale para as páginas abaixo, não para um `+server.ts` sozinho. Página com `actions` abaixo de um layout com `prerender` precisa de `export const prerender = false`.
+- Nome de arquivo desconhecido, id de pasta inválido, a mesma URL em dois grupos e `+page.server.ts` sem `+page.tsx` dão erro já no `htsx sync`. `+page.tsx` sem `export default` dá erro ao montar as rotas.
 - `route()` e as rotas por arquivos se misturam: `defineApp({ ...files, routes: [...files.routes, route('/x', {...})] })`.
 
 ### Modo estático — `buildStatic`
 
-Todas as rotas precisam de `prerender`. Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
+O build apaga e recria `outDir`, por isso recusa a raiz do projeto, uma pasta que contenha `src/` e a própria pasta `static`. Todas as rotas precisam de `prerender`. Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
 
 ```ts
 // build.ts → bun build.ts
