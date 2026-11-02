@@ -132,6 +132,7 @@ async function launchChrome(chrome: string, userDataDir: string, viewport: { wid
     cmd: [
       chrome, '--headless=new', '--no-sandbox', '--no-first-run', '--no-default-browser-check',
       '--disable-gpu', '--disable-dev-shm-usage', '--remote-debugging-port=0',
+      '--disable-background-networking', '--disable-component-update', '--disable-sync', '--metrics-recording-only',
       `--user-data-dir=${userDataDir}`, `--window-size=${viewport.width},${viewport.height}`, 'about:blank',
     ],
     stdout: 'ignore',

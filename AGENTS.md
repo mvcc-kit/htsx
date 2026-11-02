@@ -21,7 +21,7 @@
 5. **Navegador sem CDN em produção.** Alpine e htmx entram como cópia própria, fixada por versão e sha256. CDN só em exemplo ou desenvolvimento.
 6. **Testes não dependem do relógio.** Espere a condição; use relógio falso em Suspense, SSE e flash.
 7. **Núcleo não importa do design system.** `ui/` (`@repo/htsx-ui`) fica uma camada acima; `__tests__/layers.test.ts` falha se `src/` importar dele.
-8. **Documentação junto com o código.** Mudou a API pública: atualize `SKILL.md`, `README.md` e `llms.txt` no mesmo commit. Exemplo de documentação precisa compilar e rodar.
+8. **Documentação junto com o código, numa fonte só.** Mudou a API pública: atualize `SKILL.md` e rode `bun run docs` (gera `llms.txt`) no mesmo commit. `__tests__/docs.test.ts` compila e roda cada bloco `ts`/`tsx` de `SKILL.md` e `README.md`, e falha se `llms.txt` estiver desatualizado.
 
 ## Antes de terminar
 

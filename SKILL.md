@@ -1,11 +1,13 @@
 ---
 name: htsx
-description: Use ao construir frontends SSR com JSX + HTMX + Alpine usando o pacote `{{PKG}}`. Acione quando o usuário pedir página/rota HTML, formulário, componente htmx/alpine, SSE, CSRF, flash messages, suspense, ou ao trabalhar em qualquer arquivo `.tsx` que renderize HTML (não React).
+description: Use ao construir frontends SSR com JSX + HTMX + Alpine usando o pacote `{{PKG}}`. Acione quando o usuário pedir página/rota HTML, formulário, componente htmx/alpine, SSE, CSRF, flash messages, suspense, testes de página, ou ao trabalhar em qualquer arquivo `.tsx` que renderize HTML (não React).
 ---
 
 # {{PKG}} — Guia de uso
 
-Lib zero-dep de SSR JSX para HTMX + Alpine. Roda em Bun/Workers/Node. **Não é React** — JSX compila para strings HTML, não elementos virtuais.
+Biblioteca de SSR com JSX para HTMX e Alpine, sem dependências. Roda em Bun, Workers e Node. **Não é React**: JSX vira string HTML, sem DOM virtual nem hidratação.
+
+Este arquivo é a fonte da documentação: o `llms.txt` é gerado dele (`bun run docs`) e cada bloco `ts`/`tsx` abaixo é compilado e executado nos testes (`__tests__/docs.test.ts`).
 
 ## Setup (1x por app)
 
@@ -15,24 +17,51 @@ Lib zero-dep de SSR JSX para HTMX + Alpine. Roda em Bun/Workers/Node. **Não é 
 ```
 
 ```json
-// package.json
+// package.json (pacote privado do workspace, não está no npm)
 { "dependencies": { "{{PKG}}": "workspace:*" } }
 ```
 
-Arquivos com JSX → extensão `.tsx`.
+Arquivos com JSX usam a extensão `.tsx`.
 
 ---
 
 ## Conceito central
 
-- Todo JSX vira string HTML. `children` dentro de um componente é uma `string` (HTML já renderizado), não um node React.
-- `HtmlSafeString` = string já escapada e segura para emitir.
-- Tudo interpolado em JSX é **escaped automaticamente**.
-- `raw(str)` bypassa o escape — use só para HTML gerado no server.
-- String devolvida por componente também é escapada.
-- Texto comum dentro de `<script>` ou `<style>` lança erro: use `raw()` (dados: `raw(safeJson(x))`).
+- Todo JSX vira string HTML. `children` dentro de um componente já é HTML renderizado, não um node React.
+- `HtmlSafeString` é HTML já escapado e seguro para emitir. `raw(str)` marca uma string como HTML confiável; use só com HTML gerado no servidor.
+- Divisão de responsabilidades:
+
+```
+O servidor decide:              O Alpine decide:
+dados do banco                  dropdown aberto/fechado
+HTML inicial completo           modal visível ou oculto
+estado que precisa persistir    aba selecionada
+validação de negócio, ACL       foco, transições, contador local
+
+Regra de ouro: se o estado precisa sobreviver a um hx-swap, é do servidor.
+Se morre quando o elemento sai do DOM, é do Alpine.
+```
+
+---
+
+## Segurança e modo estrito
+
+- Texto interpolado em JSX é **escapado sempre**, inclusive a string que um componente devolve.
+- Texto comum dentro de `<script>` ou `<style>` **lança erro** (e é erro de compilação): use `raw()` para código confiável e `raw(safeJson(dados))` para dados.
+- `on*` (`onclick`, `onload`...) é bloqueado: use `$click` (Alpine) ou `hx-on:click`.
+- URLs em `href`, `src`, `action` e `formaction` com `javascript:`, `data:`, `blob:` ou `vbscript:` viram `#`. Caracteres invisíveis são removidos antes da checagem.
+- CSS em `style={{...}}`: nome inválido é descartado; `<` e `>` são removidos do valor.
 - Booleano em `aria-*` e `data-*` vira `"true"` ou `"false"`.
-- **Modo estrito** (`HTSX_STRICT=1`, ligue nos testes): objeto, `Date`, `bigint` ou função como filho, nome de atributo inválido, `on*`, URL trocada por `#` e CSS inválido em `style` lançam erro `htsx: ...` com a correção. Sem ele, esses casos somem em silêncio (comportamento seguro).
+- Nome de cookie validado pela RFC 6265; tokens CSRF e flash com HMAC-SHA256 e comparação em tempo constante.
+
+**Modo estrito** (`HTSX_STRICT=1`; ligue nos testes): tudo o que sumiria em silêncio lança `htsx: ...` com o nome do problema e a correção. Isso vale para objeto, `Date`, `bigint` ou função como filho, nome de atributo inválido, `on*`, URL trocada por `#`, CSS inválido em `style` e CDN sem `integrity`. Sem o modo estrito, esses casos seguem o caminho seguro em silêncio.
+
+```ts
+// bunfig.toml → [test] preload = ["./test-setup.ts"]
+// test-setup.ts:
+process.env.HTSX_STRICT = '1'
+export {}
+```
 
 ---
 
@@ -40,31 +69,23 @@ Arquivos com JSX → extensão `.tsx`.
 
 ### Página completa — `renderPage`
 
-Use em navegação direta. Adiciona `<!DOCTYPE html>`.
+Use na navegação direta. Acrescenta `<!DOCTYPE html>`.
 
 ```tsx
-import { renderPage, head, raw } from '{{PKG}}'
+import { head, raw, renderPage } from '{{PKG}}'
 
-// Pré-compute scripts do head fora do handler (evita re-criar por request)
-// Produção: `vendor` aponta para onde o app serve os arquivos de `{{PKG}}/vendor/*`
-// (versão e sha256 fixados em vendor/pins.json). Sem `vendor`, usa CDN com integrity.
-const HEAD_INNER = head({
-  title: 'Meu App',
-  htmx: true,
-  alpine: { plugins: ['collapse'] },
-  vendor: '/static/vendor/',
-})
+// Pré-calcule o head fora do handler. `vendor` aponta para onde o app serve
+// os arquivos de `{{PKG}}/vendor/*` (versão e sha256 em vendor/pins.json).
+const HEAD = head({ title: 'Meu App', htmx: true, alpine: { plugins: ['collapse'] }, vendor: '/static/vendor/' })
 
-export const getIndex = async (req: Request, env: Env): Promise<Response> => {
+export async function getIndex(req: Request): Promise<Response> {
   const html = await renderPage(() => (
     <html lang="pt-br">
       <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        {raw(HEAD_INNER)}
-        <style>{raw(`:root{color-scheme:dark} [x-cloak]{display:none!important}`)}</style>
+        {raw(HEAD)}
+        <style>{raw('[x-cloak]{display:none!important}')}</style>
       </head>
-      <body class="bg-zinc-950 text-zinc-100">
+      <body>
         <h1>Olá</h1>
       </body>
     </html>
@@ -73,31 +94,24 @@ export const getIndex = async (req: Request, env: Env): Promise<Response> => {
 }
 ```
 
-### Fragmento parcial — `renderToString`
+### Fragmento — `renderToString` e `isHtmx`
 
-Use em responses HTMX (sem DOCTYPE, sem layout).
+Para respostas HTMX (sem DOCTYPE nem layout). Detecte `isHtmx(req)` cedo.
 
 ```tsx
-import { renderToString, isHtmx } from '{{PKG}}'
+import { isHtmx, renderPage, renderToString, type Children } from '{{PKG}}'
 
-export const getDashboard = async (req: Request, env: Env): Promise<Response> => {
-  const rows = await queryEmails(env)
+interface Row { id: string; subject: string }
 
-  // HTMX pede só o fragmento atualizado
-  if (isHtmx(req)) {
-    const html = await renderToString(() => <EmailList rows={rows} />)
-    return new Response(html, { headers: { 'content-type': 'text/html' } })
-  }
+const RowList = ({ rows }: { rows: Row[] }) => (
+  <ul id="rows">{rows.map(r => <li><a href={`/rows/${r.id}`}>{r.subject}</a></li>)}</ul>
+)
+const Layout = ({ children }: { children?: Children }) => <html><body>{children}</body></html>
 
-  // Navegação direta → página completa
-  const html = await renderPage(() => (
-    <Layout>
-      <AppShell active="dashboard">
-        <EmailList rows={rows} />
-      </AppShell>
-    </Layout>
-  ))
-  return new Response(html, { headers: { 'content-type': 'text/html' } })
+export async function getRows(req: Request, rows: Row[]): Promise<Response> {
+  const headers = { 'content-type': 'text/html' }
+  if (isHtmx(req)) return new Response(await renderToString(() => <RowList rows={rows} />), { headers })
+  return new Response(await renderPage(() => <Layout><RowList rows={rows} /></Layout>), { headers })
 }
 ```
 
@@ -105,293 +119,334 @@ export const getDashboard = async (req: Request, env: Env): Promise<Response> =>
 
 ## Componentes
 
-Componentes base prontos (Button, Field, Panel, Badge, tokens em variáveis CSS) estão no pacote à parte `@repo/htsx-ui`: `import { Button, Field, Panel, Badge, uiCss } from '@repo/htsx-ui'` e `<style>{raw(uiCss)}</style>`. Os exemplos abaixo mostram como escrever os seus.
-
-### `defineComponent` — componente com props tipadas
+Componente é uma função de props para JSX. Pode ser `async`. Tipe `children` como `Children`.
 
 ```tsx
-import { defineComponent, type Children } from '{{PKG}}'
+import { defineComponent, defineLayout, renderToString, type Children } from '{{PKG}}'
 
-// Botão reutilizável com variantes e pass-through de attrs HTMX
-export const Button = defineComponent<{
+type Tone = 'neutral' | 'success' | 'danger'
+
+export const Badge = defineComponent<{ tone?: Tone; children?: Children }>(({ tone = 'neutral', children }) => (
+  <span class={`badge badge-${tone}`}>{children}</span>
+))
+
+// Repasse hx-*, x-*, $* e aria-* com uma assinatura por padrão de nome
+export interface ButtonProps {
   children?: Children
   type?: 'button' | 'submit'
-  variant?: 'primary' | 'secondary' | 'danger'
-  class?: string
-  'hx-get'?: string
-  'hx-target'?: string
-  'hx-swap'?: string
-}>(({ children, type = 'button', variant = 'secondary', class: className = '', ...attrs }) => {
-  const styles = {
-    primary:   'border-emerald-400 bg-emerald-300 text-zinc-950 hover:bg-emerald-200',
-    secondary: 'border-zinc-600 bg-zinc-900 text-zinc-100 hover:bg-zinc-800',
-    danger:    'border-red-500 bg-red-950 text-red-200 hover:bg-red-900',
-  }
-  return (
-    <button
-      type={type}
-      class={`inline-flex min-h-10 items-center border px-4 py-2 text-sm font-semibold uppercase ${styles[variant]} ${className}`}
-      {...attrs}
-    >
-      {children}
-    </button>
-  )
-})
-
-// Badge com tone semântico
-type Tone = 'neutral' | 'success' | 'warning' | 'danger'
-const toneClasses: Record<Tone, string> = {
-  neutral: 'border-zinc-700 bg-zinc-900 text-zinc-200',
-  success: 'border-emerald-500/40 bg-emerald-950/60 text-emerald-300',
-  warning: 'border-amber-500/50 bg-amber-950/60 text-amber-300',
-  danger:  'border-red-500/50 bg-red-950/60 text-red-300',
+  [attr: `hx-${string}` | `x-${string}` | `$${string}` | `aria-${string}`]: unknown
 }
-export const Badge = defineComponent<{ children?: Children; tone?: Tone }>(
-  ({ children, tone = 'neutral' }) => (
-    <span class={`inline-flex border px-2 py-1 text-xs font-semibold uppercase ${toneClasses[tone]}`}>
-      {children}
-    </span>
-  )
+export const Button = ({ children, type = 'button', ...attrs }: ButtonProps) => (
+  <button type={type} class="btn" {...attrs}>{children}</button>
 )
 
-// Panel com header opcional
-export const Panel = defineComponent<{
-  children?: Children; title?: string; eyebrow?: string; class?: string
-}>(({ children, title, eyebrow, class: className = '' }) => (
-  <section class={`border border-zinc-800 bg-zinc-950/80 ${className}`}>
-    {(title || eyebrow) ? (
-      <header class="border-b border-zinc-800 px-4 py-3">
-        {eyebrow ? <p class="text-xs font-semibold uppercase text-emerald-300">{eyebrow}</p> : null}
-        {title  ? <h2 class="text-sm font-semibold uppercase text-zinc-100">{title}</h2>  : null}
-      </header>
-    ) : null}
-    <div class="p-4">{children}</div>
-  </section>
+// defineLayout já inclui `children` nas props
+export const Shell = defineLayout<{ title: string }>(({ title, children }) => (
+  <main><h1>{title}</h1>{children}</main>
+))
+
+// Componente async busca os próprios dados
+const UserName = async ({ id }: { id: string }) => {
+  const user = await Promise.resolve({ id, name: 'Ana' })
+  return <b>{user.name}</b>
+}
+
+const ok = true
+const items = ['a', 'b']
+export const html = await renderToString(() => (
+  <Shell title="Painel">
+    {ok ? <Badge tone="success">ok</Badge> : <Badge tone="danger">erro</Badge>}
+    {ok && <UserName id="1" />}
+    <ul>{items.map(i => <li>{i}</li>)}</ul>
+    <Button hx-get="/refresh" hx-target="#rows">Atualizar</Button>
+  </Shell>
 ))
 ```
 
-### `defineLayout` — layout que envolve children
+Componentes prontos (Button, Field, Panel, Badge e tokens em variáveis CSS) ficam no pacote à parte `@repo/htsx-ui`: `import { Button, Field, Panel, Badge, uiCss } from '@repo/htsx-ui'` e `<style>{raw(uiCss)}</style>`. O núcleo nunca importa dele.
 
-```tsx
-import { defineLayout } from '{{PKG}}'
+### Atributos
 
-// Layout raiz (html + head + body)
-export const Layout = defineLayout(({ children }) => (
-  <html lang="pt-br">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      {raw(HEAD_INNER)}
-      <style>{raw(CSS)}</style>
-    </head>
-    <body>{children}</body>
-  </html>
-))
+Os atributos são tipados por elemento, mais as famílias `hx-*`, `x-*`, `$*`, `aria-*` e `data-*`. Atributo inexistente (`clas=`) e `on*` são erros de compilação.
 
-// AppShell com nav lateral + props extras tipadas
-export const AppShell = defineLayout<{ active?: 'dashboard' | 'settings' }>(
-  ({ children, active }) => (
-    <div class="min-h-screen bg-zinc-950 text-zinc-100">
-      <div class="border-b border-zinc-800">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <a href="/dashboard" class="text-sm font-semibold uppercase">App</a>
-          <form method="post" action="/logout" class="m-0">
-            <Button type="submit" variant="secondary">Sair</Button>
-          </form>
-        </div>
-      </div>
-      <main class="mx-auto max-w-7xl px-4 py-6">
-        {children}
-      </main>
-    </div>
-  )
-)
-
-// Uso — composição de layouts
-const html = await renderPage(() => (
-  <Layout>
-    <AppShell active="dashboard">
-      <div class="grid gap-6">
-        <h1 class="text-2xl font-semibold">Inbox</h1>
-        <EmailList rows={rows} />
-      </div>
-    </AppShell>
-  </Layout>
-))
+```
+JSX                              HTML
+class="a" / className="a"     →  class="a"
+htmlFor, tabIndex, readOnly…  →  for, tabindex, readonly…
+$click="n++"                  →  x-on:click="n++"
+$submit_prevent="go()"        →  x-on:submit.prevent="go()"     (_ vira .)
+x-bind-class="{ on: ok }"     →  x-bind:class="{ on: ok }"
+x-model_lazy="q"              →  x-model.lazy="q"
+hx-on-htmx-after-swap="…"     →  hx-on::after-swap="…"
+disabled={true} / {false}     →  disabled / (omitido)
+hx-boost={true}               →  hx-boost="true"
+aria-expanded={false}         →  aria-expanded="false"
+hx-vals={{ a: 1 }}            →  hx-vals='{"a":1}'              (objeto vira JSON)
+style={{ fontSize: 12 }}      →  style="font-size: 12;"
+null / undefined / key        →  (omitido)
 ```
 
 ---
 
 ## HTMX
 
-Todos os atributos HTMX são props JSX tipadas em qualquer elemento.
-
-### Padrão completo: botão de refresh + fragmento parcial
-
 ```tsx
-// Componente que pode ser renderizado isolado ou dentro do layout
-function EmailList({ rows }: { rows: EmailRow[] }) {
-  return (
-    <div id="email-list" class="border border-zinc-800">
-      {rows.map((row) => (
-        <a
-          href={`/emails/${row.id}`}
-          hx-get={`/emails/${row.id}`}
-          hx-target="#email-modal"
-          hx-swap="innerHTML"
-          class="grid grid-cols-4 gap-4 px-4 py-3 hover:bg-zinc-900"
-        >
-          <span class="font-mono text-xs text-zinc-500">{row.date}</span>
-          <span class="truncate text-zinc-200">{row.from}</span>
-          <span class="truncate font-medium">{row.subject}</span>
-          <Badge tone={row.status === 'processed' ? 'success' : 'danger'}>{row.status}</Badge>
-        </a>
-      ))}
-    </div>
-  )
+import { OOB, htmxResponse, hxTarget, isBoosted, isHtmx, renderToString } from '{{PKG}}'
+
+// Botão que troca uma região sem recarregar
+export const Refresh = () => (
+  <button hx-get="/rows" hx-target="#rows" hx-swap="outerHTML">
+    Atualizar <span class="htmx-indicator">...</span>
+  </button>
+)
+
+// Carrega um painel quando a página abre
+export const Stats = () => <div hx-get="/stats" hx-trigger="load"><p>Carregando...</p></div>
+
+// Resposta principal + atualização fora do alvo (out-of-band)
+export const saved = await renderToString(() => (
+  <>
+    <p>Salvo</p>
+    <OOB target="unread-badge">3</OOB>
+  </>
+))
+
+// Resposta com cabeçalhos HX-*: recebe a fábrica do conteúdo
+export async function postItem(req: Request): Promise<Response> {
+  void [isHtmx(req), isBoosted(req), hxTarget(req)]   // leitura dos cabeçalhos da requisição
+  return htmxResponse(() => <p>Item salvo</p>, { trigger: 'itemSaved', pushUrl: '/itens' })
 }
-
-// Botão que faz refresh sem recarregar a página
-<Button
-  hx-get="/dashboard"
-  hx-target="#email-list"
-  hx-swap="outerHTML"
->
-  Atualizar <span class="htmx-indicator ml-2">...</span>
-</Button>
-
-// Container que recebe o detalhe do email via OOB
-<div id="email-modal"></div>
-```
-
-### OOB swap — atualiza fora do target principal
-
-```tsx
-import { OOB } from '{{PKG}}'
-
-// Retorna o conteúdo principal + atualiza badge em outro lugar do DOM
-<>
-  <EmailDetail email={email} />
-  <OOB target="unread-badge">3</OOB>
-</>
-```
-
-### htmxResponse — headers de resposta
-
-```tsx
-import { htmxResponse } from '{{PKG}}'
-
-return htmxResponse(response, {
-  trigger: 'emailSaved',  // dispara evento no cliente
-  redirect: '/dashboard', // redireciona após sucesso
-})
 ```
 
 ---
 
 ## Alpine.js
 
-Atributos Alpine são props JSX tipadas. `$click` é shorthand para `x-on:click`.
-
 ```tsx
-// Toggle + cloak
-<div x-data="{ open: false }">
-  <button $click="open = !open" class="btn">Abrir</button>
-  <div x-show="open" x-cloak class="panel">Conteúdo</div>
-</div>
+import { raw, storeInit } from '{{PKG}}'
 
-// Bind de classe condicional
-<div x-bind-class="{ 'bg-red-950': hasError, 'bg-zinc-950': !hasError }">
-  ...
-</div>
+export const Toggle = () => (
+  <div x-data="{ open: false }">
+    <button $click="open = !open">Abrir</button>
+    <div x-show="open" x-cloak>Conteúdo</div>
+    <div x-bind-class="{ 'erro': !open }">...</div>
+  </div>
+)
+
+// Store global simples: emita antes dos componentes que usam o store
+export const Cart = () => (
+  <div x-data>
+    {raw(storeInit('cart', { items: [], total: 0 }))}
+    <span x-text="$store.cart.total"></span>
+  </div>
+)
 ```
-
-### storeInit — store global
-
-```tsx
-import { storeInit, raw } from '{{PKG}}'
-
-// Emitir no <head> ou antes dos componentes que usam o store
-{raw(storeInit('cart', { items: [], total: 0 }))}
-
-// Em qualquer componente depois
-<span x-text="$store.cart.total" />
-<button $click="$store.cart.items.push(item)">Adicionar</button>
-```
-
----
 
 ### `defineStore` — store tipado (state, derived, actions, effects)
 
-Mesmo módulo no servidor e no cliente; tipos iguais nos dois lados. Importe de `{{PKG}}/store` (não puxa código do servidor para o cliente).
+O mesmo módulo serve o servidor e o cliente, com os mesmos tipos. Importe de `{{PKG}}/store` para o pacote do cliente não puxar código do servidor. `derived` vira getter, `effects` roda com `Alpine.effect`.
 
 ```ts
 // stores/cart.ts
 import { defineStore } from '{{PKG}}/store'
 
+export interface Item { name: string; price: number }
+
 export const cart = defineStore('cart', {
-  state: { items: [] as Item[], coupon: '' },                     // $state → propriedade
-  derived: { total: s => s.items.reduce((n, i) => n + i.price, 0) },  // $derived → getter
+  state: { items: [] as Item[], coupon: '' },
+  derived: { total: s => s.items.reduce((n, i) => n + i.price, 0) },
   actions: { add: (s, item: Item) => { s.items.push(item) } },
-  effects: { title: s => { document.title = `Carrinho (${s.items.length})` } },  // $effect → Alpine.effect
+  effects: { title: s => { document.title = `Carrinho (${s.items.length})` } },
 })
 
-// client.ts — empacote com Bun.build({ entrypoints: ['client.ts'], target: 'browser' })
-cart.register()   // carregue antes do Alpine
+// Teste sem navegador
+const c = cart.create({ items: [{ name: 'a', price: 10 }] })
+c.add({ name: 'b', price: 5 })
+if (c.total !== 15) throw new Error('total errado')
+```
 
-// servidor: só o estado inicial, com safeJson
-{raw(cart.html({ items }))}
-<body x-data>...<p x-text="$store.cart.total"></p></body>
+```tsx
+// No servidor: só o estado inicial (safeJson). No cliente (client.ts, empacotado com
+// Bun.build({ entrypoints: ['client.ts'], target: 'browser' })): cart.register(),
+// carregado antes do Alpine.
+import { defineStore } from '{{PKG}}/store'
+import { raw } from '{{PKG}}'
 
-// teste sem navegador
-const c = cart.create({ items: [{ name: 'a', price: 10 }] }); c.add(...); expect(c.total).toBe(...)
+const cart = defineStore('cart', { state: { items: [] as string[] }, derived: { count: s => s.items.length } })
+
+export const Page = () => (
+  <body x-data>
+    {raw(cart.html({ items: ['a'] }))}
+    <p x-text="$store.cart.count"></p>
+  </body>
+)
+```
+
+---
+
+## `head()` e vendor
+
+- `vendor: '/static/vendor/'` carrega as cópias do pacote (`{{PKG}}/vendor/*.min.js`), que o app serve. Use em produção.
+- Sem `vendor`, usa CDN na versão fixada em `vendor/pins.json`, com `integrity` (SRI) e `crossorigin`.
+- `version` diferente da fixada sai sem `integrity` (erro no modo estrito).
+- Para atualizar os pinos: `bun run vendor` ou `bun scripts/vendor.ts alpinejs 3.18.0`. O script confere a integridade do pacote npm e regrava o sha256.
+
+```ts
+import { head } from '{{PKG}}'
+
+export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpine: true, nonce: 'abc', vendor: '/static/vendor/' })
 ```
 
 ---
 
 ## CSRF
 
-Token sempre bound a um `sessionId` para escopar por usuário/sessão.
+O token é sempre ligado a um `sessionId`. O segredo precisa ter 32 caracteres ou mais.
 
 ```tsx
-import { csrf, CsrfField } from '{{PKG}}'
+import { CsrfField, csrf, renderToString } from '{{PKG}}'
 
-// No handler GET — assinar antes de renderizar
-const token = await csrf.sign({ secret: env.SESSION_SECRET, sessionId: userId })
+const SECRET = 'troque-por-um-segredo-com-32-caracteres-ou-mais'
 
-// No JSX — CsrfField injeta o hidden input automaticamente
-<form method="post" action="/login">
-  <CsrfField token={token} />
-  <input type="password" name="password" required />
-  <Button type="submit" variant="primary">Entrar</Button>
-</form>
+// GET: assine antes de renderizar o formulário
+export async function form(sessionId: string) {
+  const token = await csrf.sign({ secret: SECRET, sessionId })
+  return renderToString(() => (
+    <form method="post" action="/salvar">
+      <CsrfField token={token} />
+      <button type="submit">Salvar</button>
+    </form>
+  ))
+}
 
-// No handler POST — verificar antes de processar
-const token = String(form.get('_csrf') ?? '')
-const valid = await csrf.verify(token, { secret: env.SESSION_SECRET, sessionId: userId })
-if (!valid) return new Response('Sessão inválida', { status: 403 })
+// POST: verifique antes de processar
+export async function save(req: Request, sessionId: string): Promise<Response> {
+  const data = await req.formData()
+  const ok = await csrf.verify(String(data.get('_csrf') ?? ''), { secret: SECRET, sessionId })
+  return ok ? new Response('ok') : new Response('Sessão inválida', { status: 403 })
+}
 ```
 
 ---
 
-## Context per-request
+## Flash messages
 
-Passa dados para componentes sem prop drilling via AsyncLocalStorage.
+Mensagens assinadas num cookie, lidas na próxima requisição.
+
+```ts
+import { flash } from '{{PKG}}'
+
+const SECRET = 'troque-por-um-segredo-com-32-caracteres-ou-mais'
+
+// No redirect: grave
+export async function afterSave(): Promise<Response> {
+  const token = await flash.serialize([{ type: 'success', text: 'Salvo!' }], { secret: SECRET })
+  return new Response(null, { status: 303, headers: { location: '/', 'set-cookie': flash.setCookie(token) } })
+}
+
+// Na próxima requisição: leia e apague
+export async function readFlash(cookieValue: string) {
+  const messages = await flash.parse(cookieValue, { secret: SECRET })   // [] se inválido
+  return { messages, clear: flash.clearCookie() }
+}
+```
+
+---
+
+## Formulários — `Form` e `Field`
+
+`Field` mostra label, erro acessível (`aria-invalid`, `role="alert"`) e repõe o valor. Erros e valores vêm de `formContext`.
 
 ```tsx
-import { useContext } from '{{PKG}}'
+import { Field, Form, formContext, renderPage } from '{{PKG}}'
 
-// Passar no renderPage
-const html = await renderPage(
-  () => <Dashboard />,
-  { context: { user, env } }
+export const html = await renderPage(
+  () => (
+    <Form action="/cadastro" method="post" csrf="token-assinado">
+      <Field name="email" label="E-mail" type="email" required />
+      <Field name="senha" label="Senha" type="password" />
+      <button type="submit">Cadastrar</button>
+    </Form>
+  ),
+  { context: formContext({ errors: { email: 'E-mail inválido' }, values: { email: 'x' } }) },
+)
+```
+
+---
+
+## Contexto por requisição
+
+Passa dados a qualquer componente sem repassar props (usa `AsyncLocalStorage`).
+
+```tsx
+import { maybeContext, renderPage, useContext } from '{{PKG}}'
+
+interface Ctx { user: { name: string } }
+
+const Hello = () => {
+  const { user } = useContext<Ctx>()   // lança erro fora de contexto
+  return <h1>Olá, {user.name}</h1>
+}
+const Optional = () => <p>{maybeContext<Ctx>()?.user.name ?? 'visitante'}</p>
+
+export const html = await renderPage(() => <><Hello /><Optional /></>, { context: { user: { name: 'Ana' } } })
+```
+
+### Cache por requisição — `cache`
+
+Memoriza uma função dentro de uma renderização. Precisa de `cacheContext()` no contexto.
+
+```tsx
+import { cache, cacheContext, renderToString } from '{{PKG}}'
+
+const getUser = cache(async (id: string) => ({ id, name: 'Ana' }))
+
+const A = async () => <b>{(await getUser('1')).name}</b>
+const B = async () => <i>{(await getUser('1')).name}</i>   // não busca de novo
+
+export const html = await renderToString(() => <><A /><B /></>, { context: cacheContext() })
+```
+
+### `Suspense` e `ErrorBoundary`
+
+`Suspense` emite o `fallback` na hora; o cliente busca o conteúdo pronto em `/_htsx/suspense/<id>` via htmx. `ErrorBoundary` troca a subárvore que falhou pelo `fallback`. Ele pega erros de componentes `async` (Promise rejeitada); um erro síncrono acontece antes, quando o JSX do filho é avaliado.
+
+```tsx
+import { ErrorBoundary, Suspense, renderPage, resolveSuspense, suspenseRegistry } from '{{PKG}}'
+
+const Slow = async () => <p>{await Promise.resolve('pronto')}</p>
+const Broken = async (): Promise<never> => { throw new Error('falhou') }
+
+export const html = await renderPage(
+  () => (
+    <main>
+      <Suspense id="lento" fallback={<p>Carregando...</p>}><Slow /></Suspense>
+      <ErrorBoundary fallback={() => <p>Algo deu errado</p>} onError={err => console.error(err)}>
+        <Broken />
+      </ErrorBoundary>
+    </main>
+  ),
+  { context: suspenseRegistry() },
 )
 
-// Consumir em qualquer componente aninhado
-const Dashboard = defineComponent(() => {
-  const { user } = useContext<{ user: User; env: Env }>()
-  return <h1>Olá, {user.name}</h1>
-})
+// Rota que entrega o conteúdo: GET /_htsx/suspense/:id (mesmo contexto da renderização)
+export const lento = (id: string) => resolveSuspense(id)
+```
+
+Não exiba `err.message` no `fallback` em produção: pode vazar caminhos ou segredos. Registre com `onError`.
+
+### Server-Sent Events
+
+```ts
+import { sseEvent, sseResponse } from '{{PKG}}'
+
+export function progress(req: Request): Response {
+  return sseResponse(async function* () {
+    for (let i = 1; i <= 3; i++) yield sseEvent({ step: i }, { name: 'progress' })
+    yield sseEvent('fim', { name: 'done' })
+  }, { signal: req.signal })
+}
+// Cliente: <div hx-ext="sse" sse-connect="/progress" sse-swap="done"></div>
 ```
 
 ---
@@ -401,34 +456,34 @@ const Dashboard = defineComponent(() => {
 Consultas ao HTML do servidor, sem navegador (usa `HTMLRewriter`, nativo no Bun e nos Workers):
 
 ```tsx
+import { renderPage } from '{{PKG}}'
 import { page } from '{{PKG}}/testing'
 
-const p = await page(await app.fetch(new Request('http://x/support')))  // string ou Response
-await p.text('h1')                 // texto do 1º elemento (entidades decodificadas) ou null
-await p.attr('form', 'hx-post')    // atributo do 1º elemento ou null
+const p = await page(await renderPage(() => <html><body><h1>Oi</h1><form hx-post="/s"><button data-testid="enviar">Enviar</button></form></body></html>))
+await p.text('h1')                 // 'Oi' — texto do 1º elemento (entidades decodificadas) ou null
+await p.attr('form', 'hx-post')    // '/s' — atributo do 1º elemento ou null
 await p.byTestId('enviar')         // { tag, attrs, text } do 1º [data-testid="enviar"] ou null
-await p.find('ul li')              // todos os elementos, em ordem
+await p.find('button')             // todos os elementos, em ordem
 ```
 
-Navegador real pelo Chrome DevTools Protocol (Chrome/Chromium da máquina ou `CHROME_PATH`; sem Playwright):
+Navegador real pelo Chrome DevTools Protocol (Chrome/Chromium da máquina ou `CHROME_PATH`; sem Playwright). `inspect()` e `set()` usam o inspetor de desenvolvimento: `{raw(inspector())}` no `<head>`, antes de qualquer `storeInit()`. Ele expõe `window.__htsx.inspect()` → `{ url, stores, data }` (chave de cada `x-data`: `#id`, `testid:<data-testid>` ou `x-data:<índice>`) e `__htsx.set(caminho, valor)`. **Só em desenvolvimento.**
 
-```tsx
-import { open, findChrome } from '{{PKG}}/testing'
+```ts
+import { findChrome, open } from '{{PKG}}/testing'
 
-const app = await open(handler, '/support')         // sobe handler num servidor local e abre o Chrome
-await app.type('id:email', 'a@b.com')               // seletores: text:, id:, testid: ou CSS
-await app.press('text:Enviar')                      // clique real do mouse
-await app.waitFor('text:Recebemos sua mensagem')    // espera por condição (MutationObserver), sem sleep
-expect(await app.inspect()).toMatchObject({ stores: { form: { sent: true } } })
-await app.set('data.#menu.open', true)              // mesmo formato do inspect()
-await app.screenshot('support-enviado.png')
-await app.close()
-// describe.skipIf(!findChrome())(...) pula onde não houver navegador
+export async function e2e(handler: (req: Request) => Promise<Response>) {
+  if (!findChrome()) return                           // pula onde não houver navegador
+  const app = await open(handler, '/suporte')         // sobe o handler num servidor local e abre o Chrome
+  await app.type('id:email', 'a@b.com')               // seletores: text:, id:, testid: ou CSS
+  await app.press('text:Enviar')                      // clique real do mouse
+  await app.waitFor('text:Recebemos sua mensagem')    // espera por condição (MutationObserver), sem sleep
+  const state = await app.inspect()                   // { url, stores, data }
+  await app.set('data.#menu.open', true)              // mesmo formato do inspect()
+  await app.screenshot('suporte-enviado.png')
+  await app.close()
+  return state
+}
 ```
-
-`inspect()` e `set()` usam o inspetor de desenvolvimento: `{raw(inspector())}` no `<head>`, antes de qualquer `storeInit()`. Ele expõe `window.__htsx.inspect()` → `{ url, stores, data }` (chave de cada `x-data`: `#id`, `testid:<data-testid>` ou `x-data:<índice>`) e `__htsx.set(caminho, valor)`. **Só em desenvolvimento.**
-
-Ligue o modo estrito nos testes (`HTSX_STRICT=1`, por exemplo num `preload` do `bunfig.toml`).
 
 ---
 
@@ -436,22 +491,21 @@ Ligue o modo estrito nos testes (`HTSX_STRICT=1`, por exemplo num `preload` do `
 
 ### ✅ FAÇA
 
-- Um arquivo por rota, retornando `renderPage` ou `renderToString`
-- Detectar `isHtmx(req)` cedo e retornar **fragmento** sem layout quando for parcial
-- Usar `defineComponent` / `defineLayout` para tipar props
-- Usar `defineLayout` para layouts que recebem `children`
-- CSRF em todo form que muta estado (`POST`, `PUT`, `PATCH`, `DELETE`)
-- Pré-computar `head()` e CSS fora do handler (constante no módulo)
-- Passar HTMX attrs explicitamente na interface do componente quando necessário (`'hx-get'?: string`)
+- Um arquivo por rota, devolvendo `renderPage` ou `renderToString`
+- Detectar `isHtmx(req)` cedo e devolver só o **fragmento** quando a requisição for parcial
+- Tipar props com `defineComponent` / `defineLayout` e `children?: Children`
+- CSRF em todo form que altera estado (`POST`, `PUT`, `PATCH`, `DELETE`)
+- Pré-calcular `head()` e CSS fora do handler (constante no módulo)
+- `head({ vendor })` em produção, sem CDN
+- Modo estrito (`HTSX_STRICT=1`) nos testes
 
 ### ❌ NÃO FAÇA
 
-- ❌ React hooks, useState, useRef, useEffect — não existem aqui
-- ❌ Importar de `{{PKG}}/src/*` — use só o barrel `{{PKG}}`
-- ❌ Retornar JSX direto da rota — sempre `await renderPage()` ou `await renderToString()` antes do `new Response()`
-- ❌ Concatenar HTML com strings (`'<div>' + variavel`) — use JSX para o escape funcionar
-- ❌ Usar `children` como React node — dentro de componentes já é string HTML renderizada
-- ❌ Tipar `children?: unknown` ou usar `children as JSX.Element` — use `children?: Children` (exportado pelo pacote)
-- ❌ Atributo inexistente (`clas=`) ou `on*` — o compilador recusa; use `$click` (Alpine) ou `hx-on`
-- ❌ Compartilhar `cache()` ou `Suspense` entre requests sem `withContext` — lança erro intencionalmente
-- ❌ Chamar `raw()` em conteúdo de usuário — escape é proteção contra XSS, não remova sem sanitizar
+- ❌ React hooks (useState, useRef, useEffect): não existem aqui
+- ❌ Importar de `{{PKG}}/src/*`: use só `{{PKG}}`, `{{PKG}}/store` e `{{PKG}}/testing`
+- ❌ Devolver JSX direto da rota: sempre `await renderPage()` ou `await renderToString()` antes do `new Response()`
+- ❌ Concatenar HTML com strings (`'<div>' + variavel`): use JSX para o escape funcionar
+- ❌ Tipar `children?: unknown` ou usar `children as JSX.Element`: use `children?: Children`
+- ❌ Atributo inexistente (`clas=`) ou `on*`: o compilador recusa; use `$click` (Alpine) ou `hx-on`
+- ❌ Compartilhar `cache()` ou `Suspense` entre requisições sem contexto: lança erro de propósito
+- ❌ `raw()` em conteúdo de usuário: o escape é a proteção contra XSS

@@ -1,4 +1,4 @@
-import { HtmlSafeString, raw } from './jsx-runtime'
+import { Fragment, HtmlSafeString, raw } from './jsx-runtime'
 import { escapeHtml } from './escape'
 
 export interface ErrorBoundaryProps {
@@ -28,8 +28,8 @@ export async function ErrorBoundary({
   children,
 }: ErrorBoundaryProps): Promise<HtmlSafeString> {
   try {
-    const resolved = await Promise.resolve(children)
-    return raw(String(resolved ?? ''))
+    // mesmo caminho dos filhos: texto é escapado, listas e Promises resolvidas
+    return await Fragment({ children })
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
     try {

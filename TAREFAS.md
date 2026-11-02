@@ -15,7 +15,7 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 - [x] Modo estrito (`HTSX_STRICT=1`, sempre ligado nos testes): objeto, `Date`, `bigint`, atributo inválido, `on*` bloqueado e URL trocada por `#` viram erro com o nome do problema e a correção (falhas 4 e 5).
 - [x] Tipos reais em `IntrinsicElements`: atributos HTML por elemento, mais `hx-*`, `x-*`, `$*`, `aria-*` e `data-*`. `clas=` passa a dar erro de compilação.
 - [x] Exportar o tipo `Children` e aceitar `children?: Children`, acabando com `children as JSX.Element`.
-- [ ] Uma fonte de documentação: `SKILL.md` como fonte, `llms.txt` gerado dele, exemplos rodando como teste. Resolver a repetição entre `README.md`, `SKILL.md`, `llms.txt` e `PLAN.md`.
+- [x] Uma fonte de documentação: `SKILL.md` como fonte, `llms.txt` gerado dele, exemplos rodando como teste. Resolver a repetição entre `README.md`, `SKILL.md`, `llms.txt` e `PLAN.md`.
 - [x] Falha 7 (baixa): `README.md` manda `bun add htsx`, mas o pacote é privado do workspace.
 
 ## P2. Testar interatividade como usuário, sem dependência

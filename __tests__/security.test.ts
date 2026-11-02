@@ -370,3 +370,17 @@ describe('Falha 3: booleano em aria-* e data-* vira "true" ou "false"', () => {
     expect(await renderToString(() => h('input', { disabled: true, hidden: false }))).toBe('<input disabled>')
   })
 })
+
+describe('ErrorBoundary: filhos passam pelo escape', () => {
+  it('texto comum como filho é escapado', async () => {
+    const { ErrorBoundary } = await import('../src/error-boundary')
+    const html = await renderToString(() => h(ErrorBoundary, { fallback: () => 'x', children: '<img src=x onerror=alert(1)>' }))
+    expect(html).toBe('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
+  it('lista de filhos é concatenada, sem vírgula', async () => {
+    const { ErrorBoundary } = await import('../src/error-boundary')
+    const html = await renderToString(() => h(ErrorBoundary, { fallback: () => 'x', children: [h('b', {}, '1'), '<2>'] }))
+    expect(html).toBe('<b>1</b>&lt;2&gt;')
+  })
+})
