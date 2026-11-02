@@ -27,11 +27,13 @@ export default {
 
 ## Install
 
-```bash
-bun add htsx
-# or
-npm install htsx
+`@repo/htsx` is a private workspace package (not on npm). In the app's `package.json`:
+
+```json
+{ "dependencies": { "@repo/htsx": "workspace:*" } }
 ```
+
+Then run `bun install` at the workspace root.
 
 ### tsconfig.json
 
@@ -39,7 +41,7 @@ npm install htsx
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "htsx"
+    "jsxImportSource": "@repo/htsx"
   }
 }
 ```
@@ -353,7 +355,7 @@ clx('btn', isActive && 'btn-active', { 'btn-disabled': !canClick })
 ## TypeScript
 
 ```ts
-import type { Component, ParentComponent, FC, RenderResult } from 'htsx'
+import type { Component, ParentComponent, FC, RenderResult } from '@repo/htsx'
 
 const Card: Component<{ title: string }> = ({ title }) => (
   <div class="card"><h2>{title}</h2></div>
