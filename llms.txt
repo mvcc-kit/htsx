@@ -432,6 +432,24 @@ const Box = defineComponent<{ size: 'sm' | 'lg' }>(({ size }) => (
 
 ---
 
+## Testing — {{PKG}}/testing
+
+Query server HTML without a browser (uses `HTMLRewriter`, native in Bun and Workers):
+
+```tsx
+import { page } from '{{PKG}}/testing'
+
+const p = await page(htmlOrResponse)
+await p.text('h1')                 // text of first match (entities decoded) or null
+await p.attr('form', 'hx-post')    // attribute of first match or null
+await p.byTestId('submit')         // { tag, attrs, text } of first [data-testid="submit"] or null
+await p.find('ul li')              // all matches, in order
+```
+
+Turn strict mode on in tests (`HTSX_STRICT=1`, e.g. in a `bunfig.toml` preload).
+
+---
+
 ## Common Patterns
 
 ### Conditional rendering

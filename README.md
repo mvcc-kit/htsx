@@ -354,6 +354,17 @@ clx('btn', isActive && 'btn-active', { 'btn-disabled': !canClick })
 
 ---
 
+## Testing
+
+```ts
+import { page } from '@repo/htsx/testing'
+
+const p = await page(htmlOrResponse)   // HTMLRewriter, no browser
+await p.text('h1'); await p.attr('a', 'href'); await p.byTestId('submit'); await p.find('li')
+```
+
+---
+
 ## TypeScript
 
 ```ts

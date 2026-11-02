@@ -366,6 +366,24 @@ const Dashboard = defineComponent(() => {
 
 ---
 
+## Testes — `{{PKG}}/testing`
+
+Consultas ao HTML do servidor, sem navegador (usa `HTMLRewriter`, nativo no Bun e nos Workers):
+
+```tsx
+import { page } from '{{PKG}}/testing'
+
+const p = await page(await app.fetch(new Request('http://x/support')))  // string ou Response
+await p.text('h1')                 // texto do 1º elemento (entidades decodificadas) ou null
+await p.attr('form', 'hx-post')    // atributo do 1º elemento ou null
+await p.byTestId('enviar')         // { tag, attrs, text } do 1º [data-testid="enviar"] ou null
+await p.find('ul li')              // todos os elementos, em ordem
+```
+
+Ligue o modo estrito nos testes (`HTSX_STRICT=1`, por exemplo num `preload` do `bunfig.toml`).
+
+---
+
 ## Boas práticas
 
 ### ✅ FAÇA
