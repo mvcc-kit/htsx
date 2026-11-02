@@ -7,7 +7,7 @@ import { parseRouteId } from '../app/routing'
 
 const KINDS = ['+page', '+page.server', '+layout', '+layout.server', '+server', '+error'] as const
 type Kind = (typeof KINDS)[number]
-const EXTS = ['.tsx', '.ts', '.jsx', '.js']
+export const EXTS = ['.tsx', '.ts', '.jsx', '.js']
 
 const HINTS: Record<string, string> = {
   '+page.svelte': 'use +page.tsx',

@@ -1,5 +1,6 @@
 // Utilidades de build (só Bun/Node, nunca no Worker): listar, copiar e gravar arquivos.
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { statSync } from 'node:fs'
 import path from 'node:path'
 import pins from '../../vendor/pins.json'
 import type { PrerenderedFile } from './prerender'
@@ -67,4 +68,57 @@ export async function writePrerendered(files: PrerenderedFile[], to: string): Pr
 export function redirectHtml(to: string): string {
   const safe = to.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
   return `<!DOCTYPE html><meta http-equiv="refresh" content="0;url=${safe}"><link rel="canonical" href="${safe}"><a href="${safe}">${safe}</a>`
+}
+
+export interface FileServerOptions {
+  /** Serve Alpine e htmx em VENDOR_PATH (cache immutable). Padrão `false`. */
+  vendor?: boolean
+  /** `/sobre` → `sobre.html` ou `sobre/index.html` (páginas pré-renderizadas). Padrão `false`. */
+  html?: boolean
+  /** Lembra o resultado da busca no disco (produção). Padrão `false`: arquivo novo aparece na hora (dev). */
+  cache?: boolean
+}
+
+const VENDOR_FILES = new Map(Object.values(pins).map(p => [VENDOR_PATH + p.file, p.file]))
+const IMMUTABLE = 'public, max-age=31536000, immutable'
+
+/**
+ * Servidor de arquivos de uma pasta: devolve a resposta ou `null` (segue para o app).
+ * Lê o disco a cada pedido (arquivo novo aparece sem reiniciar) e recusa `..`, `\0` e
+ * arquivos ocultos (`.env`, `.git`...), exceto `/.well-known/`.
+ */
+export function fileServer(dir: string, opts: FileServerOptions = {}): (request: Request | string) => Response | null {
+  const base = path.resolve(dir)
+  const memo = new Map<string, string | null>()
+  const lookup = (rel: string): string | null => {
+    const abs = path.join(base, rel)
+    if (!inside(abs, base)) return null
+    try { return statSync(abs).isFile() ? abs : null } catch { return null }
+  }
+  const file = (rel: string): string | null => {
+    if (!opts.cache) return lookup(rel)
+    if (!memo.has(rel)) {
+      if (memo.size > 10_000) memo.clear()   // limite: caminhos inventados não enchem a memória
+      memo.set(rel, lookup(rel))
+    }
+    return memo.get(rel)!
+  }
+  return request => {
+    const req = typeof request === 'string' ? new Request(request) : request
+    if (req.method !== 'GET' && req.method !== 'HEAD') return null
+    let p: string
+    try { p = decodeURIComponent(new URL(req.url).pathname) } catch { return null }
+    if (p.includes('\0') || p.split('/').some(s => s === '..' || (s.startsWith('.') && s !== '.well-known'))) return null
+    if (opts.vendor) {
+      const v = VENDOR_FILES.get(p)
+      if (v) return new Response(Bun.file(path.join(VENDOR_DIR, v)), { headers: { 'cache-control': IMMUTABLE } })
+    }
+    const candidates = opts.html ? [p, `${p}.html`, `${p.replace(/\/$/, '')}/index.html`] : [p]
+    for (const c of candidates) {
+      if (c.endsWith('/')) continue
+      const hit = file(c)
+      if (hit) return new Response(Bun.file(hit))
+    }
+    return null
+  }
 }

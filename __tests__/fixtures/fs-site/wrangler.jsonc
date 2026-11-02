@@ -4,6 +4,7 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_als"],
   "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" },
+  "vars": { "SAUDACAO": "Olá do wrangler.jsonc" },
   "d1_databases": [{ "binding": "DB", "database_name": "notas", "database_id": "local" }],
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "anexos" }],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],

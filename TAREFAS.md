@@ -67,5 +67,6 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] `src/hooks.server.ts` (`handle`, `handleError`, `context`) e `src/worker.ts` opcional (Durable Objects, `scheduled`, `queue`).
 - [x] Build do Cloudflare empacota um único `.htsx/cloudflare/_worker.js` (sem manifesto versionado); tipos `./$types` gerados sozinhos.
 - [x] Modo servidor Bun (`serve`, `start`).
-- [ ] Testar no `workerd` de verdade (D1, R2, KV reais): precisa do `wrangler` como dependência de desenvolvimento.
-- [ ] `dev` com os bindings reais do wrangler (`getPlatformProxy`), hoje `devEnv` simulado.
+- [x] `event.platform` igual em dev, testes e prerender: emulado pelo `wrangler.jsonc` (com o wrangler do projeto, D1/R2/KV locais reais; sem ele, `vars` e `.dev.vars`).
+- [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
+- [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).

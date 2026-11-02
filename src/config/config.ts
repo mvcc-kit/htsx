@@ -26,14 +26,21 @@ export interface CloudflareAdapter {
    * e `export default { scheduled, queue, email }`. Padrão `src/worker.ts` (se existir).
    */
   worker?: string
-  /** `env` usado no `dev` (vars e bindings simulados); bindings reais: `wrangler dev` no build. */
-  devEnv?: Record<string, unknown>
+  /**
+   * Opções do `getPlatformProxy` do wrangler (ex.: `{ persist: false }`). Fora do Worker (dev,
+   * testes, prerender), `event.platform.env` vem do mesmo wrangler.jsonc: com o `wrangler` instalado
+   * no projeto, D1/R2/KV locais de verdade; sem ele, só `vars` e `.dev.vars`.
+   */
+  platformProxy?: Record<string, unknown>
 }
 
 export interface BunAdapter {
   name: 'bun'
   port?: number
+  /** Padrão: `localhost` no `dev`, `0.0.0.0` no `start`. */
   hostname?: string
+  /** Tamanho máximo do corpo da requisição, em bytes. Padrão 10 MB. */
+  maxBodySize?: number
 }
 
 export type Adapter = StaticAdapter | CloudflareAdapter | BunAdapter

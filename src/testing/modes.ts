@@ -7,7 +7,7 @@ import type { App } from '../app/app'
 import { buildStatic, type StaticOptions } from '../adapters/static'
 import { buildCloudflare, assetsFromDir, type CloudflareBuildOptions } from '../adapters/cloudflare-build'
 import { cloudflare, type WorkerContext } from '../adapters/cloudflare'
-import { copyAssets, copyVendor } from '../build/files'
+import { fileServer } from '../build/files'
 
 export type ModeName = 'app' | 'static' | 'cloudflare'
 
@@ -40,19 +40,10 @@ export async function modes(app: App, opts: ModesOptions = {}): Promise<Mode[]> 
 
   if (only.has('app')) {
     // como em desenvolvimento: static/ e o vendor servidos antes das rotas
-    const dir = path.join(tmp, 'app')
-    await copyAssets(path.join(root, opts.static?.assets ?? 'static'), dir)
-    await copyVendor(dir)
-    const assets = await assetsFromDir(dir)
+    const files = fileServer(path.join(root, opts.static?.assets ?? 'static'), { vendor: true })
     out.push({
       name: 'app',
-      async fetch(p, init) {
-        if (!init?.method || init.method === 'GET') {
-          const hit = await assets.fetch(url(p))
-          if (hit.status !== 404) return hit
-        }
-        return app.respond(new Request(origin + p, init))
-      },
+      fetch: async (p, init) => files(new Request(origin + p, init)) ?? app.respond(new Request(origin + p, init)),
     })
   }
 

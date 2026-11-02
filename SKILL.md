@@ -145,12 +145,24 @@ export default defineConfig({
 
 | Comando | Faz |
 |---|---|
-| `bun htsx.config.ts dev` | servidor local com as rotas; recarrega quando um arquivo de rota entra ou sai |
+| `bun htsx.config.ts dev` | servidor em `localhost` com as rotas e o mesmo `event.platform` do modo (no Cloudflare, emulado pelo `wrangler.jsonc`); recarrega quando um arquivo de rota entra ou sai. Sem build |
 | `bun htsx.config.ts build` | build do modo: `build/` (estático) ou `.htsx/cloudflare/` com o `_worker.js` (Cloudflare) |
 | `bun htsx.config.ts start` | servidor Bun de produção |
 | `bun htsx.config.ts sync` | só gera os tipos `./$types` (útil antes do `tsc` no CI) |
 
-Em código (testes, scripts): `import { loadApp, build, start, sync } from '@repo/htsx/project'`. `loadApp(config, root)` devolve o `App` pronto para `app.respond(request)`. As rotas também podem ser declaradas à mão com `route()`, sem pastas (abaixo).
+Em código (testes, scripts): `import { loadApp, build, start, sync } from '@repo/htsx/project'`. `await loadApp()` acha o `htsx.config.ts`, monta as rotas e a plataforma do modo, e devolve o app pronto para `app.respond(request)`. Feche com `app.close()`. `app.platform.env` serve para preparar dados no teste (ex.: criar a tabela no D1 local). É o mesmo app do `dev` e do Worker, sem build:
+
+```ts arquivo=src/app.test.ts
+import { afterAll, expect, it } from 'bun:test'
+import { loadApp } from '@repo/htsx/project'
+
+const app = await loadApp()
+afterAll(() => app.close())
+
+it('home', async () => {
+  expect((await app.respond(new Request('http://localhost/'))).status).toBe(200)
+})
+``` As rotas também podem ser declaradas à mão com `route()`, sem pastas (abaixo).
 
 ### Rotas — `defineApp` e `route`
 
@@ -364,12 +376,12 @@ export default {
 }
 ```
 
-- **No `dev`**, `event.platform.env` vem de `cloudflareAdapter({ devEnv })`. Para D1, R2 e KV reais localmente, rode `wrangler dev` em cima do build.
+- **O mesmo `env` em todo lugar, sem build.** No `dev`, nos testes (`loadApp()`) e no prerender, `event.platform` é emulado a partir do mesmo `wrangler.jsonc`, como o `emulate()` do SvelteKit. Com o `wrangler` instalado no projeto (`bun add -d wrangler`), D1, R2, KV e os outros bindings são locais de verdade (`getPlatformProxy`), com o estado em `.wrangler/state`, o mesmo do `wrangler dev`. Sem ele, valem as `vars` do `wrangler.jsonc` e o `.dev.vars`, e um binding acessado dá erro dizendo para instalar o wrangler. Opções do `getPlatformProxy`: `cloudflareAdapter({ platformProxy: { persist: false } })`.
 - **Sem configuração**, com rotas à mão: `cloudflare(app, { manifest })` em `{{PKG}}/adapter-cloudflare` e `buildCloudflare(app)` em `{{PKG}}/adapter-cloudflare/build`. `assetsFromDir(dir)` faz o papel do `env.ASSETS` nos testes.
 
 ### Servidor Bun
 
-`bunAdapter({ port, hostname })`. `bun htsx.config.ts start` sobe `Bun.serve` com as rotas, `static/` e o vendor (`Cache-Control: immutable`). `event.platform.server` é o `Bun.Server`, e `getClientAddress()` dá o IP. Sem configuração: `serve(app, { port })` em `{{PKG}}/adapter-bun`.
+`bunAdapter({ port, hostname, maxBodySize })`. `bun htsx.config.ts start` sobe `Bun.serve` em `0.0.0.0` (o `dev` fica em `localhost`), com as rotas, `static/` e o vendor (`Cache-Control: immutable`). O corpo da requisição tem limite de 10 MB por padrão. Arquivos ocultos (`.env`, `.git`) e `..` nunca são servidos. Ctrl+C fecha tudo antes de sair. `event.platform.server` é o `Bun.Server`, e `getClientAddress()` dá o IP. Sem configuração: `serve(app, { port })` em `{{PKG}}/adapter-bun`.
 
 ---
 

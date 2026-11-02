@@ -1,26 +1,27 @@
-import { beforeAll, describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileRoutes, type App } from '../app'
 import type { AssetsFetcher, WorkerContext } from '../adapter-cloudflare'
 import { assetsFromDir } from '../adapter-cloudflare-build'
 import { staticAdapter } from '../config'
-import { build, loadApp, sync } from '../project'
+import { build, loadApp, sync, type LoadedApp } from '../project'
 import { scanRoutes } from '../src/build/routes'
 import { page } from '../testing'
 import config from './fixtures/fs-site/htsx.config'
 
 const ROOT = path.join(import.meta.dir, 'fixtures', 'fs-site')
-let app: App
+let app: LoadedApp
 const req = (p: string, init: RequestInit = {}) => app.respond(new Request('https://site.dev' + p, init))
 
 beforeAll(async () => {
   app = await loadApp(config, ROOT)   // htsx.config.ts + src/routes + src/hooks.server.ts, sem CLI
 })
+afterAll(() => app.close())
 
 describe('rotas por arquivos: htsx.config.ts', () => {
   it('monta o app com grupos, endpoints e matchers', async () => {
-    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/sobre'])
+    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/saudacao', '/sobre'])
   })
 
   it('tipos gerados ($types) compilam com o app', () => {
@@ -227,5 +228,18 @@ describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de ve
     await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: 'src/index.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
     const err = await build(config, tmp).then(() => null, (e: Error) => e)
     expect(err?.message).toContain('"main" em wrangler.jsonc é "src/index.ts", mas o Worker gerado pelo build é ".htsx/cloudflare/_worker.js"')
+  })
+})
+
+describe('event.platform igual em todo lugar (sem env de dev separado)', () => {
+  it('loadApp() acha o htsx.config.ts e emula a plataforma pelo wrangler.jsonc', async () => {
+    const loaded = await loadApp(undefined, ROOT)
+    try {
+      expect(loaded.platformSource).toBe('vars')   // sem wrangler instalado neste repo
+      const res = await loaded.respond(new Request('https://site.dev/saudacao'))
+      expect(await (await page(res)).text('p')).toBe('Olá do wrangler.jsonc')
+    } finally {
+      await loaded.close()
+    }
   })
 })

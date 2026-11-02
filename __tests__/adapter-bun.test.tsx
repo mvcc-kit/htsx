@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import path from 'node:path'
-import { bunAdapter, cloudflareAdapter } from '../config'
+import { bunAdapter } from '../config'
 import { VENDOR_PATH } from '../index'
 import { start } from '../project'
 import { page } from '../testing'
@@ -12,7 +12,7 @@ describe('modo servidor Bun (start)', () => {
   let server: Awaited<ReturnType<typeof start>>
   const url = (p: string) => `http://127.0.0.1:${server.port}${p}`
   beforeAll(async () => { server = await start({ ...config, adapter: bunAdapter({ hostname: '127.0.0.1' }) }, ROOT, { port: 0 }) })
-  afterAll(() => server?.stop(true))
+  afterAll(() => server?.stop())
 
   it('páginas com layouts, locals do cookie e endpoints pelo servidor HTTP', async () => {
     const p = await page(await fetch(url('/blog/ola'), { headers: { cookie: 'user=Rui' } }))
@@ -35,18 +35,14 @@ describe('modo servidor Bun (start)', () => {
   })
 })
 
-describe('dev do modo Cloudflare: event.platform.env vem do devEnv', () => {
+describe('dev do modo Cloudflare: event.platform.env vem do wrangler.jsonc', () => {
   let server: Awaited<ReturnType<typeof start>>
-  const devEnv = {
-    DB: { prepare: () => ({ bind: () => ({ run: async () => {} }), all: async () => ({ results: [{ texto: 'do dev' }] }) }) },
-    BUCKET: { get: async () => null, put: async () => {} },
-    KV: { get: async () => 'dev' },
-  }
-  beforeAll(async () => { server = await start({ ...config, adapter: cloudflareAdapter({ devEnv }) }, ROOT, { port: 0 }) })
-  afterAll(() => server?.stop(true))
+  beforeAll(async () => { server = await start(config, ROOT, { port: 0 }) })
+  afterAll(() => server?.stop())
 
-  it('a mesma rota que usa D1/R2/KV roda no dev com os bindings do devEnv', async () => {
-    const res = await fetch(`http://${server.hostname}:${server.port}/api/notas`)
-    expect(await res.json()).toEqual({ notas: ['do dev'], flag: 'dev' })
+  it('vars do wrangler.jsonc; binding sem o wrangler instalado → erro dizendo como resolver', async () => {
+    const res = await fetch(`${server.url}api/notas`, { headers: { accept: 'application/json' } })
+    expect(res.status).toBe(500)
+    expect((await page(await fetch(`${server.url}saudacao`))).text('p')).resolves.toBe('Olá do wrangler.jsonc')
   })
 })

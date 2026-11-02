@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { App } from '../app/app'
-import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, listFiles, writePrerendered } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, fileServer, writePrerendered } from '../build/files'
 import { prerender, type PrerenderOptions } from '../build/prerender'
 import { VENDOR_PATH } from '../vendor-path'
 import type { AssetsFetcher, CloudflareManifest } from './cloudflare'
@@ -133,17 +133,10 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
 }
 
 /**
- * `env.ASSETS` local para desenvolvimento e testes: serve a pasta do build como o Static Assets
+ * `env.ASSETS` local para testes: serve a pasta do build como o Static Assets
  * (`/sobre` → `sobre.html` ou `sobre/index.html`; 404 sem corpo quando não existe).
  */
 export async function assetsFromDir(dir: string): Promise<AssetsFetcher> {
-  const files = new Set(await listFiles(dir))
-  return {
-    async fetch(input) {
-      const { pathname } = new URL(typeof input === 'string' ? input : input.url)
-      const p = decodeURIComponent(pathname)
-      const hit = [p, `${p}.html`, `${p.replace(/\/$/, '')}/index.html`, p === '/' ? '/index.html' : ''].find(f => f && files.has(f))
-      return hit ? new Response(Bun.file(path.join(dir, hit))) : new Response(null, { status: 404 })
-    },
-  }
+  const serve = fileServer(dir, { html: true })
+  return { fetch: async input => serve(input) ?? new Response(null, { status: 404 }) }
 }

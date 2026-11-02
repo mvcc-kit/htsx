@@ -8,9 +8,9 @@ import type { CloudflareAdapter, Command, HtsxConfig } from '../config/config'
 import { buildStatic } from '../adapters/static'
 import { buildCloudflare } from '../adapters/cloudflare-build'
 import { serve } from '../adapters/bun'
-import { syncRoutes } from './routes'
-
-const EXTS = ['.ts', '.tsx', '.js', '.jsx']
+import { EXTS, syncRoutes } from './routes'
+import { emulateCloudflare, type EmulatedPlatform } from './platform'
+import type { Platform } from '../app/app'
 
 /** Arquivo opcional (`src/hooks.server` + extensão); `undefined` se não existir. */
 function optionalFile(root: string, file: string): string | undefined {
@@ -29,15 +29,58 @@ export async function sync(config: HtsxConfig, root = '.') {
 
 let generation = 0
 
-/** Monta o app a partir da configuração: rotas por arquivos + hooks + opções. Roda no Bun. */
-export async function loadApp(config: HtsxConfig, root = '.'): Promise<App> {
+/** App carregado da configuração; `close()` libera a plataforma emulada (wrangler). */
+export interface LoadedApp extends App {
+  /** De onde vem `event.platform` fora do Worker: `wrangler` (bindings locais), `vars` ou nenhuma. */
+  readonly platformSource: EmulatedPlatform['source'] | 'none'
+  /** O mesmo `event.platform` das requisições (ex.: preparar o D1 num teste). */
+  readonly platform: Platform | undefined
+  close(): Promise<void>
+}
+
+export interface LoadOptions {
+  /** Plataforma já emulada (o dev reaproveita entre recargas). */
+  platform?: EmulatedPlatform
+}
+
+async function resolveConfig(root: string): Promise<HtsxConfig> {
+  const file = optionalFile(root, 'htsx.config')
+  if (!file) throw new Error(`htsx: htsx.config.ts não encontrado em ${root}; crie um com export default defineConfig({ adapter: ... })`)
+  return ((await import(file)) as { default: HtsxConfig }).default
+}
+
+/** Plataforma de fora do Worker para o modo da configuração (só o Cloudflare tem uma). */
+export async function emulatePlatform(config: HtsxConfig, root: string): Promise<EmulatedPlatform | undefined> {
+  const a = config.adapter
+  if (a.name !== 'cloudflare') return undefined
+  return emulateCloudflare(root, { configPath: a.wrangler || undefined, platformProxy: a.platformProxy })
+}
+
+/**
+ * Monta o app a partir da configuração: rotas por arquivos + hooks + opções, com o mesmo
+ * `event.platform` do modo (no Cloudflare, emulado pelo wrangler.jsonc). Sem `config`, lê
+ * `htsx.config.ts` da raiz. Use nos testes: `const app = await loadApp()`.
+ */
+export async function loadApp(config?: HtsxConfig, root = '.', opts: LoadOptions = {}): Promise<LoadedApp> {
   root = path.resolve(root)
+  config ??= await resolveConfig(root)
   const result = await sync(config, root)
   // `?v=` força recarregar o manifesto quando as rotas mudam (dev)
   const { files } = (await import(`${result.manifest}?v=${++generation}`)) as { files: FileRoutes }
   const hooksPath = hooksFile(config, root)
   const hooks: Partial<Pick<AppOptions, 'handle' | 'handleError' | 'context'>> = hooksPath ? await import(hooksPath) : {}
-  return defineApp({ ...files, ...config.options, handle: hooks.handle, handleError: hooks.handleError, context: hooks.context })
+  const app = defineApp({ ...files, ...config.options, handle: hooks.handle, handleError: hooks.handleError, context: hooks.context })
+  const emulated = opts.platform ?? (await emulatePlatform(config, root))
+  const owned = !opts.platform
+  const platform = emulated?.platform as unknown as Platform | undefined
+  return {
+    ...app,
+    platformSource: emulated?.source ?? 'none',
+    platform,
+    respond: (request, o = {}) => app.respond(request, { platform, ...o }),
+    fetch: request => app.respond(request, { platform }),
+    close: async () => { if (owned) await emulated?.dispose() },
+  }
 }
 
 /** Código do Worker gerado: o app + o módulo opcional `src/worker.ts` (Durable Objects, scheduled...). */
@@ -68,7 +111,15 @@ function workerEntry(config: HtsxConfig, adapter: CloudflareAdapter, root: strin
 /** Build do modo configurado. */
 export async function build(config: HtsxConfig, root = '.'): Promise<{ outDir: string; files?: string[] }> {
   root = path.resolve(root)
-  const app = await loadApp(config, root)
+  const app = await loadApp(config, root)   // prerender com o mesmo event.platform do dev
+  try {
+    return await buildWith(app, config, root)
+  } finally {
+    await app.close()
+  }
+}
+
+async function buildWith(app: App, config: HtsxConfig, root: string): Promise<{ outDir: string; files?: string[] }> {
   const adapter = config.adapter
   const assets = config.assets ?? 'static'
 
@@ -107,34 +158,55 @@ export async function build(config: HtsxConfig, root = '.'): Promise<{ outDir: s
 }
 
 /** Servidor Bun com as rotas. `watch` recarrega quando arquivos de rota entram ou saem. */
-export async function start(config: HtsxConfig, root = '.', opts: { watch?: boolean; port?: number } = {}) {
+export async function start(config?: HtsxConfig, root = '.', opts: { watch?: boolean; port?: number } = {}) {
   root = path.resolve(root)
-  let app = await loadApp(config, root)
-  const adapter = config.adapter
+  config ??= await resolveConfig(root)
+  const cfg = config
+  // emulada uma vez: as recargas do dev reaproveitam (o wrangler sobe o workerd local)
+  const emulated = await emulatePlatform(cfg, root)
+  let app = await loadApp(cfg, root, { platform: emulated })
+  const adapter = cfg.adapter
   const port = opts.port ?? (adapter.name === 'bun' ? adapter.port : undefined) ?? Number(process.env.PORT ?? 3000)
-  // no dev do modo Cloudflare, event.platform imita o do Worker (env de devEnv)
-  const platform = adapter.name === 'cloudflare'
-    ? { env: adapter.devEnv ?? {}, ctx: { waitUntil() {} }, caches: undefined, cf: undefined }
-    : undefined
-  const server = await serve(() => app, { port, hostname: adapter.name === 'bun' ? adapter.hostname : undefined, assets: path.resolve(root, config.assets ?? 'static'), platform })
+  const server = serve(() => app, {
+    port,
+    // dev só na máquina (como o Vite); produção em todas as interfaces
+    hostname: (adapter.name === 'bun' ? adapter.hostname : undefined) ?? (opts.watch ? 'localhost' : '0.0.0.0'),
+    maxBodySize: adapter.name === 'bun' ? adapter.maxBodySize : undefined,
+    cacheFiles: !opts.watch,
+    assets: path.resolve(root, cfg.assets ?? 'static'),
+    platform: emulated?.platform as unknown as Platform | undefined,
+  })
+  const watchers: Array<{ close(): void }> = []
   if (opts.watch) {
-    const dirs = [config.routes ?? 'src/routes', config.params ?? 'src/params'].map(d => path.resolve(root, d))
     let pending: Promise<void> | undefined
-    for (const d of dirs) {
+    for (const d of [cfg.routes ?? 'src/routes', cfg.params ?? 'src/params'].map(x => path.resolve(root, x))) {
       if (!existsSync(d)) continue
-      watch(d, { recursive: true }, ev => {
+      watchers.push(watch(d, { recursive: true }, ev => {
         // arquivo novo/apagado muda o manifesto; mudança de conteúdo o `bun --hot` já recarrega
         if (ev !== 'rename' || pending) return
-        pending = loadApp(config, root).then(a => { app = a }, e => console.error((e as Error).message)).finally(() => { pending = undefined })
-      })
+        pending = loadApp(cfg, root, { platform: emulated }).then(a => { app = a }, e => console.error((e as Error).message)).finally(() => { pending = undefined })
+      }))
     }
   }
+  if (emulated) console.log(`htsx: event.platform.env do ${emulated.source === 'wrangler' ? 'wrangler (bindings locais)' : 'wrangler.jsonc/.dev.vars (instale o wrangler para D1/R2/KV locais)'}`)
   console.log(`htsx: http://${server.hostname}:${server.port}`)
-  return server
+  return {
+    hostname: server.hostname,
+    port: server.port,
+    url: server.url,
+    /** Para o servidor, os observadores e a plataforma emulada. */
+    async stop() {
+      for (const w of watchers) w.close()
+      server.stop(true)
+      await emulated?.dispose()
+    },
+  }
 }
 
 export async function run(cmd: Command, config: HtsxConfig, root: string): Promise<void> {
   if (cmd === 'sync') { const r = await sync(config, root); console.log(`htsx: ${r.routes.length} rotas, tipos em ${path.relative(root, outDirOf(config, root))}/types`); return }
   if (cmd === 'build') { await build(config, root); return }
-  await start(config, root, { watch: cmd === 'dev' })
+  const server = await start(config, root, { watch: cmd === 'dev' })
+  // Ctrl+C / parada do processo: fecha o servidor e o wrangler local antes de sair
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) process.once(sig, () => { void server.stop().finally(() => process.exit(0)) })
 }
