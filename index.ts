@@ -1,5 +1,6 @@
 export { HtmlSafeString, raw } from './src/jsx-runtime'
 export { jsx, jsxs, Fragment } from './src/jsx-runtime'
+export type { Child, Children } from './src/jsx-types'
 export { HX_HEADERS } from './src/htmx-headers'
 export { clx } from './src/clx'
 export { safeUrl } from './src/safe-url'
@@ -74,6 +75,7 @@ export function renderToString<Ctx = unknown>(
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
 import { HtmlSafeString as _HtmlSafeString } from './src/jsx-runtime'
+import type { Children } from './src/jsx-types'
 
 export type RenderResult =
   | string
@@ -85,12 +87,12 @@ export type Component<P = object> = (
 ) => RenderResult
 
 export type ParentComponent<P = object> = Component<
-  P & { children?: unknown }
+  P & { children?: Children }
 >
 
 export type FC<P = object> = Component<P>
 
-export type PropsWithChildren<P = object> = P & { children?: unknown }
+export type PropsWithChildren<P = object> = P & { children?: Children }
 
 // Factory functions — ergonomic alternative to explicit type annotations
 

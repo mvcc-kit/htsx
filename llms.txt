@@ -112,10 +112,10 @@ Marks a string as trusted HTML. Skips escaping.
 ### defineComponent — typed props component
 
 ```tsx
-import { defineComponent } from '{{PKG}}'
+import { defineComponent, type Children } from '{{PKG}}'
 
 export const Button = defineComponent<{
-  children?: unknown
+  children?: Children
   type?: 'button' | 'submit'
   variant?: 'primary' | 'secondary' | 'danger'
   class?: string
@@ -135,7 +135,7 @@ export const Button = defineComponent<{
       class={`inline-flex items-center border px-4 py-2 text-sm font-semibold ${styles[variant]} ${className}`}
       {...attrs}
     >
-      {children as JSX.Element}
+      {children}
     </button>
   )
 })
@@ -154,7 +154,7 @@ export const Layout = defineLayout(({ children }) => (
       {raw(HEAD_INNER)}
     </head>
     <body class="min-h-screen bg-zinc-950 text-zinc-100">
-      {children as JSX.Element}
+      {children}
     </body>
   </html>
 ))
@@ -164,7 +164,7 @@ export const AppShell = defineLayout<{ active?: 'dashboard' | 'settings' }>(
   ({ children, active }) => (
     <div class="min-h-screen">
       <nav>...</nav>
-      <main>{children as JSX.Element}</main>
+      <main>{children}</main>
     </div>
   )
 )
@@ -409,7 +409,9 @@ Use `raw()` only for HTML you generated server-side or sanitized yourself.
 ## TypeScript Types
 
 ```ts
-import type { Component, ParentComponent, FC, RenderResult, PropsWithChildren } from '{{PKG}}'
+import type { Component, ParentComponent, FC, RenderResult, PropsWithChildren, Children } from '{{PKG}}'
+
+// Children: anything htsx can render as a child (use `children?: Children` in props)
 
 // Component with typed props
 const Card: Component<{ title: string }> = ({ title }) => (
@@ -418,7 +420,7 @@ const Card: Component<{ title: string }> = ({ title }) => (
 
 // Layout (children included automatically)
 const Layout: ParentComponent = ({ children }) => (
-  <main>{children as JSX.Element}</main>
+  <main>{children}</main>
 )
 
 // defineComponent / defineLayout (preferred — infers return type)

@@ -1,4 +1,5 @@
 import type { HtmlSafeString } from "./src/jsx-runtime";
+import type { HtsxIntrinsicElements } from "./src/jsx-types";
 
 declare global {
   namespace JSX {
@@ -11,9 +12,7 @@ declare global {
       children: unknown;
     }
 
-    interface IntrinsicElements {
-      [elementName: string]: Record<string, unknown>;
-    }
+    interface IntrinsicElements extends HtsxIntrinsicElements {}
   }
 }
 

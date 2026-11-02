@@ -355,7 +355,7 @@ clx('btn', isActive && 'btn-active', { 'btn-disabled': !canClick })
 ## TypeScript
 
 ```ts
-import type { Component, ParentComponent, FC, RenderResult } from '@repo/htsx'
+import type { Component, ParentComponent, FC, RenderResult, Children } from '@repo/htsx'
 
 const Card: Component<{ title: string }> = ({ title }) => (
   <div class="card"><h2>{title}</h2></div>
@@ -364,7 +364,11 @@ const Card: Component<{ title: string }> = ({ title }) => (
 const Layout: ParentComponent = ({ children }) => (
   <main>{children}</main>
 )
+
+const Box: Component<{ children?: Children }> = ({ children }) => <div>{children}</div>
 ```
+
+JSX attributes are typed per element, plus the `hx-*`, `x-*`, `$*`, `aria-*` and `data-*` families. A typo like `clas=` or a native `onclick=` is a compile error. Plain text inside `<script>` / `<style>` is a compile error too (use `raw()`).
 
 ---
 

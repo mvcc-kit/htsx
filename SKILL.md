@@ -107,11 +107,11 @@ export const getDashboard = async (req: Request, env: Env): Promise<Response> =>
 ### `defineComponent` — componente com props tipadas
 
 ```tsx
-import { defineComponent } from '{{PKG}}'
+import { defineComponent, type Children } from '{{PKG}}'
 
 // Botão reutilizável com variantes e pass-through de attrs HTMX
 export const Button = defineComponent<{
-  children?: unknown
+  children?: Children
   type?: 'button' | 'submit'
   variant?: 'primary' | 'secondary' | 'danger'
   class?: string
@@ -130,7 +130,7 @@ export const Button = defineComponent<{
       class={`inline-flex min-h-10 items-center border px-4 py-2 text-sm font-semibold uppercase ${styles[variant]} ${className}`}
       {...attrs}
     >
-      {children as JSX.Element}
+      {children}
     </button>
   )
 })
@@ -143,17 +143,17 @@ const toneClasses: Record<Tone, string> = {
   warning: 'border-amber-500/50 bg-amber-950/60 text-amber-300',
   danger:  'border-red-500/50 bg-red-950/60 text-red-300',
 }
-export const Badge = defineComponent<{ children?: unknown; tone?: Tone }>(
+export const Badge = defineComponent<{ children?: Children; tone?: Tone }>(
   ({ children, tone = 'neutral' }) => (
     <span class={`inline-flex border px-2 py-1 text-xs font-semibold uppercase ${toneClasses[tone]}`}>
-      {children as JSX.Element}
+      {children}
     </span>
   )
 )
 
 // Panel com header opcional
 export const Panel = defineComponent<{
-  children?: unknown; title?: string; eyebrow?: string; class?: string
+  children?: Children; title?: string; eyebrow?: string; class?: string
 }>(({ children, title, eyebrow, class: className = '' }) => (
   <section class={`border border-zinc-800 bg-zinc-950/80 ${className}`}>
     {(title || eyebrow) ? (
@@ -162,7 +162,7 @@ export const Panel = defineComponent<{
         {title  ? <h2 class="text-sm font-semibold uppercase text-zinc-100">{title}</h2>  : null}
       </header>
     ) : null}
-    <div class="p-4">{children as JSX.Element}</div>
+    <div class="p-4">{children}</div>
   </section>
 ))
 ```
@@ -181,7 +181,7 @@ export const Layout = defineLayout(({ children }) => (
       {raw(HEAD_INNER)}
       <style>{raw(CSS)}</style>
     </head>
-    <body>{children as JSX.Element}</body>
+    <body>{children}</body>
   </html>
 ))
 
@@ -198,7 +198,7 @@ export const AppShell = defineLayout<{ active?: 'dashboard' | 'settings' }>(
         </div>
       </div>
       <main class="mx-auto max-w-7xl px-4 py-6">
-        {children as JSX.Element}
+        {children}
       </main>
     </div>
   )
@@ -384,6 +384,7 @@ const Dashboard = defineComponent(() => {
 - ❌ Retornar JSX direto da rota — sempre `await renderPage()` ou `await renderToString()` antes do `new Response()`
 - ❌ Concatenar HTML com strings (`'<div>' + variavel`) — use JSX para o escape funcionar
 - ❌ Usar `children` como React node — dentro de componentes já é string HTML renderizada
-- ❌ Passar `children as JSX.Element` em `defineComponent` sem tipar `children?: unknown` nas props
+- ❌ Tipar `children?: unknown` ou usar `children as JSX.Element` — use `children?: Children` (exportado pelo pacote)
+- ❌ Atributo inexistente (`clas=`) ou `on*` — o compilador recusa; use `$click` (Alpine) ou `hx-on`
 - ❌ Compartilhar `cache()` ou `Suspense` entre requests sem `withContext` — lança erro intencionalmente
 - ❌ Chamar `raw()` em conteúdo de usuário — escape é proteção contra XSS, não remova sem sanitizar
