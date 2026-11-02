@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { confirmAttrs, Indicator, transitionAttrs, transitionName } from '../src/htmx-ux'
 import { renderToString } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('confirmAttrs', () => {
   it('retorna { hx-confirm }', () => {

@@ -16,9 +16,9 @@ import {
   flash,
   raw,
 } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('integration: full page render', () => {
   it('renderiza página completa com layout + componentes + dados do context', async () => {

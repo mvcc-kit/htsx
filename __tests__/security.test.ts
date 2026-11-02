@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { renderToString, raw, storeInit, alpinePlugin, head } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 import { flash } from '../src/flash'
 import { semModoEstrito } from './setup'
 
-const h = jsx
+const h = createElement
 
 describe('XSS: texto interpolado', () => {
   semModoEstrito()

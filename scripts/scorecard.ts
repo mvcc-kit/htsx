@@ -17,7 +17,7 @@ const sizes = await measure()
 
 // 3. O que some sem aviso mesmo no modo estrito: cada caso deve lançar erro "htsx: ...".
 process.env.HTSX_STRICT = '1'
-const { jsx: h } = await import('../src/jsx-runtime')
+const { createElement: h } = await import('../src/jsx-runtime')
 const { head } = await import('../src/head')
 const probes: Array<[string, () => unknown]> = [
   ['Date como filho', () => h('p', {}, new Date(0))],

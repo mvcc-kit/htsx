@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { Suspense, suspenseRegistry, resolveSuspense } from '../src/suspense'
 import { renderToString, withContext } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('Suspense: registry setup', () => {
   it('throw quando renderizado sem registry no context', async () => {

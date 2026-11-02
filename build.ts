@@ -29,6 +29,12 @@ const CONFIG = {
 const ENTRYPOINTS: Record<string, string> = {
   'index.ts': '.',
   'src/jsx-runtime.ts': './jsx-runtime',
+  'app.ts': './app',
+  'store.ts': './store',
+  'testing.ts': './testing',
+  'adapter-static.ts': './adapter-static',
+  'adapter-cloudflare.ts': './adapter-cloudflare',
+  'adapter-cloudflare-build.ts': './adapter-cloudflare/build',
 }
 
 // ==========================================
@@ -68,8 +74,9 @@ async function buildJS() {
     target: CONFIG.target,
     format: 'esm',
     minify: true,
-    splitting: false,
-    // Sem dependências de runtime — nada a marcar como external
+    // splitting: um só módulo de contexto (AsyncLocalStorage) compartilhado entre as entradas
+    splitting: true,
+    external: ['node:*'],
   })
 
   if (!result.success) {
@@ -82,9 +89,10 @@ async function buildJS() {
   // Precisa estar também em dist/jsx-runtime.js para o export ./jsx-runtime
   const nested = path.join(CONFIG.distDir, 'src', 'jsx-runtime.js')
   if (await Bun.file(nested).exists()) {
+    // com splitting, os chunks ficam na raiz: ajusta "../chunk-x.js" para "./chunk-x.js"
     await Bun.write(
       path.join(CONFIG.distDir, 'jsx-runtime.js'),
-      await Bun.file(nested).text(),
+      (await Bun.file(nested).text()).replaceAll('"../chunk-', '"./chunk-'),
     )
   }
 
@@ -114,7 +122,7 @@ async function buildDeclarations() {
       '--strict',
       '--skipLibCheck',
       '--resolveJsonModule',
-      'index.ts',
+      ...Object.keys(ENTRYPOINTS).filter(f => !f.startsWith('src/')),
       ...srcFiles,
     ],
     stdout: 'inherit',
@@ -158,11 +166,10 @@ async function generatePackageJson() {
         import: './index.js',
         default: './index.js',
       },
-      './jsx-runtime': {
-        types: './jsx-runtime.d.ts',
-        import: './jsx-runtime.js',
-        default: './jsx-runtime.js',
-      },
+      ...Object.fromEntries(Object.entries(ENTRYPOINTS).filter(([, key]) => key !== '.').map(([src, key]) => {
+        const base = key === './jsx-runtime' ? 'jsx-runtime' : src.replace(/\.ts$/, '')
+        return [key, { types: `./${base}.d.ts`, import: `./${base}.js`, default: `./${base}.js` }]
+      })),
       // tsx usa jsx-dev-runtime em modo dev — aponta para o mesmo arquivo
       './vendor/*': './vendor/*',
       './jsx-dev-runtime': {

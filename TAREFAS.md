@@ -44,3 +44,18 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 - [x] `bun run scorecard`: número de testes, tamanho minificado, o que ainda some sem aviso e pendências desta lista.
 - [x] Teto de tamanho que falha o CI se crescer sem explicação.
+
+## P7. Modos de entrega (estático e Cloudflare Workers)
+
+Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-analise.md).
+
+- [x] Núcleo do app sem plataforma: `defineApp`, `route` com params tipados, `load`, ações, `fail`/`redirect`/`error`, `handle`/`sequence`/`handleError`, cookies, CSRF, `trailingSlash`.
+- [x] Prerender com crawler de links, `entries()` e falha em link quebrado, endpoint sem extensão e rota não alcançada.
+- [x] Modo estático (`buildStatic`), que falha listando as rotas dinâmicas, como o adapter-static.
+- [x] Modo Cloudflare Workers (`cloudflare`, `buildCloudflare`), com checagem do wrangler, `_headers`/`_redirects`, `.assetsignore`, manifesto e `cloudflarePlatform`.
+- [x] Regra "lógica separada da implementação" no `AGENTS.md`, conferida em `__tests__/layers.test.ts`.
+- [ ] Códigos de erro com link para a seção do `SKILL.md` (como `svelte.dev/e/kit/<código>`).
+- [ ] Rotas por arquivos (`src/routes/**/+page.tsx`) com o manifesto gerado no build.
+- [ ] Testar o Worker no `workerd` de verdade. Hoje é testado com `assetsFromDir` e `env` simulado; o `wrangler` entraria como dependência de desenvolvimento, que precisa do pedido do dono.
+- [ ] Streaming de `load` (promessas resolvidas depois do primeiro byte).
+- [ ] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker.

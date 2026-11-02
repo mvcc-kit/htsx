@@ -28,6 +28,7 @@ Arquivos com JSX usam a extensão `.tsx`.
 ## Conceito central
 
 - Todo JSX vira string HTML. `children` dentro de um componente já é HTML renderizado, não um node React.
+- `key` (de listas) é aceita e ignorada. Sem JSX, use `h(tag, props, ...filhos)` (alias de `createElement`).
 - `HtmlSafeString` é HTML já escapado e seguro para emitir. `raw(str)` marca uma string como HTML confiável; use só com HTML gerado no servidor.
 - Divisão de responsabilidades:
 
@@ -114,6 +115,159 @@ export async function getRows(req: Request, rows: Row[]): Promise<Response> {
   return new Response(await renderPage(() => <Layout><RowList rows={rows} /></Layout>), { headers })
 }
 ```
+
+---
+
+## Aplicação e modos de entrega
+
+A lógica do app (rotas, dados, páginas, ações) fica separada da implementação (onde roda). O mesmo `defineApp` sai em dois modos:
+
+| Modo | Para quê | Entrada |
+|---|---|---|
+| **Estático** | site todo pré-renderizado em HTML; qualquer hospedagem estática | `@repo/htsx/adapter-static` (build) |
+| **Cloudflare Workers** | rotas dinâmicas no Worker + páginas pré-renderizadas no Static Assets | `@repo/htsx/adapter-cloudflare` (Worker) e `/build` |
+
+Estrutura sugerida: `src/app.tsx` (lógica, sem plataforma), `build.ts` (estático) e `src/worker.tsx` (Cloudflare). Só os dois últimos sabem da plataforma.
+
+### Rotas — `defineApp` e `route`
+
+Rotas no formato do SvelteKit: `/blog/[slug]`, `/[[lang]]/sobre` (opcional), `/docs/[...path]` (rest), `/item/[id=int]` (matcher). Os `params` são tipados a partir do id. Escreva `load` e `actions` antes de `page`, para o TypeScript inferir `data` e `form`.
+
+```tsx
+import { defineApp, error, fail, redirect, route, sequence } from '{{PKG}}/app'
+import { head, raw, VENDOR_PATH, type Children } from '{{PKG}}'
+
+const posts: Record<string, string> = { ola: 'Primeiro post' }
+
+const Layout = ({ children }: { children?: Children }) => (
+  <html lang="pt-br">
+    <head>{raw(head({ title: 'Site', htmx: true, alpine: true, vendor: VENDOR_PATH }))}</head>
+    <body>{children}</body>
+  </html>
+)
+
+export const app = defineApp({
+  layout: Layout,                  // requisição htmx parcial (sem hx-boost) sai sem layout; resposta leva Vary: HX-Request
+  prerender: true,                 // padrão das rotas; a rota pode mudar
+  matchers: { int: v => /^\d+$/.test(v) },
+  routes: [
+    route('/', { page: () => <a href="/blog/ola">Ler</a> }),
+    route('/blog/[slug]', {
+      load: ({ params }) => posts[params.slug] ?? error(404, 'Post não existe'),
+      entries: () => Object.keys(posts).map(slug => ({ slug })),   // páginas para o prerender
+      page: ({ data }) => <article>{data}</article>,
+    }),
+    route('/feed.xml', { GET: () => new Response('<rss/>', { headers: { 'content-type': 'application/rss+xml' } }) }),
+    route('/contato', {
+      prerender: false,
+      actions: {
+        // <form method="post"> sem action → default; com action="?/nome" → ação nomeada
+        default: async ({ request }) => {
+          const email = String((await request.formData()).get('email') ?? '')
+          if (!email.includes('@')) return fail(400, { erro: 'E-mail inválido', email })
+          redirect(303, '/obrigado')
+        },
+      },
+      page: ({ form }) => (
+        <form method="post">
+          <input name="email" value={form?.email ?? ''} />
+          {form?.erro ? <p role="alert">{form.erro}</p> : null}
+          <button>Enviar</button>
+        </form>
+      ),
+    }),
+  ],
+  handle: sequence(async ({ event, resolve }) => {
+    event.locals.inicio = Date.now()
+    return resolve(event)
+  }),
+  handleError: ({ error }) => { console.error(error); return { message: 'Erro interno' } },  // nunca mostre a mensagem real
+})
+
+// Teste da lógica, sem plataforma: Request → Response
+const res = await app.respond(new Request('http://localhost/blog/ola'))
+if (!(await res.text()).includes('Primeiro post')) throw new Error('rota quebrada')
+```
+
+Comportamento padrão, como no SvelteKit:
+- `error(status, msg)`, `redirect(status, url)` e `fail(status, dados)` interrompem ou respondem. Um erro inesperado vira 500 com a mensagem de `handleError`.
+- POST/PUT/PATCH/DELETE de formulário com `Origin` de outro site recebe 403 (CSRF). Ajuste com `csrf: { trustedOrigins }`.
+- `/sobre/` redireciona para `/sobre` (`trailingSlash: 'never'`).
+- `event.cookies` usa `HttpOnly`, `Secure` e `SameSite=Lax` por padrão. `event.setHeaders()` acrescenta cabeçalhos e `event.locals` guarda dados dos hooks.
+- `getRequestEvent()` devolve o evento atual dentro de qualquer componente. `HEAD` e `405` com `Allow` saem sozinhos.
+- Um `redirect()` numa requisição htmx também manda `HX-Redirect`.
+
+### Modo estático — `buildStatic`
+
+Todas as rotas precisam de `prerender`. Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
+
+```ts
+// build.ts → bun build.ts
+import { buildStatic } from '{{PKG}}/adapter-static'
+import { defineApp, route } from '{{PKG}}/app'
+
+const app = defineApp({ prerender: true, routes: [route('/', { page: () => 'Olá' })] })
+
+export async function build() {
+  // grava build/: páginas, 404.html, arquivos de static/ e Alpine/htmx em VENDOR_PATH
+  return buildStatic(app, { outDir: 'build', assets: 'static' })
+}
+```
+
+No modo estático, um `hx-get` para uma página recebe a página inteira. Para fragmentos, use rotas com `layout: false` ou `hx-select`.
+
+### Modo Cloudflare Workers — `cloudflare` e `buildCloudflare`
+
+Segue o `adapter-cloudflare` do SvelteKit. As rotas com `prerender` viram arquivos no Static Assets, servidos sem acordar o Worker. O resto roda no Worker, com `event.platform = { env, ctx, caches, cf }`.
+
+```jsonc
+// wrangler.jsonc (o build confere estas chaves e explica o que faltar)
+{
+  "name": "meu-site",
+  "main": "src/worker.tsx",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_als"],
+  "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" }
+}
+```
+
+```tsx
+// src/worker.tsx — só liga o app ao Worker
+import { cloudflare, cloudflarePlatform } from '{{PKG}}/adapter-cloudflare'
+import { defineApp, route } from '{{PKG}}/app'
+
+interface Env { SAUDACAO: string }
+
+const app = defineApp({
+  routes: [
+    route('/ola', {
+      load: event => {
+        const { env, ctx } = cloudflarePlatform<Env>(event)   // erro claro fora do Worker ou no prerender
+        ctx.waitUntil(Promise.resolve())                      // trabalho depois da resposta
+        return env.SAUDACAO
+      },
+      page: ({ data }) => <p>{data}</p>,
+    }),
+  ],
+})
+
+// O manifesto vem do build: import manifest from '../.htsx/cloudflare-manifest.json'
+export default cloudflare<Env>(app, { manifest: { prerendered: [] } })
+```
+
+```ts
+// build.ts → bun build.ts && wrangler deploy
+import { buildCloudflare } from '{{PKG}}/adapter-cloudflare/build'
+import type { App } from '{{PKG}}/app'
+
+export async function build(app: App) {
+  // confere wrangler.jsonc; grava .htsx/cloudflare/ (pré-renderizadas, static/, vendor com cache immutable,
+  // _headers e _redirects da raiz + os gerados, .assetsignore) e .htsx/cloudflare-manifest.json
+  return buildCloudflare(app)
+}
+```
+
+Em desenvolvimento e testes, `assetsFromDir('.htsx/cloudflare')` faz o papel do `env.ASSETS`: `worker.fetch(req, { ASSETS: await assetsFromDir(dir), ...vars }, ctx)`.
 
 ---
 

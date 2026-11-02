@@ -9,7 +9,11 @@
     "./jsx-dev-runtime": "./src/jsx-runtime.ts",
     "./testing": "./testing.ts",
     "./vendor/*": "./vendor/*",
-    "./store": "./store.ts"
+    "./store": "./store.ts",
+    "./app": "./app.ts",
+    "./adapter-static": "./adapter-static.ts",
+    "./adapter-cloudflare": "./adapter-cloudflare.ts",
+    "./adapter-cloudflare/build": "./adapter-cloudflare-build.ts"
   },
   "scripts": {
     "test": "bun test",

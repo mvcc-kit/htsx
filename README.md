@@ -42,8 +42,9 @@ E no `tsconfig.json`:
 - [`SKILL.md`](SKILL.md): guia completo da API, com exemplos que compilam e rodam nos testes. É a fonte única; o `llms.txt` é gerado dele.
 - [`AGENTS.md`](AGENTS.md): regras para quem mexe na biblioteca.
 - [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md): revisão de segurança e plano.
+- [`docs/sveltekit-analise.md`](docs/sveltekit-analise.md): o que veio do SvelteKit (modos estático e Cloudflare) e o que falta.
 
-Entradas públicas: `@repo/htsx` (servidor), `@repo/htsx/store` (cliente, `defineStore`), `@repo/htsx/testing` (testes) e `@repo/htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `@repo/htsx-ui` (pasta `ui/`).
+Entradas públicas: `@repo/htsx` (renderização), `@repo/htsx/app` (rotas, load, ações, hooks; sem plataforma), `@repo/htsx/adapter-static` e `@repo/htsx/adapter-cloudflare` (+ `/build`) (os dois modos de entrega), `@repo/htsx/store` (cliente, `defineStore`), `@repo/htsx/testing` (testes) e `@repo/htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `@repo/htsx-ui` (pasta `ui/`).
 
 ## Comandos
 

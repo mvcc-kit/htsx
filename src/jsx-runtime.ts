@@ -54,12 +54,16 @@ function childFix(c: unknown): string {
 
 type Tag<P extends Record<string, unknown>> = string | ((props: P) => unknown)
 
-export function jsx<P extends Record<string, unknown>>(
+/**
+ * Estilo `createElement`/`h`: filhos também como argumentos extras.
+ * `createElement('ul', {}, h('li', {}, 'a'), 'b')`.
+ */
+export function createElement<P extends Record<string, unknown>>(
   tag: Tag<P>,
-  props: P,
+  props: P | null,
   ...extraChildren: unknown[]
 ): HtmlSafeString | Promise<HtmlSafeString> {
-  const { children: propsChildren, ...rest } = props
+  const { children: propsChildren, ...rest } = props ?? ({} as P)
   // merge extra children (React.createElement style) with props.children
   const children = extraChildren.length > 0
     ? (propsChildren !== undefined
@@ -98,7 +102,16 @@ function toSafe(r: string | Promise<string>): HtmlSafeString | Promise<HtmlSafeS
   return r instanceof Promise ? r.then(c => new HtmlSafeString(c)) : new HtmlSafeString(r)
 }
 
+/**
+ * Runtime automático do JSX (`jsx: react-jsx`): `jsx(tipo, props, key)`.
+ * A `key` só serve para listas no React; aqui é ignorada (não vira filho nem atributo).
+ */
+export function jsx<P extends Record<string, unknown>>(tag: Tag<P>, props: P, _key?: unknown): HtmlSafeString | Promise<HtmlSafeString> {
+  return createElement(tag, props)
+}
+
 export const jsxs = jsx
+export const jsxDEV = jsx
 
 export function Fragment(props: { children?: unknown }): HtmlSafeString | Promise<HtmlSafeString> {
   return toSafe(renderChildren(props.children, { escape: true }))

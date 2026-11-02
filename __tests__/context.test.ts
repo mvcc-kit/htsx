@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { withContext, useContext, maybeContext, renderPage, renderToString } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('context: useContext', () => {
   it('throw quando chamado fora de withContext', () => {

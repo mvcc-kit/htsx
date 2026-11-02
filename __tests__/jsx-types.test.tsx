@@ -58,3 +58,9 @@ describe('types: Children', () => {
     expect(await renderToString(() => <script>{raw('a && b')}</script>)).toBe('<script>a && b</script>')
   })
 })
+
+describe('runtime automático: key', () => {
+  it('key em lista não vira texto nem atributo', async () => {
+    expect(await renderToString(() => <ul>{['a', 'b'].map(k => <li key={k}>x</li>)}</ul>)).toBe('<ul><li>x</li><li>x</li></ul>')
+  })
+})

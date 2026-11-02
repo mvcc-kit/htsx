@@ -14,9 +14,9 @@ import {
 } from '../index'
 import { cache, cacheContext, cacheSize } from '../src/cache'
 import { Suspense, suspenseRegistry, resolveSuspense } from '../src/suspense'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('stress: context isolation com alta concorrência', () => {
   it('500 renders paralelos com contexts distintos não vazam', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { jsx as h, raw } from '../src/jsx-runtime'
+import { createElement as h, raw } from '../src/jsx-runtime'
 import { isStrict } from '../src/strict'
 import { semModoEstrito } from './setup'
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { OOB } from '../src/oob'
 import { renderToString } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('OOB: HTML output', () => {
   it('target sem # gera HTML correto com outerHTML default', async () => {

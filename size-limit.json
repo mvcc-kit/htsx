@@ -6,5 +6,13 @@
   "store.ts": {
     "maxBytes": 1500,
     "motivo": "02/11/2026: entrada do cliente (defineStore) = 1.043 bytes; vai para o navegador, então teto apertado"
+  },
+  "app.ts": {
+    "maxBytes": 13000,
+    "motivo": "02/11/2026: núcleo do app (rotas, load, ações, hooks, cookies, CSRF) = 11.744 bytes; vai para o Worker"
+  },
+  "adapter-cloudflare.ts": {
+    "maxBytes": 4000,
+    "motivo": "02/11/2026: runtime do Worker sem o app = 3.214 bytes"
   }
 }

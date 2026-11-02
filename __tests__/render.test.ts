@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { renderPage, renderToString, raw } from '../index'
-import { jsx, jsxs, Fragment } from '../src/jsx-runtime'
+import { jsx, createElement, jsxs, Fragment } from '../src/jsx-runtime'
 
 // Helpers to write JSX without compiler (call jsx directly)
-const h = jsx
+const h = createElement
 
 describe('renderPage', () => {
   it('adiciona <!DOCTYPE html>', async () => {

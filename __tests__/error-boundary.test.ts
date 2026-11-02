@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { ErrorBoundary } from '../src/error-boundary'
 import { renderToString } from '../index'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('ErrorBoundary: happy path', () => {
   it('renderiza children quando não há erro', async () => {

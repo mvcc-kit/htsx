@@ -11,9 +11,9 @@ import { describe, expect, it } from 'bun:test'
 import { defineComponent, defineLayout, renderToString } from '../index'
 import { head } from '../src/head'
 import { flash } from '../src/flash'
-import { jsx } from '../src/jsx-runtime'
+import { jsx, createElement } from '../src/jsx-runtime'
 
-const h = jsx
+const h = createElement
 
 describe('coverage: defineComponent / defineLayout', () => {
   it('defineComponent retorna a função inalterada', async () => {
