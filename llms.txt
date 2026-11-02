@@ -1,0 +1,505 @@
+# {{PKG}}
+
+> Zero-dependency JSX SSR renderer for HTMX + Alpine.js. Works on Bun, Node 18+, Cloudflare Workers, and any runtime with Web APIs. No React. No virtual DOM. No client bundle.
+
+## Install & Setup
+
+```bash
+bun add {{PKG}}   # or: npm install {{PKG}}
+```
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "{{PKG}}"
+  }
+}
+```
+
+Files that use JSX must have `.tsx` extension.
+
+---
+
+## Core Concepts
+
+- JSX compiles to plain HTML strings, not React elements.
+- `HtmlSafeString` is the safe HTML type — wraps a string that has already been escaped.
+- All text interpolated in JSX is **HTML-escaped automatically**.
+- `raw(str)` bypasses escaping — only use for server-generated, trusted HTML.
+- `children` inside components is a `string` (already rendered HTML), not a React node.
+
+---
+
+## Rendering
+
+### renderPage(factory, opts?)
+
+Full page render. Prepends `<!DOCTYPE html>`. Use for initial page loads.
+
+```tsx
+import { renderPage, head, raw } from '{{PKG}}'
+
+const HTML_HEAD = head({
+  title: 'My App',
+  scripts: [
+    'https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js',
+    'https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js',
+  ],
+})
+
+export const handler = async (req: Request): Promise<Response> => {
+  const html = await renderPage(() => (
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {raw(HTML_HEAD)}
+      </head>
+      <body>
+        <h1>Hello</h1>
+      </body>
+    </html>
+  ))
+  return new Response(html, { headers: { 'content-type': 'text/html' } })
+}
+```
+
+### renderToString(factory, opts?)
+
+Fragment render — no DOCTYPE. Use for HTMX partial responses.
+
+```tsx
+import { renderToString, isHtmx } from '{{PKG}}'
+
+export const getDashboard = async (req: Request): Promise<Response> => {
+  // Return only the updated fragment when HTMX requests a partial
+  if (isHtmx(req)) {
+    const html = await renderToString(() => <EmailList rows={rows} />)
+    return new Response(html, { headers: { 'content-type': 'text/html' } })
+  }
+
+  // Full page on direct navigation
+  const html = await renderPage(() => (
+    <Layout>
+      <EmailList rows={rows} />
+    </Layout>
+  ))
+  return new Response(html, { headers: { 'content-type': 'text/html' } })
+}
+```
+
+### raw(html: string)
+
+Marks a string as trusted HTML. Skips escaping.
+
+```tsx
+// head() returns a string — must be wrapped in raw()
+{raw(head({ title: 'App' }))}
+
+// Inline CSS block
+<style>{raw(`.btn { color: red }`)}</style>
+
+// Pre-rendered HTML from a trusted source
+<div>{raw(sanitizedUserContent)}</div>
+```
+
+---
+
+## Components
+
+### defineComponent — typed props component
+
+```tsx
+import { defineComponent } from '{{PKG}}'
+
+export const Button = defineComponent<{
+  children?: unknown
+  type?: 'button' | 'submit'
+  variant?: 'primary' | 'secondary' | 'danger'
+  class?: string
+  // Pass-through HTMX attrs explicitly when needed
+  'hx-get'?: string
+  'hx-target'?: string
+  'hx-swap'?: string
+}>(({ children, type = 'button', variant = 'secondary', class: className = '', ...attrs }) => {
+  const styles = {
+    primary:   'bg-blue-600 text-white border-blue-600 hover:bg-blue-500',
+    secondary: 'bg-zinc-900 text-zinc-100 border-zinc-600 hover:bg-zinc-800',
+    danger:    'bg-red-950 text-red-200 border-red-500 hover:bg-red-900',
+  }
+  return (
+    <button
+      type={type}
+      class={`inline-flex items-center border px-4 py-2 text-sm font-semibold ${styles[variant]} ${className}`}
+      {...attrs}
+    >
+      {children as JSX.Element}
+    </button>
+  )
+})
+```
+
+### defineLayout — layout component that wraps children
+
+```tsx
+import { defineLayout } from '{{PKG}}'
+
+// defineLayout is defineComponent + ParentComponent type — children prop is included automatically
+export const Layout = defineLayout(({ children }) => (
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      {raw(HEAD_INNER)}
+    </head>
+    <body class="min-h-screen bg-zinc-950 text-zinc-100">
+      {children as JSX.Element}
+    </body>
+  </html>
+))
+
+// AppShell with typed extra props
+export const AppShell = defineLayout<{ active?: 'dashboard' | 'settings' }>(
+  ({ children, active }) => (
+    <div class="min-h-screen">
+      <nav>...</nav>
+      <main>{children as JSX.Element}</main>
+    </div>
+  )
+)
+```
+
+### Usage pattern — compose layouts
+
+```tsx
+// Page uses Layout → AppShell → content
+export const getDashboard = async (req: Request) => {
+  const html = await renderPage(() => (
+    <Layout>
+      <AppShell active="dashboard">
+        <div class="grid gap-6">
+          <h1>Inbox</h1>
+          <EmailList rows={rows} />
+        </div>
+      </AppShell>
+    </Layout>
+  ))
+  return new Response(html, { headers: { 'content-type': 'text/html' } })
+}
+```
+
+---
+
+## HTMX
+
+All HTMX attributes are typed JSX props on every HTML element.
+
+### Inline HTMX — polling, lazy load, live update
+
+```tsx
+// Refresh a region on button click
+<button
+  hx-get="/dashboard"
+  hx-target="#email-list"
+  hx-swap="outerHTML"
+>
+  Refresh <span class="htmx-indicator ml-2">...</span>
+</button>
+
+// Lazy-load a panel on page load
+<div hx-get="/stats" hx-trigger="load" hx-swap="innerHTML">
+  <p>Loading...</p>
+</div>
+
+// HTMX partial handler
+if (isHtmx(req)) {
+  return new Response(await renderToString(() => <StatsPanel />), {
+    headers: { 'content-type': 'text/html' },
+  })
+}
+```
+
+### Row-level HTMX — clickable table rows
+
+```tsx
+{rows.map((row) => (
+  <a
+    href={`/emails/${row.id}`}
+    hx-get={`/emails/${row.id}`}
+    hx-target="#email-modal"
+    hx-swap="innerHTML"
+    class="grid grid-cols-4 px-4 py-3 hover:bg-zinc-900"
+  >
+    <span>{row.from}</span>
+    <span>{row.subject}</span>
+    <span>{row.date}</span>
+    <Badge tone={row.status === 'processed' ? 'success' : 'danger'}>{row.status}</Badge>
+  </a>
+))}
+<div id="email-modal"></div>
+```
+
+### OOB swap — update outside main target
+
+```tsx
+// Returns primary content + updates badge counter in the same response
+<>
+  <EmailDetail email={email} />
+  <OOB target="unread-badge">3</OOB>
+</>
+```
+
+### htmxResponse — response headers
+
+```tsx
+return htmxResponse(response, {
+  trigger: 'emailAdded',   // HX-Trigger
+  redirect: '/dashboard',  // HX-Redirect
+  pushUrl: '/dashboard',   // HX-Push-Url
+})
+```
+
+### Detect HTMX context
+
+```ts
+isHtmx(req)         // true if HX-Request header present
+isBoosted(req)      // true if hx-boost
+hxTarget(req)       // HX-Target header value
+hxTrigger(req)      // HX-Trigger header value
+hxCurrentUrl(req)   // HX-Current-URL header value
+```
+
+---
+
+## Alpine.js
+
+All Alpine directives are typed JSX props.
+
+### State + events
+
+```tsx
+// $click is shorthand for x-on:click
+<div x-data="{ open: false }">
+  <button $click="open = !open">Toggle</button>
+  <p x-show="open" x-cloak>Hidden until open</p>
+</div>
+
+// x-bind shorthand: x-bind-class → :class equivalent
+<div x-bind-class="{ 'bg-red-500': hasError }">...</div>
+```
+
+### Global store — storeInit
+
+```tsx
+import { storeInit, raw } from '{{PKG}}'
+
+// Emit in <head> or before the component that needs it
+{raw(storeInit('cart', { items: [], total: 0 }))}
+
+// Then in any component:
+<span x-text="$store.cart.total"></span>
+<button $click="$store.cart.items.push(item)">Add</button>
+```
+
+Data is safeJson-serialized — `</script>`, U+2028, U+2029 are escaped automatically.
+
+---
+
+## CSRF
+
+Bind CSRF to a `sessionId` to scope the token.
+
+```tsx
+import { csrf, CsrfField } from '{{PKG}}'
+
+// Sign (server-side, before rendering the form)
+const token = await csrf.sign({ secret: env.SECRET, sessionId: userId })
+
+// Render (auto-injects hidden input)
+<form method="post" action="/save">
+  <CsrfField token={token} />
+  <input name="title" type="text" />
+  <button type="submit">Save</button>
+</form>
+
+// Verify (in POST handler)
+const token = String(form.get('_csrf') ?? '')
+const valid = await csrf.verify(token, { secret: env.SECRET, sessionId: userId })
+if (!valid) return new Response('Forbidden', { status: 403 })
+```
+
+---
+
+## Per-Request Context
+
+Pass data to any component without prop drilling using AsyncLocalStorage.
+
+```tsx
+import { withContext, useContext } from '{{PKG}}'
+
+// In request handler
+const html = await renderPage(
+  () => <Dashboard />,
+  { context: { user, db, locale } }
+)
+
+// In any deeply nested component
+const Dashboard = defineComponent(() => {
+  const { user } = useContext<{ user: User; locale: string }>()
+  return <h1>Hello, {user.name}</h1>
+})
+```
+
+---
+
+## Flash Messages
+
+```ts
+// On redirect — set flash on Response
+flash.set(response, { type: 'success', message: 'Saved!' }, env.SECRET)
+
+// On next request — read and clear
+const msg = await flash.get(request, env.SECRET)
+if (msg) {
+  // { type: 'success' | 'error' | 'info' | 'warning', message: string }
+}
+```
+
+---
+
+## Forms helper
+
+```tsx
+import { Form, Field, formContext } from '{{PKG}}'
+
+// Pass errors from server validation
+const ctx = formContext({ errors: { email: 'Invalid email' }, values: { email: 'bad' } })
+
+const html = await renderPage(
+  () => (
+    <Form action="/register" method="post">
+      <Field name="email" label="Email" type="email" />
+      <Field name="password" label="Password" type="password" />
+      <button type="submit">Register</button>
+    </Form>
+  ),
+  { context: ctx }
+)
+```
+
+---
+
+## Security Model
+
+- Text content and attributes: **HTML-escaped by default**
+- `on*` event attributes (`onclick`, `onload`, etc.): **blocked entirely — never emitted**
+- URLs in `href`, `src`, `action`, `formaction`: `javascript:`, `data:`, `blob:`, `vbscript:` → replaced with `#`
+- Invisible Unicode chars (zero-width space, etc.) stripped from URLs before protocol check
+- CSS property values: `"` → `&quot;`, `<>` removed; invalid property names rejected
+- Cookie names: RFC 6265 token validation (blocks HTTP header injection)
+- CSRF tokens: HMAC-SHA256, timing-safe compare
+
+Use `raw()` only for HTML you generated server-side or sanitized yourself.
+
+---
+
+## TypeScript Types
+
+```ts
+import type { Component, ParentComponent, FC, RenderResult, PropsWithChildren } from '{{PKG}}'
+
+// Component with typed props
+const Card: Component<{ title: string }> = ({ title }) => (
+  <div class="card"><h2>{title}</h2></div>
+)
+
+// Layout (children included automatically)
+const Layout: ParentComponent = ({ children }) => (
+  <main>{children as JSX.Element}</main>
+)
+
+// defineComponent / defineLayout (preferred — infers return type)
+const Box = defineComponent<{ size: 'sm' | 'lg' }>(({ size }) => (
+  <div class={size === 'sm' ? 'p-2' : 'p-6'} />
+))
+```
+
+---
+
+## Common Patterns
+
+### Conditional rendering
+
+```tsx
+// Use ternary or && — both work, falsy values are safe
+{isLoggedIn ? <UserMenu user={user} /> : <LoginButton />}
+{hasError && <ErrorBanner message={error} />}
+```
+
+### Lists
+
+```tsx
+// .map() returns an array — htsx flattens it automatically
+<ul>
+  {items.map((item) => (
+    <li key={item.id}>{item.name}</li>
+  ))}
+</ul>
+```
+
+### Async components
+
+```tsx
+// Async functions work as components
+const UserCard = async ({ userId }: { userId: string }) => {
+  const user = await db.users.find(userId)
+  return <div>{user.name}</div>
+}
+
+// Await in the factory
+const html = await renderPage(async () => (
+  <Layout>
+    {await UserCard({ userId: '123' })}
+  </Layout>
+))
+```
+
+### Detecting and returning partials
+
+```tsx
+export const getPage = async (req: Request, env: Env): Promise<Response> => {
+  const rows = await fetchRows(env)
+
+  // HTMX partial — return only what changed
+  if (isHtmx(req)) {
+    return new Response(
+      await renderToString(() => <RowList rows={rows} />),
+      { headers: { 'content-type': 'text/html' } }
+    )
+  }
+
+  // Full page on direct navigation
+  return new Response(
+    await renderPage(() => (
+      <Layout>
+        <AppShell>
+          <RowList rows={rows} />
+        </AppShell>
+      </Layout>
+    )),
+    { headers: { 'content-type': 'text/html' } }
+  )
+}
+```
+
+---
+
+## What NOT to do
+
+- Never use React hooks, useState, useRef, useEffect — they don't exist
+- Never import from `{{PKG}}/src/*` — only use the main barrel `{{PKG}}`
+- Never return JSX directly from a route handler — always await `renderPage()` or `renderToString()` first
+- Never concatenate HTML strings (`'<div>' + x`) — use JSX so escaping is automatic
+- Never pass `children` to a component and then access it as a React node — it's already a rendered string
+- Never share `cache()` or `Suspense` state across requests without `withContext` — it throws intentionally
