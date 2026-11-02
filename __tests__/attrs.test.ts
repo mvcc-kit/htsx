@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { serializeAttrs } from '../src/attrs'
+import { semModoEstrito } from './setup'
 
 // helper: get the attrs string trimmed (serializeAttrs returns " key=val ...")
 const attrs = (props: Record<string, unknown>) => serializeAttrs(props).trim()
@@ -175,6 +176,7 @@ describe('hx-headers / hx-vals / hx-request → JSON aspas simples', () => {
 })
 
 describe('segurança: bloqueio de on* handlers', () => {
+  semModoEstrito()
   it('onclick bloqueado', () =>
     expect(attrs({ onclick: 'alert(1)' })).toBe(''))
   it('onload bloqueado', () =>

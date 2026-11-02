@@ -1,0 +1,3 @@
+[test]
+# Liga o modo estrito em todos os testes (HTSX_STRICT=1)
+preload = ["./__tests__/setup.ts"]

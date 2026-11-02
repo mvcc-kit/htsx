@@ -1,5 +1,6 @@
 import { escapeAttr, attrJson, cssValue, cssKey, VALID_ATTR_NAME, isUnsafeEventHandler } from './escape'
 import { safeUrl } from './safe-url'
+import { strictFail } from './strict'
 
 export const JSX_TO_HTML_ATTRS: Record<string, string> = {
   className:       'class',
@@ -44,7 +45,7 @@ function serializeStyle(obj: Record<string, string | number>): string {
 
 const HX_ON_RE = /^hx-on-htmx-(.+)$/
 
-export function serializeAttrs(props: Record<string, unknown>): string {
+export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento'): string {
   const parts: string[] = []
 
   for (const [rawKey, value] of Object.entries(props)) {
@@ -52,10 +53,16 @@ export function serializeAttrs(props: Record<string, unknown>): string {
     if (rawKey === 'children' || rawKey === 'key') continue
 
     // security: validate attr name
-    if (!VALID_ATTR_NAME.test(rawKey)) continue
+    if (!VALID_ATTR_NAME.test(rawKey)) {
+      strictFail(`nome de atributo inválido ${JSON.stringify(rawKey)} em <${tag}>; use letras, números, "-", ":", "." ou "_"`)
+      continue
+    }
 
     // security: block native on* event handlers (allow x-on / hx-on)
-    if (isUnsafeEventHandler(rawKey)) continue
+    if (isUnsafeEventHandler(rawKey)) {
+      strictFail(`atributo "${rawKey}" bloqueado em <${tag}>; use $${rawKey.slice(2).toLowerCase()} (Alpine) ou hx-on:${rawKey.slice(2).toLowerCase()}`)
+      continue
+    }
 
     // aria-* e data-*: booleano vira "true" ou "false"
     if (typeof value === 'boolean' && (rawKey.startsWith('aria-') || rawKey.startsWith('data-'))) {
@@ -122,9 +129,14 @@ export function serializeAttrs(props: Record<string, unknown>): string {
     // camelCase aliases (className, htmlFor, tabIndex, etc.)
     const htmlKey = JSX_TO_HTML_ATTRS[rawKey] ?? rawKey
     // Auto-sanitize URL attributes — blocks javascript:, data:, vbscript:, blob:
-    const finalEscaped = URL_ATTRS.has(htmlKey)
-      ? escapeAttr(safeUrl(String(value)))
-      : escaped
+    let finalEscaped = escaped
+    if (URL_ATTRS.has(htmlKey)) {
+      const url = safeUrl(String(value))
+      if (url === '#' && String(value) !== '#') {
+        strictFail(`URL ${JSON.stringify(String(value))} em ${htmlKey} de <${tag}> foi trocada por "#"; use http(s), caminho relativo, mailto: ou tel:`)
+      }
+      finalEscaped = escapeAttr(url)
+    }
     parts.push(`${htmlKey}="${finalEscaped}"`)
   }
 

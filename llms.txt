@@ -29,6 +29,7 @@ Files that use JSX must have `.tsx` extension.
 - All text interpolated in JSX is **HTML-escaped automatically**.
 - `raw(str)` bypasses escaping — only use for server-generated, trusted HTML.
 - `children` inside components is a `string` (already rendered HTML), not a React node.
+- **Strict mode** (`HTSX_STRICT=1`, turn it on in tests): object, `Date`, `bigint` or function as a child, invalid attribute name, `on*` and URLs replaced by `#` throw `htsx: ...` with the fix. Without it they are silently dropped (safe fallback).
 
 ---
 

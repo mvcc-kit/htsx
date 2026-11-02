@@ -2,10 +2,12 @@ import { describe, expect, it } from 'bun:test'
 import { renderToString, raw, storeInit, alpinePlugin, head } from '../index'
 import { jsx } from '../src/jsx-runtime'
 import { flash } from '../src/flash'
+import { semModoEstrito } from './setup'
 
 const h = jsx
 
 describe('XSS: texto interpolado', () => {
+  semModoEstrito()
   it('escapa <script> em conteúdo de texto', async () => {
     const html = await renderToString(() => h('div', {}, '<script>alert(1)</script>'))
     expect(html).toBe('<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>')
@@ -77,6 +79,7 @@ describe('XSS: aspas em JSON dentro de atributo (hx-headers)', () => {
 })
 
 describe('XSS: injeção via spread de atributos', () => {
+  semModoEstrito()
   it('onclick bloqueado', async () => {
     const evil = { onclick: 'alert(1)' }
     const html = await renderToString(() => h('div', { ...evil }))
@@ -171,6 +174,7 @@ describe('CSS injection via style object', () => {
 })
 
 describe('safeUrl: bloqueio de esquemas perigosos', () => {
+  semModoEstrito()
   it('javascript: bloqueado', async () => {
     const html = await renderToString(() => h('a', { href: 'javascript:alert(1)' }, 'x'))
     expect(html).toContain('href="#"')

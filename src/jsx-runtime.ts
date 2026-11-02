@@ -2,6 +2,7 @@
 import { escapeHtml } from './escape'
 import { serializeAttrs } from './attrs'
 import { VOID_ELEMENTS, RAW_TEXT_ELEMENTS } from './elements'
+import { strictFail } from './strict'
 
 export class HtmlSafeString extends String {
   readonly __htmlSafe = true as const
@@ -34,7 +35,21 @@ function renderChildren(c: unknown, ctx: RenderCtx): string | Promise<string> {
     }
     return (parts as string[]).join('')
   }
+  strictFail(`filho ${describeChild(c)} em <${ctx.tag ?? 'componente'}> não é desenhado; ${childFix(c)}`)
   return ''
+}
+
+function describeChild(c: unknown): string {
+  if (c instanceof Date) return 'do tipo Date'
+  if (typeof c === 'object') return `do tipo objeto (${Object.prototype.toString.call(c).slice(8, -1)})`
+  return `do tipo ${typeof c}`
+}
+
+function childFix(c: unknown): string {
+  if (c instanceof Date) return 'converta para texto, ex.: data.toLocaleDateString("pt-BR")'
+  if (typeof c === 'bigint') return 'converta para texto com String(valor)'
+  if (typeof c === 'function') return 'chame a função ou use como componente: <Comp />'
+  return 'escolha o campo a mostrar ou serialize com JSON.stringify(valor)'
 }
 
 type Tag<P extends Record<string, unknown>> = string | ((props: P) => unknown)
@@ -60,7 +75,7 @@ export function jsx<P extends Record<string, unknown>>(
     return toSafe(renderChildren(result, { escape: true }))
   }
 
-  const attrs = serializeAttrs(rest as Record<string, unknown>)
+  const attrs = serializeAttrs(rest as Record<string, unknown>, tag)
   const open = `<${tag}${attrs}>`
 
   if (VOID_ELEMENTS.has(tag)) {
