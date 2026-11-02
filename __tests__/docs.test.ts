@@ -1,6 +1,6 @@
 // Documentação: llms.txt gerado de SKILL.md, e todo bloco ts/tsx de SKILL.md e README.md
 // compila (tsc) e roda (import) no modo estrito. Blocos ```ts arquivo=... / ```tsx arquivo=... mostram
-// arquivos de rota que dependem do `htsx sync` (./$types); quem os cobre é __tests__/fixtures/fs-site.
+// arquivos de rota que dependem dos tipos gerados (./$types); quem os cobre é __tests__/fixtures/fs-site.
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'

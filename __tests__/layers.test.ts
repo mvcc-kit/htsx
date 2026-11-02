@@ -34,7 +34,7 @@ const isNodeOnly = (s: string) => s.startsWith('node:') && s !== 'node:async_hoo
 
 describe('camadas', () => {
   it('núcleo não importa do design system (@repo/htsx-ui, ui/)', async () => {
-    const core = ['index.ts', 'testing.ts', 'store.ts', 'app.ts', 'adapter-static.ts', 'adapter-cloudflare.ts', 'adapter-cloudflare-build.ts', 'routes.ts', 'cli.ts', 'jsx.d.ts', ...await glob('src/**/*.{ts,tsx}')]
+    const core = ['index.ts', 'testing.ts', 'store.ts', 'app.ts', 'adapter-static.ts', 'adapter-cloudflare.ts', 'adapter-cloudflare-build.ts', 'config.ts', 'project.ts', 'adapter-bun.ts', 'jsx.d.ts', ...await glob('src/**/*.{ts,tsx}')]
     expect(await violations(core, isUi)).toEqual([])
   })
 
@@ -43,7 +43,7 @@ describe('camadas', () => {
   })
 
   it('o que roda no Worker não usa node:* (exceto node:async_hooks)', async () => {
-    const runtime = ['index.ts', 'app.ts', 'store.ts', 'adapter-cloudflare.ts', ...(await glob('src/**/*.ts')).filter(f => !/^src\/(build|testing)\//.test(f) && f !== 'src/adapters/static.ts' && f !== 'src/adapters/cloudflare-build.ts')]
+    const runtime = ['index.ts', 'app.ts', 'store.ts', 'config.ts', 'adapter-cloudflare.ts', ...(await glob('src/**/*.ts')).filter(f => !/^src\/(build|testing)\//.test(f) && !['src/adapters/static.ts', 'src/adapters/cloudflare-build.ts', 'src/adapters/bun.ts'].includes(f))]
     expect(await violations(runtime, isNodeOnly)).toEqual([])
   })
 

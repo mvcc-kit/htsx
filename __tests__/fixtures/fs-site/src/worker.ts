@@ -1,6 +1,10 @@
-// Implementação Cloudflare: só liga o app ao Worker ("main" do wrangler).
-import { cloudflare } from '@repo/htsx/adapter-cloudflare'
-import { app } from './app'
-import manifest from '../cloudflare-manifest.json'   // gerado por buildCloudflare
+// Juntado ao Worker gerado: Durable Objects (exports nomeados) e handlers além do fetch.
+export class Contador {
+  private n = 0
+  constructor(_state: unknown, _env: unknown) {}
+  async fetch(): Promise<Response> { return new Response(String(++this.n)) }
+}
 
-export default cloudflare<{ SAUDACAO: string }>(app, { manifest })
+export default {
+  async scheduled(_controller: unknown, env: { LOG?: string[] }) { env.LOG?.push('scheduled') },
+}

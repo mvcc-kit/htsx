@@ -9,7 +9,8 @@
 | `index.ts` | Tudo o que é público. Não importe de `src/` fora daqui |
 | `src/jsx-runtime.ts` | Como JSX vira string, e onde o escape acontece |
 | `src/attrs.ts` e `src/escape.ts` | Atributos, URLs, CSS e JSON seguros |
-| `src/app/` e `src/adapters/` | Núcleo do app (sem plataforma) e os modos estático e Cloudflare |
+| `src/app/` e `src/adapters/` | Núcleo do app (sem plataforma) e os modos estático, Cloudflare e Bun |
+| `src/config/` e `src/build/commands.ts` | `htsx.config.ts` (sem CLI) e o que `dev`/`build`/`start`/`sync` fazem |
 | `SKILL.md` | Como usar a biblioteca num app |
 | `docs/revisao-2026-11-02.md` | Falhas conhecidas e o plano em ordem |
 

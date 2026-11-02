@@ -6,7 +6,7 @@ import type { PrerenderedFile } from './prerender'
 import { VENDOR_PATH } from '../vendor-path'
 
 // Resolvido pelo pacote (exports './vendor/*'): funciona no workspace (@repo/htsx) e no dist/ (htsx)
-const VENDOR_DIR = path.dirname(new URL(resolveVendor()).pathname)
+export const VENDOR_DIR = path.dirname(new URL(resolveVendor()).pathname)
 
 function resolveVendor(): string {
   try { return import.meta.resolve('@repo/htsx/vendor/pins.json') } catch { return import.meta.resolve('htsx/vendor/pins.json') }

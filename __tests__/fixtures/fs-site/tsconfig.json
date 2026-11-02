@@ -1,5 +1,17 @@
 {
-  "extends": ["../../../tsconfig.json", "./.htsx/tsconfig.json"],
-  "include": ["src/**/*.ts", "src/**/*.tsx", ".htsx/**/*.ts", "../../../jsx.d.ts"],
-  "exclude": []
+  // Como num projeto real: JSX do htsx e os tipos gerados (rootDirs em .htsx/tsconfig.json)
+  "extends": "./.htsx/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@repo/htsx",
+    "resolveJsonModule": true,
+    "types": ["bun"]
+  },
+  "include": ["htsx.config.ts", "src/**/*.ts", "src/**/*.tsx", "../../../jsx.d.ts"]
 }

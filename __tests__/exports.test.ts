@@ -19,13 +19,9 @@ describe('package.json exports', () => {
     expect(import.meta.resolve(`${pkg.name}/vendor/pins.json`)).toBe(Bun.pathToFileURL(path.join(ROOT, 'vendor', 'pins.json')).href)
   })
 
-  it('bin htsx aponta para um arquivo que existe', async () => {
-    expect(await Bun.file(path.join(ROOT, pkg.bin.htsx)).exists()).toBe(true)
-  })
-
   it('todo .ts de entrada na raiz está nos exports', async () => {
     const targets = new Set(Object.values(pkg.exports))
-    const notEntries = new Set(['build.ts', 'cli.ts'])
+    const notEntries = new Set(['build.ts'])
     for await (const f of new Bun.Glob('*.ts').scan({ cwd: ROOT })) {
       if (f.endsWith('.d.ts') || notEntries.has(f)) continue
       expect(targets.has(`./${f}`), `${f} não está em package.json exports`).toBe(true)

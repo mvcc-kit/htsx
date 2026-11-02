@@ -1,4 +1,4 @@
-// `htsx sync`: lê src/routes/ e gera (1) `.htsx/routes.ts`, o manifesto com imports estáticos
+// Sync das rotas (htsx.config.ts sync|dev|build): lê src/routes/ e gera (1) `.htsx/routes.ts`, o manifesto com imports estáticos
 // (o Worker não lê pastas), e (2) `.htsx/types/**/$types.d.ts`, os tipos de cada pasta,
 // como o `.svelte-kit/types` do SvelteKit. Só build (usa node:fs).
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
@@ -75,7 +75,7 @@ export async function scanRoutes(root: string, routesDir: string): Promise<Scann
     }
   }
   await walk(abs, [], null)
-  // checagens que o manifesto também faz, mas aqui com a pasta e já no `htsx sync`
+  // checagens que o manifesto também faz, mas aqui com a pasta e já no sync
   const byId = new Map<string, string[]>()
   for (const d of out) {
     const isRoute = d.files['+page'] || d.files['+server'] || d.files['+page.server']
@@ -151,7 +151,7 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
 
   const rootLevel = level(dirs[0]!)   // antes de juntar os imports, para incluir os da raiz
   const manifest = [
-    '// Gerado por `htsx sync` a partir de ' + routesDir + '. Não edite.',
+    '// Gerado pelo htsx (htsx.config.ts) a partir de ' + routesDir + '. Não edite.',
     `import { fileRoutes } from ${JSON.stringify(pkg + '/app')}`,
     ...imports,
     '',
@@ -185,7 +185,7 @@ function typesFor(d: ScannedDir, root: string, out: string, pkg: string): string
   const layoutData = d.files['+layout.server'] ? `MergeData<LayoutParentData, LoadData<typeof import(${src(d.files['+layout.server'])})>>` : 'LayoutParentData'
   const pageData = d.files['+page.server'] ? `MergeData<LayoutData, LoadData<typeof import(${src(d.files['+page.server'])})>>` : 'LayoutData'
   const actionData = d.files['+page.server'] ? `ActionDataOf<typeof import(${src(d.files['+page.server'])})>` : 'undefined'
-  return `// Gerado por \`htsx sync\` para ${d.dir}. Não edite.
+  return `// Gerado pelo htsx (htsx.config.ts) para ${d.dir}. Não edite.
 import type { ActionDataOf, Children, LoadData, MaybePromise, MergeData, ParamsOf, RequestEvent, ServerLoadEvent } from ${JSON.stringify(pkg + '/app')}
 
 type Params = ParamsOf<${JSON.stringify(d.id)}>

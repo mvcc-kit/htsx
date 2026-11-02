@@ -22,6 +22,8 @@ export interface CloudflareBuildOptions {
   wrangler?: string | false
   /** Copia Alpine e htmx para `VENDOR_PATH`. Padrão `true`. */
   vendor?: boolean
+  /** Worker gerado pelo build (htsx.config.ts): o `main` do wrangler precisa apontar para ele. */
+  expectMain?: string
   prerender?: Omit<PrerenderOptions, 'assets'>
 }
 
@@ -57,8 +59,13 @@ interface WranglerConfig {
 }
 
 /** Confere o wrangler: as mesmas regras do SvelteKit, mais a flag de AsyncLocalStorage. */
-export function validateWrangler(config: WranglerConfig, file: string, outDir: string, cwd: string): string[] {
+export function validateWrangler(config: WranglerConfig, file: string, outDir: string, cwd: string, expectMain?: string): string[] {
   const errors: string[] = []
+  const want = expectMain && path.relative(cwd, expectMain).split(path.sep).join('/')
+  if (want && config.main && path.resolve(path.dirname(path.resolve(cwd, file)), config.main) !== expectMain) {
+    errors.push(`"main" em ${file} é "${config.main}", mas o Worker gerado pelo build é "${want}"; use "main": "${want}"`)
+  }
+  if (want && !config.main) errors.push(`defina "main": "${want}" em ${file} (o Worker gerado pelo build)`)
   if (config.site) errors.push(`tire "site" de ${file}: Workers Sites foi substituído por Static Assets ("assets")`)
   if (config.main && !config.assets?.directory) errors.push(`defina "assets": { "directory": "${path.relative(cwd, outDir)}" } em ${file}`)
   if (config.main && !config.assets?.binding) errors.push(`defina "assets.binding" (ex.: "ASSETS") em ${file} para o Worker ler as páginas pré-renderizadas`)
@@ -93,7 +100,7 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
       if (existsSync(path.join(cwd, 'wrangler.toml'))) throw new Error('htsx: só sei conferir wrangler.jsonc/wrangler.json; converta o wrangler.toml ou passe wrangler: false')
       throw new Error(`htsx: wrangler.jsonc não encontrado em ${cwd}; crie um (veja SKILL.md, modo Cloudflare) ou passe wrangler: false`)
     }
-    const errors = validateWrangler(parseJsonc(await Bun.file(path.resolve(cwd, file)).text()) as WranglerConfig, file, outDir, cwd)
+    const errors = validateWrangler(parseJsonc(await Bun.file(path.resolve(cwd, file)).text()) as WranglerConfig, file, outDir, cwd, opts.expectMain)
     if (errors.length) throw new Error(`htsx: configuração do wrangler inválida:\n${errors.map(e => `  - ${e}`).join('\n')}`)
   }
   for (const f of ['_routes.json', '_headers', '_redirects']) {

@@ -56,7 +56,16 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Modo Cloudflare Workers (`cloudflare`, `buildCloudflare`), com checagem do wrangler, `_headers`/`_redirects`, `.assetsignore`, manifesto e `cloudflarePlatform`.
 - [x] Regra "lógica separada da implementação" no `AGENTS.md`, conferida em `__tests__/layers.test.ts`.
 - [ ] Códigos de erro com link para a seção do `SKILL.md` (como `svelte.dev/e/kit/<código>`).
-- [x] Rotas por arquivos (opcional): `+page.tsx`, `+page.server.ts`, `+layout.tsx`, `+layout.server.ts` com `parent()`, `+server.ts`, `+error.tsx`, grupos, `src/params`; `htsx sync` gera o manifesto e os tipos `./$types`.
+- [x] Rotas por arquivos (opcional): `+page.tsx`, `+page.server.ts`, `+layout.tsx`, `+layout.server.ts` com `parent()`, `+server.ts`, `+error.tsx`, grupos, `src/params`; o sync do `htsx.config.ts` gera o manifesto e os tipos `./$types`.
 - [ ] Testar o Worker no `workerd` de verdade. Hoje é testado com `assetsFromDir` e `env` simulado; o `wrangler` entraria como dependência de desenvolvimento, que precisa do pedido do dono.
 - [ ] Streaming de `load` (promessas resolvidas depois do primeiro byte).
 - [x] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker (`modes(app)` em `@repo/htsx/testing`).
+
+## P8. Sem CLI: configuração como no SvelteKit
+
+- [x] `htsx.config.ts` (`defineConfig`, `staticAdapter`/`cloudflareAdapter`/`bunAdapter`); o próprio arquivo roda `dev`, `build`, `start` e `sync`.
+- [x] `src/hooks.server.ts` (`handle`, `handleError`, `context`) e `src/worker.ts` opcional (Durable Objects, `scheduled`, `queue`).
+- [x] Build do Cloudflare empacota um único `.htsx/cloudflare/_worker.js` (sem manifesto versionado); tipos `./$types` gerados sozinhos.
+- [x] Modo servidor Bun (`serve`, `start`).
+- [ ] Testar no `workerd` de verdade (D1, R2, KV reais): precisa do `wrangler` como dependência de desenvolvimento.
+- [ ] `dev` com os bindings reais do wrangler (`getPlatformProxy`), hoje `devEnv` simulado.

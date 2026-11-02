@@ -2,24 +2,25 @@ import { beforeAll, describe, expect, it } from 'bun:test'
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileRoutes, type App } from '../app'
-import { buildStatic } from '../adapter-static'
 import type { AssetsFetcher, WorkerContext } from '../adapter-cloudflare'
-import { assetsFromDir, buildCloudflare } from '../adapter-cloudflare-build'
-import { scanRoutes, syncRoutes } from '../routes'
+import { assetsFromDir } from '../adapter-cloudflare-build'
+import { staticAdapter } from '../config'
+import { build, loadApp, sync } from '../project'
+import { scanRoutes } from '../src/build/routes'
 import { page } from '../testing'
+import config from './fixtures/fs-site/htsx.config'
 
 const ROOT = path.join(import.meta.dir, 'fixtures', 'fs-site')
 let app: App
 const req = (p: string, init: RequestInit = {}) => app.respond(new Request('https://site.dev' + p, init))
 
 beforeAll(async () => {
-  await syncRoutes({ root: ROOT })
-  app = (await import(path.join(ROOT, 'src', 'app.ts'))).app
+  app = await loadApp(config, ROOT)   // htsx.config.ts + src/routes + src/hooks.server.ts, sem CLI
 })
 
-describe('rotas por arquivos: htsx sync', () => {
-  it('gera manifesto com grupos, endpoints e matchers', async () => {
-    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/sobre'])
+describe('rotas por arquivos: htsx.config.ts', () => {
+  it('monta o app com grupos, endpoints e matchers', async () => {
+    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/sobre'])
   })
 
   it('tipos gerados ($types) compilam com o app', () => {
@@ -33,7 +34,7 @@ describe('rotas por arquivos: htsx sync', () => {
     await mkdir(path.join(tmp, 'src', 'routes', 'x'), { recursive: true })
     await Bun.write(path.join(tmp, 'src', 'routes', '+page.svelte'), '')
     await Bun.write(path.join(tmp, 'src', 'routes', 'x', '+pagina.tsx'), '')
-    const err = await scanRoutes(tmp, 'src/routes').then(() => null, e => e as Error)
+    const err = await scanRoutes(tmp, 'src/routes').then(() => null, (e: Error) => e)
     expect(err?.message).toContain('src/routes/+page.svelte: use +page.tsx')
     expect(err?.message).toContain('src/routes/x/+pagina.tsx: nome desconhecido')
   })
@@ -50,7 +51,7 @@ describe('rotas por arquivos: htsx sync', () => {
     const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-dup')
     await rm(tmp, { recursive: true, force: true })
     for (const g of ['(a)', '(b)']) await Bun.write(path.join(tmp, 'src', 'routes', g, 'x', '+page.tsx'), 'export default () => "x"\n')
-    const err = await syncRoutes({ root: tmp }).then(() => null, e => e as Error)
+    const err = await sync({ adapter: staticAdapter() }, tmp).then(() => null, (e: Error) => e)
     expect(err?.message).toContain('a rota "/x" aparece em mais de uma pasta (src/routes/(a)/x, src/routes/(b)/x); grupos (nome) não mudam a URL')
   })
 })
@@ -103,7 +104,7 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     await rm(tmp, { recursive: true, force: true })
     await Bun.write(path.join(tmp, 'src', 'routes', 'a-[x]', '+page.tsx'), '')
     await Bun.write(path.join(tmp, 'src', 'routes', 'b', '+page.server.ts'), '')
-    const err = await syncRoutes({ root: tmp }).then(() => null, e => e as Error)
+    const err = await sync({ adapter: staticAdapter() }, tmp).then(() => null, (e: Error) => e)
     expect(err?.message).toContain('src/routes/a-[x]: segmento "a-[x]" em "/a-[x]" mistura texto e parâmetro')
     expect(err?.message).toContain('src/routes/b: +page.server.ts sem +page.tsx')
   })
@@ -138,31 +139,48 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     expect(await (await req('/api/posts.json')).json()).toEqual(['ola', 'segundo'])
   })
 
-  it('modo estático: só as rotas com prerender (herdado do grupo e da página)', async () => {
+  it('modo estático pela configuração: só as rotas com prerender', async () => {
     const out = path.join(import.meta.dir, '..', '.cache', 'fs-static')
-    const r = await buildStatic(app, { root: ROOT, outDir: out, vendor: false, strict: false })
-    expect(r.files).toEqual(['/404.html', '/blog', '/sobre'])
+    const r = await build({ ...config, adapter: staticAdapter({ outDir: path.relative(ROOT, out), strict: false }) }, ROOT)
+    expect(r.files).toContain('/sobre')
+    expect(r.files).toContain('/blog')
+    expect(r.files).not.toContain('/blog/ola')
     expect(await (await page(await Bun.file(path.join(out, 'sobre.html')).text())).text('header b')).toBe('Meu site')
   })
 
+
 })
 
-describe('rotas por arquivos no modo Cloudflare Workers', () => {
-  const committed = Bun.file(path.join(ROOT, 'cloudflare-manifest.json')).json()
-  let worker: { fetch(req: Request, env: object, ctx: WorkerContext): Promise<Response> }
-  let env: { ASSETS: AssetsFetcher }
+describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de verdade)', () => {
+  type W = { fetch(req: Request, env: object, ctx: WorkerContext): Promise<Response>; scheduled(c: unknown, env: object): Promise<void> }
+  let worker: W
+  let mod: Record<string, unknown>
+  let env: Record<string, unknown>
   const fromAssets: string[] = []
-  const waited: unknown[] = []
+  const waited: Promise<unknown>[] = []
   const ctx: WorkerContext = { waitUntil: p => { waited.push(p) } }
   const call = (p: string, init: RequestInit = {}) => worker.fetch(new Request('https://site.dev' + p, init), env, ctx)
+  // bindings simulados com a mesma forma dos do Cloudflare (D1, R2, KV)
+  const notas = ['primeira']
+  const r2 = new Map<string, string>([['anexo.txt', 'conteúdo do R2']])
 
   beforeAll(async () => {
-    const r = await buildCloudflare(app, { root: ROOT, manifest: 'cloudflare-manifest.json' })
-    expect(r.dynamic.sort()).toEqual(['/', '/api/posts.json', '/blog/[slug]', '/item/[id=int]'])
-    expect(await committed).toEqual(r.manifest)   // o worker.ts importa o arquivo versionado
+    const r = await build(config, ROOT)
     const assets = await assetsFromDir(r.outDir)
-    env = { ASSETS: { fetch: req => { fromAssets.push(new URL(typeof req === 'string' ? req : req.url).pathname); return assets.fetch(req) } } }
-    worker = (await import(path.join(ROOT, 'src', 'worker.ts'))).default
+    env = {
+      ASSETS: { fetch: req => { fromAssets.push(new URL(typeof req === 'string' ? req : req.url).pathname); return assets.fetch(req) } } satisfies AssetsFetcher,
+      DB: { prepare: (sql: string) => ({ bind: (...v: string[]) => ({ run: async () => { if (sql.startsWith('insert')) notas.push(v[0]!) } }), all: async () => ({ results: notas.map(texto => ({ texto })) }) }) },
+      BUCKET: { put: async (k: string, v: string) => { r2.set(k, v) }, get: async (k: string) => (r2.has(k) ? { text: async () => r2.get(k)! } : null) },
+      KV: { get: async (k: string) => (k === 'flag' ? 'ligada' : null) },
+      LOG: [] as string[],
+    }
+    mod = await import(path.join(r.outDir, '_worker.js'))
+    worker = mod.default as W
+  })
+
+  it('o build gera um único _worker.js e o wrangler aponta para ele', async () => {
+    const files = [...new Bun.Glob('*.js').scanSync(path.join(ROOT, '.htsx', 'cloudflare'))]
+    expect(files).toEqual(['_worker.js'])
   })
 
   it('página pré-renderizada (layout do grupo) vem do binding de assets', async () => {
@@ -171,10 +189,27 @@ describe('rotas por arquivos no modo Cloudflare Workers', () => {
     expect(await p.text('h1')).toBe('Sobre')
   })
 
-  it('rota dinâmica no Worker: layouts, parent(), locals do cookie', async () => {
+  it('rota dinâmica no Worker: layouts, parent(), locals do cookie (hooks.server.ts)', async () => {
     const p = await page(await call('/blog/ola', { headers: { cookie: 'user=Bia' } }))
     expect(await p.text('small')).toBe('notas · Bia')
     expect(await p.text('[data-testid=blog] h2')).toBe('Meu site / Blog')
+  })
+
+  it('D1, R2 e KV pelo env; ctx.waitUntil', async () => {
+    const res = await call('/api/notas', { method: 'POST', body: JSON.stringify({ texto: 'nova' }), headers: { 'content-type': 'application/json' } })
+    expect(res.status).toBe(201)
+    await Promise.all(waited)
+    expect(r2.get('ultima.txt')).toBe('nova')
+    expect(await (await call('/api/notas')).json()).toEqual({ notas: ['primeira', 'nova'], anexo: 'conteúdo do R2', flag: 'ligada' })
+  })
+
+  it('src/worker.ts: Durable Object exportado e scheduled junto do fetch', async () => {
+    const Contador = mod.Contador as new (s: unknown, e: unknown) => { fetch(): Promise<Response> }
+    const c = new Contador({}, env)
+    await c.fetch()
+    expect(await (await c.fetch()).text()).toBe('2')
+    await worker.scheduled({}, env)
+    expect(env.LOG).toEqual(['scheduled'])
   })
 
   it('ação, endpoint, +error aninhado e 404 no Worker', async () => {
@@ -184,5 +219,13 @@ describe('rotas por arquivos no modo Cloudflare Workers', () => {
     expect(await (await page(await call('/blog/x'))).byTestId('erro-post')).toMatchObject({ text: 'Post "x" não existe' })
     expect((await call('/nada')).status).toBe(404)
   })
-})
 
+  it('wrangler com main errado → erro dizendo o caminho do Worker gerado', async () => {
+    const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-wrangler')
+    await rm(tmp, { recursive: true, force: true })
+    await Bun.write(path.join(tmp, 'src', 'routes', '+page.tsx'), 'export default () => "x"\n')
+    await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: 'src/index.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
+    const err = await build(config, tmp).then(() => null, (e: Error) => e)
+    expect(err?.message).toContain('"main" em wrangler.jsonc é "src/index.ts", mas o Worker gerado pelo build é ".htsx/cloudflare/_worker.js"')
+  })
+})

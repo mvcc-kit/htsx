@@ -1,0 +1,7 @@
+import { sequence, type Handle } from '@repo/htsx/app'
+
+export const handle: Handle = sequence(async ({ event, resolve }) => {
+  const user = event.cookies.get('user')
+  if (user) event.locals.user = user
+  return resolve(event)
+})

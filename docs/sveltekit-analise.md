@@ -48,7 +48,7 @@ Num app, isso vira três arquivos: `src/app.tsx` (rotas, sem plataforma), `build
 Itens que ainda não foram feitos (entraram em `TAREFAS.md`, P7):
 
 1. **Códigos de erro com link.** O SvelteKit gera `messages/*.js` a partir de Markdown, e cada erro tem código e URL (`https://svelte.dev/e/kit/<código>`). Vale fazer o mesmo com âncoras no `SKILL.md`.
-2. ~~Rotas por arquivos~~ e 3. ~~tipos `$types` por pasta~~: feitos (`htsx sync`, `src/app/file-routes.ts`, `src/build/routes.ts`). Diferença do SvelteKit: não há `+page.ts`/`+layout.ts` universais, porque tudo roda no servidor. Os tipos usam `satisfies` em vez de reescrever o código-fonte, como faz o SvelteKit.
+2. ~~Rotas por arquivos~~ e 3. ~~tipos `$types` por pasta~~: feitos (`htsx.config.ts`, `src/app/file-routes.ts`, `src/build/routes.ts`). Diferença do SvelteKit: não há `+page.ts`/`+layout.ts` universais, porque tudo roda no servidor. Os tipos usam `satisfies` em vez de reescrever o código-fonte, como faz o SvelteKit.
 4. **`emulate()` em desenvolvimento.** O SvelteKit usa o `getPlatformProxy` do wrangler para ter `env` real no dev. Aqui há `assetsFromDir` e o `env` passado à mão. Integrar com o wrangler exigiria uma dependência de desenvolvimento, e isso precisa do seu pedido (regra 1).
 5. **Streaming da página.** `load` que devolve promessas resolvidas depois do primeiro byte. O `Suspense` atual resolve por uma requisição separada.
 6. **`precompress` no modo estático** (gzip e brotli dos arquivos), para hospedagens que não comprimem sozinhas. O Cloudflare comprime sozinho.

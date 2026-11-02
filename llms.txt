@@ -117,14 +117,37 @@ export async function getRows(req: Request, rows: Row[]): Promise<Response> {
 
 ## Aplicação e modos de entrega
 
-A lógica do app (rotas, dados, páginas, ações) fica separada da implementação (onde roda). O mesmo `defineApp` sai em dois modos:
+A lógica do app (rotas, dados, páginas, ações) fica separada da implementação (onde roda). Sem CLI: um arquivo de configuração, `htsx.config.ts`, escolhe o modo, e o próprio arquivo roda os comandos.
 
-| Modo | Para quê | Entrada |
+| Modo | Para quê | Na configuração |
 |---|---|---|
-| **Estático** | site todo pré-renderizado em HTML; qualquer hospedagem estática | `@repo/htsx/adapter-static` (build) |
-| **Cloudflare Workers** | rotas dinâmicas no Worker + páginas pré-renderizadas no Static Assets | `@repo/htsx/adapter-cloudflare` (Worker) e `/build` |
+| **Estático** | site todo pré-renderizado em HTML; qualquer hospedagem estática | `staticAdapter()` |
+| **Cloudflare Workers** | rotas dinâmicas no Worker (D1, R2, KV, Durable Objects...) + páginas pré-renderizadas no Static Assets | `cloudflareAdapter()` |
+| **Servidor Bun** | `Bun.serve` com as rotas, `static/` e o vendor | `bunAdapter()` |
 
-Estrutura sugerida: `src/app.tsx` (lógica, sem plataforma), `build.ts` (estático) e `src/worker.tsx` (Cloudflare). Só os dois últimos sabem da plataforma. As rotas podem ser declaradas com `route()` ou por arquivos (`src/routes/**/+page.tsx`), à escolha.
+```ts arquivo=htsx.config.ts
+import { cloudflareAdapter, defineConfig } from '@repo/htsx/config'
+
+export default defineConfig({
+  adapter: cloudflareAdapter(),          // ou staticAdapter() / bunAdapter({ port: 3000 })
+  options: { trailingSlash: 'never' },   // csrf, prerender, trailingSlash
+  // padrões: routes 'src/routes', params 'src/params', hooks 'src/hooks.server', assets 'static', out '.htsx'
+})
+```
+
+```json
+// package.json: os scripts só rodam o arquivo de configuração
+{ "scripts": { "dev": "bun --hot htsx.config.ts dev", "build": "bun htsx.config.ts build", "start": "bun htsx.config.ts start" } }
+```
+
+| Comando | Faz |
+|---|---|
+| `bun htsx.config.ts dev` | servidor local com as rotas; recarrega quando um arquivo de rota entra ou sai |
+| `bun htsx.config.ts build` | build do modo: `build/` (estático) ou `.htsx/cloudflare/` com o `_worker.js` (Cloudflare) |
+| `bun htsx.config.ts start` | servidor Bun de produção |
+| `bun htsx.config.ts sync` | só gera os tipos `./$types` (útil antes do `tsc` no CI) |
+
+Em código (testes, scripts): `import { loadApp, build, start, sync } from '@repo/htsx/project'`. `loadApp(config, root)` devolve o `App` pronto para `app.respond(request)`. As rotas também podem ser declaradas à mão com `route()`, sem pastas (abaixo).
 
 ### Rotas — `defineApp` e `route`
 
@@ -223,19 +246,20 @@ src/
 | `+server.ts` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `prerender`, `entries` |
 | `+error.tsx` | `default` (`{ status, message, event }`), mostrado dentro dos layouts acima dele |
 
-`htsx sync` (o `bin` do pacote) gera `.htsx/routes.ts`, com imports estáticos que o Worker empacota, e os tipos de cada pasta em `./$types`. Rode antes do build e do `tsc`, ou deixe `htsx sync --watch` aberto no desenvolvimento. No `tsconfig.json`: `"extends": ["./.htsx/tsconfig.json"]` (põe `.htsx/types` em `rootDirs`). Ponha `.htsx/` no `.gitignore`.
+Os tipos de cada pasta (`./$types`) são gerados sozinhos sempre que `dev`, `build`, `start`, `sync` ou `loadApp` rodam. No `tsconfig.json`: `"extends": "./.htsx/tsconfig.json"` (põe `.htsx/types` em `rootDirs`), com o `jsxImportSource` no próprio arquivo. Ponha `.htsx/` no `.gitignore`.
 
-```ts arquivo=src/app.ts
-import { defineApp } from '@repo/htsx/app'
-import { files } from '../.htsx/routes'   // { routes, errorPage, matchers }
+```ts arquivo=src/hooks.server.ts
+import type { Handle, HandleError } from '@repo/htsx/app'
 
-export const app = defineApp({
-  ...files,
-  handle: async ({ event, resolve }) => {
-    event.locals.user = event.cookies.get('user')   // chega em todo load como event.locals
-    return resolve(event)
-  },
-})
+export const handle: Handle = async ({ event, resolve }) => {
+  event.locals.user = event.cookies.get('user')   // chega em todo load como event.locals
+  return resolve(event)
+}
+
+export const handleError: HandleError = ({ error }) => {
+  console.error(error)
+  return { message: 'Erro interno' }              // nunca a mensagem real
+}
 ```
 
 ```ts arquivo=src/routes/blog/+layout.server.ts
@@ -284,80 +308,65 @@ Regras:
 - Uma requisição htmx parcial recebe só a página, sem layouts.
 - Vale o `+error.tsx` mais próximo, mas sempre acima de um layout cujo `load` falhou. Ele aparece dentro dos layouts que carregaram. Se a própria página de erro falhar, sai uma versão simples, sem derrubar a resposta.
 - `prerender` de um `+layout.server.ts` vale para as páginas abaixo, não para um `+server.ts` sozinho. Página com `actions` abaixo de um layout com `prerender` precisa de `export const prerender = false`.
-- Nome de arquivo desconhecido, id de pasta inválido, a mesma URL em dois grupos e `+page.server.ts` sem `+page.tsx` dão erro já no `htsx sync`. `+page.tsx` sem `export default` dá erro ao montar as rotas.
-- `route()` e as rotas por arquivos se misturam: `defineApp({ ...files, routes: [...files.routes, route('/x', {...})] })`.
+- Nome de arquivo desconhecido, id de pasta inválido, a mesma URL em dois grupos e `+page.server.ts` sem `+page.tsx` dão erro ao gerar as rotas (no `dev`, `build` ou `sync`). `+page.tsx` sem `export default` dá erro ao montar as rotas.
 
-### Modo estático — `buildStatic`
+### Modo estático
 
-O build apaga e recria `outDir`, por isso recusa a raiz do projeto, uma pasta que contenha `src/` e a própria pasta `static`. Todas as rotas precisam de `prerender`. Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
-
-```ts
-// build.ts → bun build.ts
-import { buildStatic } from '{{PKG}}/adapter-static'
-import { defineApp, route } from '{{PKG}}/app'
-
-const app = defineApp({ prerender: true, routes: [route('/', { page: () => 'Olá' })] })
-
-export async function build() {
-  // grava build/: páginas, 404.html, arquivos de static/ e Alpine/htmx em VENDOR_PATH
-  return buildStatic(app, { outDir: 'build', assets: 'static' })
-}
-```
+`staticAdapter({ outDir: 'build', fallback: '404.html', strict: true })`. O build apaga e recria `outDir`, por isso recusa a raiz do projeto, uma pasta que contenha `src/` e a própria pasta `static`. Todas as rotas precisam de `prerender` (herdado de um `+layout.server.ts` ou em `options`). Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
 
 No modo estático, um `hx-get` para uma página recebe a página inteira. Para fragmentos, use rotas com `layout: false` ou `hx-select`.
 
-### Modo Cloudflare Workers — `cloudflare` e `buildCloudflare`
+Sem configuração, com rotas declaradas à mão: `buildStatic(app, { outDir: 'build' })` de `{{PKG}}/adapter-static`.
 
-Segue o `adapter-cloudflare` do SvelteKit. As rotas com `prerender` viram arquivos no Static Assets, servidos sem acordar o Worker. O resto roda no Worker, com `event.platform = { env, ctx, caches, cf }`.
+### Modo Cloudflare Workers
+
+Segue o `adapter-cloudflare` do SvelteKit. O build pré-renderiza as rotas com `prerender` para o Static Assets, servidas sem acordar o Worker. Depois empacota o resto num único `.htsx/cloudflare/_worker.js`, com `event.platform = { env, ctx, caches, cf }`. Ele confere o `wrangler.jsonc` e explica o que faltar:
 
 ```jsonc
-// wrangler.jsonc (o build confere estas chaves e explica o que faltar)
+// wrangler.jsonc → bun htsx.config.ts build && wrangler deploy
 {
   "name": "meu-site",
-  "main": "src/worker.tsx",
+  "main": ".htsx/cloudflare/_worker.js",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_als"],
-  "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" }
+  "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" },
+  "d1_databases": [{ "binding": "DB", "database_name": "app", "database_id": "..." }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "arquivos" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "..." }]
 }
 ```
 
-```tsx
-// src/worker.tsx — só liga o app ao Worker
-import { cloudflare, cloudflarePlatform } from '{{PKG}}/adapter-cloudflare'
-import { defineApp, route } from '{{PKG}}/app'
+D1, R2, KV, Queues, Durable Objects, Workers AI e os outros bindings chegam em `env`, igual a um Worker comum. Os tipos saem do `wrangler types`, que gera a interface global `Env`:
 
-interface Env { SAUDACAO: string }
+```ts arquivo=src/routes/api/notas/+server.ts
+import { cloudflarePlatform } from '@repo/htsx/adapter-cloudflare'
+import type { RequestHandler } from './$types'
 
-const app = defineApp({
-  routes: [
-    route('/ola', {
-      load: event => {
-        const { env, ctx } = cloudflarePlatform<Env>(event)   // erro claro fora do Worker ou no prerender
-        ctx.waitUntil(Promise.resolve())                      // trabalho depois da resposta
-        return env.SAUDACAO
-      },
-      page: ({ data }) => <p>{data}</p>,
-    }),
-  ],
-})
-
-// O manifesto vem do build: import manifest from '../.htsx/cloudflare-manifest.json'
-export default cloudflare<Env>(app, { manifest: { prerendered: [] } })
+export const POST = (async event => {
+  const { env, ctx } = cloudflarePlatform<Env>(event)   // erro claro fora do Worker ou no prerender
+  const { texto } = await event.request.json() as { texto: string }
+  await env.DB.prepare('insert into notas (texto) values (?)').bind(texto).run()   // D1
+  ctx.waitUntil(env.BUCKET.put('ultima.txt', texto))                               // R2, depois da resposta
+  return Response.json({ ok: true }, { status: 201 })
+}) satisfies RequestHandler
 ```
 
-```ts
-// build.ts → bun build.ts && wrangler deploy
-import { buildCloudflare } from '{{PKG}}/adapter-cloudflare/build'
-import type { App } from '{{PKG}}/app'
+```ts arquivo=src/worker.ts
+// Opcional: juntado ao Worker gerado. Exports nomeados (Durable Objects, Workflows) e outros handlers.
+export class Contador { /* Durable Object */ }
 
-export async function build(app: App) {
-  // confere wrangler.jsonc; grava .htsx/cloudflare/ (pré-renderizadas, static/, vendor com cache immutable,
-  // _headers e _redirects da raiz + os gerados, .assetsignore) e .htsx/cloudflare-manifest.json
-  return buildCloudflare(app)
+export default {
+  async scheduled(controller: ScheduledController, env: Env) { /* cron */ },
+  async queue(batch: MessageBatch, env: Env) { /* filas */ },
 }
 ```
 
-Em desenvolvimento e testes, `assetsFromDir('.htsx/cloudflare')` faz o papel do `env.ASSETS`: `worker.fetch(req, { ASSETS: await assetsFromDir(dir), ...vars }, ctx)`.
+- **No `dev`**, `event.platform.env` vem de `cloudflareAdapter({ devEnv })`. Para D1, R2 e KV reais localmente, rode `wrangler dev` em cima do build.
+- **Sem configuração**, com rotas à mão: `cloudflare(app, { manifest })` em `{{PKG}}/adapter-cloudflare` e `buildCloudflare(app)` em `{{PKG}}/adapter-cloudflare/build`. `assetsFromDir(dir)` faz o papel do `env.ASSETS` nos testes.
+
+### Servidor Bun
+
+`bunAdapter({ port, hostname })`. `bun htsx.config.ts start` sobe `Bun.serve` com as rotas, `static/` e o vendor (`Cache-Control: immutable`). `event.platform.server` é o `Bun.Server`, e `getClientAddress()` dá o IP. Sem configuração: `serve(app, { port })` em `{{PKG}}/adapter-bun`.
 
 ---
 

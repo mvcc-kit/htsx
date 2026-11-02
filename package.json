@@ -14,7 +14,9 @@
     "./adapter-static": "./adapter-static.ts",
     "./adapter-cloudflare": "./adapter-cloudflare.ts",
     "./adapter-cloudflare/build": "./adapter-cloudflare-build.ts",
-    "./routes": "./routes.ts"
+    "./config": "./config.ts",
+    "./project": "./project.ts",
+    "./adapter-bun": "./adapter-bun.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -27,8 +29,5 @@
   "devDependencies": {
     "typescript": "5.9.2",
     "@types/bun": "1.4.2"
-  },
-  "bin": {
-    "htsx": "./cli.ts"
   }
 }

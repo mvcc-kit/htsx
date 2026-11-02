@@ -4,7 +4,7 @@
 //   +server.ts                      → GET/POST/... (endpoint)
 //   +error.tsx                      → página de erro mais próxima
 // Os dados descem: cada layout recebe os dados dele e dos layouts acima; a página recebe todos.
-// Lógica pura: recebe os módulos já importados (o manifesto gerado por `htsx sync`).
+// Lógica pura: recebe os módulos já importados (o manifesto gerado no sync do htsx.config.ts).
 import { route, type ErrorPage, type Layout, type RequestEvent, type Route, type RouteDef } from './app'
 import type { ParamMatcher } from './routing'
 import type { ActionFailure } from './errors'
