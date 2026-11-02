@@ -25,10 +25,10 @@ export default {
 
 ## Instalação
 
-`@repo/htsx` é um pacote privado do workspace (não está no npm). No `package.json` do app:
+Sem npm: a instalação vem direto do GitHub, por tag imutável. Só para Bun, porque `exports` aponta para os `.ts`.
 
 ```json
-{ "dependencies": { "@repo/htsx": "workspace:*" } }
+{ "dependencies": { "@repo/htsx": "github:mvcc-kit/htsx#v0.1.0-beta.1" } }
 ```
 
 E no `tsconfig.json`:
@@ -36,6 +36,10 @@ E no `tsconfig.json`:
 ```json
 { "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "@repo/htsx" } }
 ```
+
+## Versões
+
+O htsx está em beta e a API ainda pode mudar. Regras em [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Documentação
 

@@ -1,6 +1,6 @@
 # AGENTS.md: guia para agentes que mexem no htsx
 
-`@repo/htsx` transforma JSX em HTML no servidor, para páginas com htmx e Alpine. Não é React: JSX vira string, sem DOM virtual. Roda em Bun e em Cloudflare Workers. Princípios gerais do repositório: [`docs/principios-ia-nativa.md`](../../docs/principios-ia-nativa.md). Revisão e plano: [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md).
+`@repo/htsx` transforma JSX em HTML no servidor, para páginas com htmx e Alpine. Não é React: JSX vira string, sem DOM virtual. Roda em Bun e em Cloudflare Workers. Revisão e plano: [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md).
 
 ## Leia primeiro (5 minutos)
 
@@ -29,7 +29,6 @@
 ## Antes de terminar
 
 ```sh
-cd pkg/htsx
 bun test             # 500+ testes; nenhum pode depender de tempo
 bunx tsc --noEmit -p .
 bunx tsc --noEmit -p ui   # design system @repo/htsx-ui
@@ -38,4 +37,4 @@ bun run scorecard         # placar: testes, tamanho, o que some sem aviso, pend�
 
 O tamanho minificado tem teto em `size-limit.json` (testado em `__tests__/size.test.ts`). Se precisar subir, mude `maxBytes` e explique em `motivo`.
 
-Depois rode `bun run check-types` na raiz, porque o `apps/email-worker` usa a biblioteca. Relate o que verificou e o que não verificou.
+Depois teste num projeto que usa a biblioteca, porque o `tsconfig` dele pode ser mais estrito que o daqui. Relate o que verificou e o que não verificou.
