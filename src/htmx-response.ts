@@ -2,6 +2,7 @@
  * Builder de Response HTMX com HX-* headers tipados.
  */
 import { HX_HEADERS } from './htmx-headers'
+import { toHtml } from './jsx-runtime'
 
 export interface HtmxResponseOpts {
   trigger?:   string | Record<string, unknown>
@@ -18,7 +19,7 @@ export async function htmxResponse(
   factory: () => unknown,
   opts: HtmxResponseOpts = {},
 ): Promise<Response> {
-  const body = await Promise.resolve(factory())
+  const body = await toHtml(factory())
   const headers: Record<string, string> = {
     'Content-Type': 'text/html; charset=utf-8',
   }
@@ -34,7 +35,7 @@ export async function htmxResponse(
   if (opts.redirect) headers[HX_HEADERS.Redirect] = opts.redirect
   if (opts.refresh)  headers[HX_HEADERS.Refresh]  = 'true'
 
-  return new Response(String(body), {
+  return new Response(body, {
     status: opts.status ?? 200,
     headers,
   })

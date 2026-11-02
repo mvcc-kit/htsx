@@ -8,6 +8,7 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 - [x] Falha 2 (alta): texto dentro de `<script>` ou `<style>` consegue fechar a tag. Ali só aceitar `raw()` ou `HtmlSafeString`; texto comum vira erro. Teste que falhava antes.
 - [x] Falha 3 (média): `aria-expanded={true}` sai sem valor e `aria-hidden={false}` some. Em `aria-*` e `data-*`, booleano vira `"true"` ou `"false"`. Teste que falhava antes.
 - [x] Teste de entrada aleatória para o retorno de componentes e para filhos de `<script>` e `<style>`.
+- [x] Falha 1 também na raiz: a string devolvida pela função de `renderPage`, `renderToString` e `htmxResponse` é escapada.
 - [ ] Antes de corrigir a falha 1, conferir se algum app que usa o htsx devolve, de um componente, texto vindo de entrada externa.
 
 ## P1. Mais fácil para a IA
@@ -58,4 +59,4 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Rotas por arquivos (opcional): `+page.tsx`, `+page.server.ts`, `+layout.tsx`, `+layout.server.ts` com `parent()`, `+server.ts`, `+error.tsx`, grupos, `src/params`; `htsx sync` gera o manifesto e os tipos `./$types`.
 - [ ] Testar o Worker no `workerd` de verdade. Hoje é testado com `assetsFromDir` e `env` simulado; o `wrangler` entraria como dependência de desenvolvimento, que precisa do pedido do dono.
 - [ ] Streaming de `load` (promessas resolvidas depois do primeiro byte).
-- [ ] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker.
+- [x] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker (`modes(app)` em `@repo/htsx/testing`).

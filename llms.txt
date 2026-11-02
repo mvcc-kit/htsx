@@ -44,7 +44,7 @@ Se morre quando o elemento sai do DOM, é do Alpine.
 
 ## Segurança e modo estrito
 
-- Texto interpolado em JSX é **escapado sempre**, inclusive a string que um componente devolve.
+- Texto interpolado em JSX é **escapado sempre**, inclusive a string que um componente devolve e a que a função passada a `renderPage`, `renderToString` ou `htmxResponse` devolve.
 - Texto comum dentro de `<script>` ou `<style>` **lança erro** (e é erro de compilação): use `raw()` para código confiável e `raw(safeJson(dados))` para dados.
 - `on*` (`onclick`, `onload`...) é bloqueado: use `$click` (Alpine) ou `hx-on:click`.
 - URLs em `href`, `src`, `action` e `formaction` com `javascript:`, `data:`, `blob:` ou `vbscript:` viram `#`. Caracteres invisíveis são removidos antes da checagem.
@@ -708,6 +708,22 @@ await p.text('h1')                 // 'Oi' — texto do 1º elemento (entidades 
 await p.attr('form', 'hx-post')    // '/s' — atributo do 1º elemento ou null
 await p.byTestId('enviar')         // { tag, attrs, text } do 1º [data-testid="enviar"] ou null
 await p.find('button')             // todos os elementos, em ordem
+```
+
+A mesma suíte nos modos de entrega: `modes(app)` faz o build estático e o do Cloudflare numa pasta temporária. Devolve um `fetch` por modo (`app` direto, `static` como um host estático, `cloudflare` como o Worker com o Static Assets). Nos três, `static/` e o vendor são servidos antes das rotas.
+
+```ts
+import { defineApp, route } from '{{PKG}}/app'
+import { modes } from '{{PKG}}/testing'
+
+const app = defineApp({ prerender: true, routes: [route('/', { page: () => 'Olá' })] })
+
+export async function suite() {
+  for (const mode of await modes(app, { root: '.', env: { SAUDACAO: 'oi' } })) {   // env: bindings do Worker
+    const res = await mode.fetch('/')
+    if (await res.text() !== 'Olá') throw new Error(`${mode.name}: página errada`)
+  }
+}
 ```
 
 Navegador real pelo Chrome DevTools Protocol (Chrome/Chromium da máquina ou `CHROME_PATH`; sem Playwright). `inspect()` e `set()` usam o inspetor de desenvolvimento: `{raw(inspector())}` no `<head>`, antes de qualquer `storeInit()`. Ele expõe `window.__htsx.inspect()` → `{ url, stores, data }` (chave de cada `x-data`: `#id`, `testid:<data-testid>` ou `x-data:<índice>`) e `__htsx.set(caminho, valor)`. **Só em desenvolvimento.**

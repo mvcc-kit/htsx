@@ -1,7 +1,7 @@
 // Núcleo da aplicação: rotas, load, ações de formulário, hooks e erros.
 // Lógica sem plataforma: recebe Request e devolve Response. Os adaptadores
 // (estático e Cloudflare Workers) só chamam `app.respond()`.
-import { Fragment, raw } from '../jsx-runtime'
+import { Fragment, raw, toHtml } from '../jsx-runtime'
 import { withContext, maybeContext } from '../context'
 import { cacheContext } from '../cache'
 import { ActionFailure, HttpError, Redirect } from './errors'
@@ -157,9 +157,7 @@ export function sequence(...handlers: Handle[]): Handle {
 
 const FORM_TYPES = ['application/x-www-form-urlencoded', 'multipart/form-data', 'text/plain']
 
-async function renderNode(node: unknown): Promise<string> {
-  return String(await Fragment({ children: node }))
-}
+const renderNode = toHtml
 
 export function defineApp(options: AppOptions): App {
   const routes = [...options.routes].sort((a, b) => compareRoutes(a.parsed, b.parsed))

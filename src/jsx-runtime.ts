@@ -113,6 +113,11 @@ export function jsx<P extends Record<string, unknown>>(tag: Tag<P>, props: P, _k
 export const jsxs = jsx
 export const jsxDEV = jsx
 
+/** Renderiza qualquer nó (JSX, lista, Promise, texto) em HTML; texto comum é escapado. */
+export async function toHtml(node: unknown): Promise<string> {
+  return String(await Fragment({ children: node }))
+}
+
 export function Fragment(props: { children?: unknown }): HtmlSafeString | Promise<HtmlSafeString> {
   return toSafe(renderChildren(props.children, { escape: true }))
 }

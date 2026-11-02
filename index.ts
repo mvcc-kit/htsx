@@ -48,6 +48,7 @@ export type { IndicatorProps } from './src/htmx-ux'
 type AnyNode = unknown
 
 import { withContext as _withContext } from './src/context'
+import { toHtml as _toHtml } from './src/jsx-runtime'
 
 export interface RenderOptions<Ctx = unknown> {
   context?: Ctx
@@ -58,8 +59,7 @@ export function renderPage<Ctx = unknown>(
   opts?: RenderOptions<Ctx>,
 ): Promise<string> {
   const run = async () => {
-    const body = await Promise.resolve(factory())
-    return `<!DOCTYPE html>${String(body)}`
+    return `<!DOCTYPE html>${await _toHtml(factory())}`
   }
   return opts && 'context' in opts
     ? _withContext(opts.context, run)
@@ -70,7 +70,7 @@ export function renderToString<Ctx = unknown>(
   factory: () => AnyNode,
   opts?: RenderOptions<Ctx>,
 ): Promise<string> {
-  const run = async () => String(await Promise.resolve(factory()))
+  const run = async () => _toHtml(factory())
   return opts && 'context' in opts
     ? _withContext(opts.context, run)
     : run()

@@ -384,3 +384,14 @@ describe('ErrorBoundary: filhos passam pelo escape', () => {
     expect(html).toBe('<b>1</b>&lt;2&gt;')
   })
 })
+
+describe('Falha 1 (raiz): string devolvida pela função de render é escapada', () => {
+  const XSS = '<img src=x onerror=alert(1)>'
+  it('renderToString, renderPage e htmxResponse', async () => {
+    const { renderPage, htmxResponse } = await import('../index')
+    expect(await renderToString(() => XSS)).toBe('&lt;img src=x onerror=alert(1)&gt;')
+    expect(await renderPage(() => XSS)).toBe('<!DOCTYPE html>&lt;img src=x onerror=alert(1)&gt;')
+    expect(await (await htmxResponse(() => XSS)).text()).toBe('&lt;img src=x onerror=alert(1)&gt;')
+    expect(await renderToString(() => raw('<b>ok</b>'))).toBe('<b>ok</b>')
+  })
+})
