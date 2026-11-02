@@ -64,7 +64,7 @@ htsx is **secure by default** — no configuration needed:
 
 To insert trusted HTML, use [`raw()`](#rawhtml-string).
 
-**Strict mode:** set `HTSX_STRICT=1` (recommended in tests). Anything that would be dropped silently — object, `Date`, `bigint` or function as a child, invalid attribute name, `on*`, URL replaced by `#` — throws `htsx: ...` naming the problem and the fix.
+**Strict mode:** set `HTSX_STRICT=1` (recommended in tests). Anything that would be dropped silently — object, `Date`, `bigint` or function as a child, invalid attribute name, `on*`, URL replaced by `#`, invalid CSS in `style` — throws `htsx: ...` naming the problem and the fix.
 
 ---
 

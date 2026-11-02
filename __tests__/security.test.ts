@@ -137,6 +137,7 @@ describe('XSS: HtmlSafeString vs string literal', () => {
 })
 
 describe('CSS injection via style object', () => {
+  semModoEstrito()
   it('< e > no valor CSS são removidos', async () => {
     const html = await renderToString(() =>
       h('div', { style: { color: 'red</style><script>alert(1)' } })

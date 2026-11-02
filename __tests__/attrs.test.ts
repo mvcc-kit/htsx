@@ -139,9 +139,12 @@ describe('style object → CSS string', () => {
   })
   it('valor numérico (ex: zIndex)', () =>
     expect(attrs({ style: { zIndex: 10 } })).toBe('style="z-index: 10;"'))
-  it('remove < e > do valor CSS', () => {
-    const out = attrs({ style: { color: 'red</style>' } })
-    expect(out).not.toContain('</style>')
+  describe('fora do modo estrito', () => {
+    semModoEstrito()
+    it('remove < e > do valor CSS', () => {
+      const out = attrs({ style: { color: 'red</style>' } })
+      expect(out).not.toContain('</style>')
+    })
   })
 })
 

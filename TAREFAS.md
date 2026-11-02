@@ -42,5 +42,5 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 ## P6. Placar
 
-- [ ] `bun run scorecard`: número de testes, tamanho minificado, o que ainda some sem aviso e pendências desta lista.
-- [ ] Teto de tamanho que falha o CI se crescer sem explicação.
+- [x] `bun run scorecard`: número de testes, tamanho minificado, o que ainda some sem aviso e pendências desta lista.
+- [x] Teto de tamanho que falha o CI se crescer sem explicação.

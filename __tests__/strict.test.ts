@@ -34,6 +34,12 @@ describe('modo estrito (HTSX_STRICT=1, ligado nos testes)', () => {
   it('URL perigosa → erro em vez de "#"', () =>
     expect(() => h('a', { href: 'javascript:alert(1)' })).toThrow(/htsx: URL "javascript:alert\(1\)" em href de <a> foi trocada por "#"/))
 
+  it('propriedade CSS inválida → erro', () =>
+    expect(() => h('p', { style: { 'a;b': 'x' } })).toThrow(/htsx: propriedade CSS inválida "a;b" em style de <p>/))
+
+  it('valor CSS com < ou > → erro', () =>
+    expect(() => h('p', { style: { color: 'red<' } })).toThrow(/htsx: valor CSS "red<" em style de <p> tem < ou >/))
+
   it('valores válidos seguem sem erro', () => {
     expect(String(h('a', { href: '#', $click: 'x()' }, 'ok', 1, null, false, raw('<b/>'))))
       .toBe('<a href="#" x-on:click="x()">ok1<b/></a>')

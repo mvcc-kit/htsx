@@ -31,12 +31,14 @@ export const JSX_TO_HTML_ATTRS: Record<string, string> = {
 // HTML attributes that carry URLs — auto-sanitized via safeUrl
 const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction'])
 
-function serializeStyle(obj: Record<string, string | number>): string {
+function serializeStyle(obj: Record<string, string | number>, tag: string): string {
   return Object.entries(obj)
     .filter(([, v]) => v != null && v !== '')
     .map(([k, v]) => {
       const key = cssKey(k)
       // Drop property if key is invalid (could inject into style="...")
+      if (!key) strictFail(`propriedade CSS inválida ${JSON.stringify(k)} em style de <${tag}>; use camelCase (fontSize) ou kebab-case (font-size)`)
+      if (/[<>]/.test(String(v))) strictFail(`valor CSS ${JSON.stringify(String(v))} em style de <${tag}> tem < ou >, que são removidos; tire esses caracteres`)
       return key ? `${key}: ${cssValue(v)};` : ''
     })
     .filter(Boolean)
@@ -87,7 +89,7 @@ export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento')
     // object / array values
     if (typeof value === 'object' && value !== null) {
       if (rawKey === 'style') {
-        const css = serializeStyle(value as Record<string, string | number>)
+        const css = serializeStyle(value as Record<string, string | number>, tag)
         parts.push(`style="${css}"`)
       } else {
         parts.push(`${rawKey}='${attrJson(value)}'`)

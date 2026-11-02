@@ -1,0 +1,10 @@
+{
+  "index.ts": {
+    "maxBytes": 26000,
+    "motivo": "02/11/2026: núcleo com modo estrito, vendor/pins, inspector e defineStore = 24.275 bytes; folga de ~7%"
+  },
+  "store.ts": {
+    "maxBytes": 1500,
+    "motivo": "02/11/2026: entrada do cliente (defineStore) = 1.043 bytes; vai para o navegador, então teto apertado"
+  }
+}

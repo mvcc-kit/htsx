@@ -32,7 +32,7 @@ Arquivos com JSX → extensão `.tsx`.
 - String devolvida por componente também é escapada.
 - Texto comum dentro de `<script>` ou `<style>` lança erro: use `raw()` (dados: `raw(safeJson(x))`).
 - Booleano em `aria-*` e `data-*` vira `"true"` ou `"false"`.
-- **Modo estrito** (`HTSX_STRICT=1`, ligue nos testes): objeto, `Date`, `bigint` ou função como filho, nome de atributo inválido, `on*` e URL trocada por `#` lançam erro `htsx: ...` com a correção. Sem ele, esses casos somem em silêncio (comportamento seguro).
+- **Modo estrito** (`HTSX_STRICT=1`, ligue nos testes): objeto, `Date`, `bigint` ou função como filho, nome de atributo inválido, `on*`, URL trocada por `#` e CSS inválido em `style` lançam erro `htsx: ...` com a correção. Sem ele, esses casos somem em silêncio (comportamento seguro).
 
 ---
 

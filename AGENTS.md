@@ -30,6 +30,9 @@ cd pkg/htsx
 bun test             # 500+ testes; nenhum pode depender de tempo
 bunx tsc --noEmit -p .
 bunx tsc --noEmit -p ui   # design system @repo/htsx-ui
+bun run scorecard         # placar: testes, tamanho, o que some sem aviso, pendências
 ```
+
+O tamanho minificado tem teto em `size-limit.json` (testado em `__tests__/size.test.ts`). Se precisar subir, mude `maxBytes` e explique em `motivo`.
 
 Depois rode `bun run check-types` na raiz, porque o `apps/email-worker` usa a biblioteca. Relate o que verificou e o que não verificou.
