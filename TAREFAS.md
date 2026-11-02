@@ -70,3 +70,8 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] `event.platform` igual em dev, testes e prerender: emulado pelo `wrangler.jsonc` (com o wrangler do projeto, D1/R2/KV locais reais; sem ele, `vars` e `.dev.vars`).
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
+
+## P9. Navegação fluida na raiz
+
+- [x] `Navigation` e `head({ navigation })`: transição nativa entre páginas, pré-carregamento de links e htmx com a mesma transição, com ou sem `defineApp`, testado no Chrome real com CSP estrita.
+- [x] Página sem `layout` que devolve `<html>` completo sai com `<!DOCTYPE html>` (saía em modo de compatibilidade).

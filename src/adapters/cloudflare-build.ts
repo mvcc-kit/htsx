@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { App } from '../app/app'
-import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, fileServer, writePrerendered } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, fileServer, writePrerendered, type VendorOption } from '../build/files'
 import { prerender, type PrerenderOptions } from '../build/prerender'
 import { VENDOR_PATH } from '../vendor-path'
 import type { AssetsFetcher, CloudflareManifest } from './cloudflare'
@@ -20,8 +20,8 @@ export interface CloudflareBuildOptions {
   assets?: string
   /** Arquivo do wrangler a conferir. Padrão: `wrangler.jsonc` ou `wrangler.json`; `false` pula. */
   wrangler?: string | false
-  /** Copia Alpine e htmx para `VENDOR_PATH`. Padrão `true`. */
-  vendor?: boolean
+  /** Copia Alpine, htmx e a navegação para `VENDOR_PATH`. Padrão `true`; `'navigation'` copia só a navegação. */
+  vendor?: VendorOption
   /** Worker gerado pelo build (htsx.config.ts): o `main` do wrangler precisa apontar para ele. */
   expectMain?: string
   prerender?: Omit<PrerenderOptions, 'assets'>
@@ -110,7 +110,7 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
   assertSafeOutDir(outDir, cwd, assetsDir)
   await cleanDir(outDir)
   const assets = new Set(await copyAssets(assetsDir, outDir))
-  if (opts.vendor ?? true) for (const f of await copyVendor(outDir)) assets.add(f)
+  for (const f of await copyVendor(outDir, opts.vendor ?? true)) assets.add(f)
 
   const result = await prerender(app, { ...opts.prerender, assets })
   await writePrerendered(result.files, outDir)

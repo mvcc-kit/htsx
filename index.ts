@@ -44,6 +44,8 @@ export {
   confirmAttrs, Indicator, transitionAttrs, transitionName,
 } from './src/htmx-ux'
 export type { IndicatorProps } from './src/htmx-ux'
+export { Navigation, navigationCss, navigationJs, navigationTags, NAVIGATION_FILES } from './src/navigation'
+export type { NavigationOpts } from './src/navigation'
 
 type AnyNode = unknown
 

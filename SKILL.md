@@ -176,7 +176,7 @@ const posts: Record<string, string> = { ola: 'Primeiro post' }
 
 const Layout = ({ children }: { children?: Children }) => (
   <html lang="pt-br">
-    <head>{raw(head({ title: 'Site', htmx: true, alpine: true, vendor: VENDOR_PATH }))}</head>
+    <head>{raw(head({ title: 'Site', htmx: true, alpine: true, vendor: VENDOR_PATH, navigation: true }))}</head>
     <body>{children}</body>
   </html>
 )
@@ -563,6 +563,34 @@ export const Page = () => (
 import { head } from '{{PKG}}'
 
 export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpine: true, nonce: 'abc', vendor: '/static/vendor/' })
+```
+
+---
+
+## Navegação fluida
+
+`head({ navigation: true })` ou `<Navigation />` em qualquer `<head>`, com ou sem `defineApp`:
+
+- transição nativa entre páginas (`@view-transition`), desligada para quem pede menos movimento;
+- pré-carrega o HTML do link ao passar o mouse, focar ou tocar, respeitando economia de dados;
+- com htmx, as trocas dele usam a mesma transição (`globalViewTransitions`);
+- `[x-cloak]` escondido até o Alpine iniciar.
+
+Continua sendo navegação real: scripts, Alpine, voltar e histórico não mudam. Em navegador sem suporte, a página só abre sem animação; o Chrome e o Safari 18.2+ animam.
+
+- **Link GET com efeito colateral (ex.: `/logout`) precisa de `data-no-prefetch`.** O pré-carregamento faz o GET antes do clique. Links com `hx-get`, dentro de `hx-boost`, de outra origem, com `target` ou `download` já ficam de fora.
+- Com `base` (ou `vendor` em `head()`), o CSS e o JS vêm de arquivos, para CSP sem `unsafe-inline`. Os adaptadores servem `VENDOR_PATH`; pasta própria serve `NAVIGATION_FILES`. Sem `base`, saem embutidos, com o `nonce` informado.
+- Site sem Alpine nem htmx: `buildStatic(app, { vendor: 'navigation' })` copia só esses dois arquivos.
+
+```tsx
+import { Navigation, renderPage, VENDOR_PATH } from '{{PKG}}'
+
+export const html = await renderPage(() => (
+  <html>
+    <head><Navigation base={VENDOR_PATH} /></head>
+    <body><a href="/sobre">Sobre</a> <a href="/sair" data-no-prefetch>Sair</a></body>
+  </html>
+))
 ```
 
 ---

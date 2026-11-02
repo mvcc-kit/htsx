@@ -65,6 +65,8 @@ export function defineStore<const Name extends string, S extends object, D = {},
     create,
     html: (initial = {}) => `<script type="application/json" data-htsx-store="${name}">${safeJson(initial)}</script>`,
     register() {
+      // Tipo só aqui: quem usa o htsx em Worker compila sem a lib DOM.
+      const document = (globalThis as unknown as { document: { addEventListener(type: string, listener: () => void): void; querySelector(selector: string): { textContent: string | null } | null } }).document
       document.addEventListener('alpine:init', () => {
         const Alpine = (globalThis as unknown as { Alpine: { store(n: string, v?: unknown): any; effect(fn: () => void): void } }).Alpine
         const el = document.querySelector(`script[data-htsx-store="${name}"]`)

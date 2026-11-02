@@ -208,5 +208,9 @@ export async function run(cmd: Command, config: HtsxConfig, root: string): Promi
   if (cmd === 'build') { await build(config, root); return }
   const server = await start(config, root, { watch: cmd === 'dev' })
   // Ctrl+C / parada do processo: fecha o servidor e o wrangler local antes de sair
-  for (const sig of ['SIGINT', 'SIGTERM'] as const) process.once(sig, () => { void server.stop().finally(() => process.exit(0)) })
+  const stop = () => { void server.stop().finally(() => process.exit(0)) }
+  // Cast estrutural: no monorepo só o bun-types descreve `process`, sem os sinais.
+  const signals = process as unknown as { once(signal: string, listener: () => void): unknown }
+  signals.once('SIGINT', stop)
+  signals.once('SIGTERM', stop)
 }

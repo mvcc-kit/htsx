@@ -3,7 +3,7 @@
 // Como o adapter-static do SvelteKit: falha se alguma rota precisar de servidor.
 import path from 'node:path'
 import type { App } from '../app/app'
-import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, redirectHtml, writePrerendered } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, redirectHtml, writePrerendered, type VendorOption } from '../build/files'
 import { outputFile, prerender, type PrerenderOptions } from '../build/prerender'
 
 export interface StaticOptions {
@@ -17,8 +17,8 @@ export interface StaticOptions {
   fallback?: string | false
   /** `false` aceita rotas dinâmicas (elas ficam de fora do site). Padrão `true`. */
   strict?: boolean
-  /** Copia Alpine e htmx para `VENDOR_PATH`. Padrão `true`. */
-  vendor?: boolean
+  /** Copia Alpine, htmx e a navegação para `VENDOR_PATH`. Padrão `true`; `'navigation'` copia só a navegação. */
+  vendor?: VendorOption
   prerender?: Omit<PrerenderOptions, 'assets'>
 }
 
@@ -57,7 +57,7 @@ export async function buildStatic(app: App, opts: StaticOptions = {}): Promise<B
   assertSafeOutDir(outDir, root, assetsDir)
   await cleanDir(outDir)
   const assets = new Set(await copyAssets(assetsDir, outDir))
-  if (opts.vendor ?? true) for (const f of await copyVendor(outDir)) assets.add(f)
+  for (const f of await copyVendor(outDir, opts.vendor ?? true)) assets.add(f)
 
   const result = await prerender(app, { ...opts.prerender, assets })
   await writePrerendered(result.files, outDir)

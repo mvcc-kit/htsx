@@ -209,7 +209,8 @@ export function defineApp(options: AppOptions): App {
     const layout = route.def.layout === false ? undefined : route.def.layout ?? options.layout
     headers.set('content-type', 'text/html; charset=utf-8')
     if (layout) headers.append('vary', 'HX-Request')
-    if (!layout || event.isFragment) return new Response(body, { status, headers })
+    if (event.isFragment) return new Response(body, { status, headers })
+    if (!layout) return new Response(/^\s*<html[\s>]/i.test(body) ? `<!DOCTYPE html>${body}` : body, { status, headers })
     return new Response(`<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`, { status, headers })
   }
 

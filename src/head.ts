@@ -7,6 +7,7 @@
 import { escapeHtml, escapeAttr } from './escape'
 import type { AlpinePluginName } from './alpine'
 import { strictFail } from './strict'
+import { navigationTags } from './navigation'
 import pins from '../vendor/pins.json'
 
 export type VendorName = keyof typeof pins
@@ -45,6 +46,8 @@ export interface HeadOpts {
   nonce?:       string
   /** Caminho local onde o app serve os arquivos de `vendor/` (ex.: '/static/vendor/'). Sem CDN. */
   vendor?:      string
+  /** Transição entre páginas e pré-carregamento de links. Com `vendor`, os arquivos vêm dessa pasta; sem ele, saem embutidos. */
+  navigation?:  boolean
 }
 
 export function head(opts: HeadOpts = {}): string {
@@ -59,6 +62,10 @@ export function head(opts: HeadOpts = {}): string {
 
   for (const href of opts.styles ?? []) {
     parts.push(`<link rel="stylesheet" href="${escapeAttr(href)}">`)
+  }
+
+  if (opts.navigation) {
+    parts.push(navigationTags({ base: opts.vendor, nonce: opts.nonce, htmx: Boolean(opts.htmx) }))
   }
 
   if (opts.alpine) {

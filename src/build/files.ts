@@ -5,6 +5,7 @@ import path from 'node:path'
 import pins from '../../vendor/pins.json'
 import type { PrerenderedFile } from './prerender'
 import { VENDOR_PATH } from '../vendor-path'
+import { NAVIGATION_FILES } from '../navigation'
 
 // Resolvido pelo pacote (exports './vendor/*'): funciona no workspace (@repo/htsx) e no dist/ (htsx)
 export const VENDOR_DIR = path.dirname(new URL(resolveVendor()).pathname)
@@ -50,9 +51,18 @@ export async function copyAssets(from: string, to: string): Promise<string[]> {
   return files
 }
 
-/** Copia Alpine, htmx e plugins de `vendor/` para `<saída>` + VENDOR_PATH. */
-export async function copyVendor(to: string): Promise<string[]> {
+/** O que copiar para VENDOR_PATH: tudo, só a navegação (site sem Alpine nem htmx) ou nada. */
+export type VendorOption = boolean | 'navigation'
+
+/** Copia Alpine, htmx, plugins e os arquivos de navegação para `<saída>` + VENDOR_PATH. */
+export async function copyVendor(to: string, what: VendorOption = true): Promise<string[]> {
   const out: string[] = []
+  if (what === false) return out
+  for (const [file, body] of Object.entries(NAVIGATION_FILES)) {
+    await Bun.write(path.join(to, VENDOR_PATH, file), body)
+    out.push(VENDOR_PATH + file)
+  }
+  if (what === 'navigation') return out
   for (const pin of Object.values(pins)) {
     await Bun.write(path.join(to, VENDOR_PATH, pin.file), Bun.file(path.join(VENDOR_DIR, pin.file)))
     out.push(VENDOR_PATH + pin.file)
@@ -80,6 +90,7 @@ export interface FileServerOptions {
 }
 
 const VENDOR_FILES = new Map(Object.values(pins).map(p => [VENDOR_PATH + p.file, p.file]))
+const NAVIGATION_BY_PATH = new Map(Object.entries(NAVIGATION_FILES).map(([file, body]) => [VENDOR_PATH + file, body]))
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 
 /**
@@ -112,6 +123,8 @@ export function fileServer(dir: string, opts: FileServerOptions = {}): (request:
     if (opts.vendor) {
       const v = VENDOR_FILES.get(p)
       if (v) return new Response(Bun.file(path.join(VENDOR_DIR, v)), { headers: { 'cache-control': IMMUTABLE } })
+      const nav = NAVIGATION_BY_PATH.get(p)
+      if (nav) return new Response(nav, { headers: { 'cache-control': IMMUTABLE, 'content-type': p.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8' } })
     }
     const candidates = opts.html ? [p, `${p}.html`, `${p.replace(/\/$/, '')}/index.html`] : [p]
     for (const c of candidates) {
