@@ -116,13 +116,13 @@ describe('children edge cases', () => {
 
 describe('script e style — raw text elements', () => {
   it('<script> não escapa && e >', async () => {
-    const html = await renderToString(() => h('script', {}, 'const x = a && b > 0'))
+    const html = await renderToString(() => h('script', {}, raw('const x = a && b > 0')))
     expect(html).toBe('<script>const x = a && b > 0</script>')
     expect(html).not.toContain('&amp;&amp;')
     expect(html).not.toContain('&gt;')
   })
   it('<style> não escapa conteúdo CSS', async () => {
-    const html = await renderToString(() => h('style', {}, '.a > .b { color: red }'))
+    const html = await renderToString(() => h('style', {}, raw('.a > .b { color: red }')))
     expect(html).toBe('<style>.a > .b { color: red }</style>')
   })
   it('elementos normais ainda escapam', async () => {

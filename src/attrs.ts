@@ -57,6 +57,12 @@ export function serializeAttrs(props: Record<string, unknown>): string {
     // security: block native on* event handlers (allow x-on / hx-on)
     if (isUnsafeEventHandler(rawKey)) continue
 
+    // aria-* e data-*: booleano vira "true" ou "false"
+    if (typeof value === 'boolean' && (rawKey.startsWith('aria-') || rawKey.startsWith('data-'))) {
+      parts.push(`${rawKey}="${value}"`)
+      continue
+    }
+
     // omit falsy values
     if (value === null || value === undefined || value === false) continue
 

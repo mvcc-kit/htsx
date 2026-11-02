@@ -292,3 +292,76 @@ describe('hx-vals — formato correto no HTML', () => {
     expect(html).toContain(`hx-vals='{"user":"ana"}'`)
   })
 })
+
+describe('Falha 1: retorno de componente é escapado', () => {
+  const XSS = '<img src=x onerror=alert(1)>'
+
+  it('componente que devolve string escapa o texto', async () => {
+    const Nome = (p: { v: string }) => p.v
+    const html = await renderToString(() => h(Nome, { v: XSS }))
+    expect(html).toBe('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
+  it('componente async que devolve string escapa o texto', async () => {
+    const Nome = async (p: { v: string }) => p.v
+    const html = await renderToString(() => h('div', {}, h(Nome, { v: XSS })))
+    expect(html).toBe('<div>&lt;img src=x onerror=alert(1)&gt;</div>')
+  })
+
+  it('componente que devolve array de strings escapa cada item', async () => {
+    const Lista = () => ['<b>', 'a & b']
+    const html = await renderToString(() => h(Lista, {}))
+    expect(html).toBe('&lt;b&gt;a &amp; b')
+  })
+
+  it('componente que devolve raw() ou elemento passa direto', async () => {
+    const Raw = () => raw('<b>ok</b>')
+    const El = () => h('i', {}, 'x')
+    expect(await renderToString(() => h(Raw, {}))).toBe('<b>ok</b>')
+    expect(await renderToString(() => h(El, {}))).toBe('<i>x</i>')
+  })
+
+  it('componente que devolve null, false ou número', async () => {
+    expect(await renderToString(() => h(() => null, {}))).toBe('')
+    expect(await renderToString(() => h(() => false, {}))).toBe('')
+    expect(await renderToString(() => h(() => 42, {}))).toBe('42')
+  })
+})
+
+describe('Falha 2: texto comum dentro de <script> e <style> vira erro', () => {
+  it('<script> com string comum lança erro', () => {
+    expect(() => h('script', {}, '</script><script>alert(1)</script>')).toThrow(/raw\(\)/)
+  })
+
+  it('<style> com string comum lança erro', () => {
+    expect(() => h('style', {}, '</style><script>alert(1)</script>')).toThrow(/raw\(\)/)
+  })
+
+  it('<script> com Promise de string comum rejeita', async () => {
+    await expect(h('script', {}, Promise.resolve('x')) as Promise<unknown>).rejects.toThrow(/raw\(\)/)
+  })
+
+  it('<script> e <style> aceitam raw()', async () => {
+    expect(await renderToString(() => h('script', {}, raw('a && b')))).toBe('<script>a && b</script>')
+    expect(await renderToString(() => h('style', {}, raw('.a > .b {}')))).toBe('<style>.a > .b {}</style>')
+  })
+})
+
+describe('Falha 3: booleano em aria-* e data-* vira "true" ou "false"', () => {
+  it('aria-expanded={true} → aria-expanded="true"', async () => {
+    expect(await renderToString(() => h('button', { 'aria-expanded': true }))).toBe('<button aria-expanded="true"></button>')
+  })
+
+  it('aria-hidden={false} → aria-hidden="false"', async () => {
+    expect(await renderToString(() => h('div', { 'aria-hidden': false }))).toBe('<div aria-hidden="false"></div>')
+  })
+
+  it('data-ativo={true|false} → "true" ou "false"', async () => {
+    expect(await renderToString(() => h('div', { 'data-on': true, 'data-off': false })))
+      .toBe('<div data-on="true" data-off="false"></div>')
+  })
+
+  it('outros atributos booleanos seguem iguais', async () => {
+    expect(await renderToString(() => h('input', { disabled: true, hidden: false }))).toBe('<input disabled>')
+  })
+})

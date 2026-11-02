@@ -232,12 +232,12 @@ O algoritmo geral escapa todo conteúdo textual. Mas `<script>` e `<style>` são
 <script>{`const x = a && b > 0`}</script>
 // → <script>const x = a &amp;&amp; b &gt; 0</script>   JS quebrado!
 
-// ✅ SEM escaping (correto):
-<script>{`const x = a && b > 0`}</script>
+// ✅ SEM escaping (correto), com raw(): texto comum aqui lança erro
+<script>{raw(`const x = a && b > 0`)}</script>
 // → <script>const x = a && b > 0</script>
 
 // Mesmo para style:
-<style>{`.btn { color: red; }`}</style>
+<style>{raw(`.btn { color: red; }`)}</style>
 // → <style>.btn { color: red; }</style>   ✓ nunca escapa
 ```
 

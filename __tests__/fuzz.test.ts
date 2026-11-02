@@ -8,6 +8,7 @@ import { describe, expect, it } from 'bun:test'
 import { csrf } from '../src/csrf'
 import { flash } from '../src/flash'
 import { escapeHtml, escapeAttr, safeJson } from '../src/escape'
+import { jsx, raw } from '../src/jsx-runtime'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -208,6 +209,35 @@ describe('fuzz: escape — invariantes', () => {
         .replace(/\\u2028/g, ' ')
         .replace(/\\u2029/g, ' ')
       expect(() => JSON.parse(decoded)).not.toThrow()
+    }
+  })
+})
+
+// ── Render: retorno de componente e <script>/<style> ─────────────────────────
+
+describe('fuzz: render — texto hostil nunca vira tag', () => {
+  it('retorno de componente (sync, async, array) sempre escapado', async () => {
+    for (let i = 0; i < FUZZ_ITERATIONS; i++) {
+      const input = randEvilString()
+      const outs = [
+        String(jsx(() => input, {})),
+        String(await jsx(async () => input, {})),
+        String(jsx(() => [input, input], {})),
+      ]
+      for (const out of outs) {
+        if (/[<>]/.test(out)) throw new Error(`retorno sem escape: "${input}" -> "${out}"`)
+      }
+    }
+  })
+
+  it('<script> e <style> recusam texto comum e aceitam raw()', () => {
+    for (let i = 0; i < FUZZ_ITERATIONS; i++) {
+      const input = randEvilString()
+      for (const tag of ['script', 'style']) {
+        expect(() => jsx(tag, { children: input })).toThrow(/raw\(\)/)
+        expect(() => jsx(tag, { children: [input] })).toThrow(/raw\(\)/)
+        expect(String(jsx(tag, { children: raw(input) }))).toBe(`<${tag}>${input}</${tag}>`)
+      }
     }
   })
 })

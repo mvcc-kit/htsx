@@ -18,7 +18,7 @@ const h = jsx
 describe('coverage: defineComponent / defineLayout', () => {
   it('defineComponent retorna a função inalterada', async () => {
     const Greet = defineComponent<{ name: string }>(({ name }) =>
-      String(h('span', {}, `Hi ${name}`)),
+      h('span', {}, `Hi ${name}`),
     )
     const html = await renderToString(() =>
       h(Greet as never, { name: 'Ana' }),
@@ -28,7 +28,7 @@ describe('coverage: defineComponent / defineLayout', () => {
 
   it('defineLayout aceita children opcionais', async () => {
     const Layout = defineLayout(({ children }) =>
-      String(h('html', {}, h('body', {}, children))),
+      h('html', {}, h('body', {}, children)),
     )
     const html = await renderToString(() =>
       h(Layout as never, { children: 'content' }),

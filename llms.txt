@@ -392,7 +392,9 @@ const html = await renderPage(
 
 ## Security Model
 
-- Text content and attributes: **HTML-escaped by default**
+- Text content and attributes: **HTML-escaped by default**, including strings returned by components
+- Plain text inside `<script>` / `<style>`: **throws** — use `raw()` for trusted code, `raw(safeJson(x))` for data
+- Booleans in `aria-*` / `data-*`: rendered as `"true"` / `"false"`
 - `on*` event attributes (`onclick`, `onload`, etc.): **blocked entirely — never emitted**
 - URLs in `href`, `src`, `action`, `formaction`: `javascript:`, `data:`, `blob:`, `vbscript:` → replaced with `#`
 - Invisible Unicode chars (zero-width space, etc.) stripped from URLs before protocol check

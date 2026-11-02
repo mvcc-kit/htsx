@@ -50,7 +50,9 @@ npm install htsx
 
 htsx is **secure by default** — no configuration needed:
 
-- All text content and attribute values are **HTML-escaped automatically**
+- All text content and attribute values are **HTML-escaped automatically**, including strings returned by components
+- Plain text inside `<script>` / `<style>` **throws** — wrap trusted code in `raw()` (data: `raw(safeJson(x))`)
+- Booleans in `aria-*` / `data-*` render as `"true"` / `"false"`
 - `on*` event attributes (`onclick`, `onload`, etc.) are **blocked entirely**
 - URLs in `href`, `src`, `action`, `formaction` — `javascript:`, `data:`, `blob:`, `vbscript:` → replaced with `#`
 - Invisible Unicode characters stripped from URLs before protocol check

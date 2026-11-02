@@ -29,6 +29,9 @@ Arquivos com JSX → extensão `.tsx`.
 - `HtmlSafeString` = string já escapada e segura para emitir.
 - Tudo interpolado em JSX é **escaped automaticamente**.
 - `raw(str)` bypassa o escape — use só para HTML gerado no server.
+- String devolvida por componente também é escapada.
+- Texto comum dentro de `<script>` ou `<style>` lança erro: use `raw()` (dados: `raw(safeJson(x))`).
+- Booleano em `aria-*` e `data-*` vira `"true"` ou `"false"`.
 
 ---
 

@@ -13,13 +13,19 @@ export function raw(html: string): HtmlSafeString {
 
 interface RenderCtx {
   escape: boolean
+  tag?: string
 }
 
 function renderChildren(c: unknown, ctx: RenderCtx): string | Promise<string> {
   if (c === null || c === undefined || c === false || c === true) return ''
   if (typeof c === 'number') return String(c)
   if (c instanceof HtmlSafeString) return c.toString()
-  if (typeof c === 'string') return ctx.escape ? escapeHtml(c) : c
+  if (typeof c === 'string') {
+    if (ctx.escape) return escapeHtml(c)
+    throw new Error(
+      `htsx: texto comum dentro de <${ctx.tag}> pode fechar a tag; use raw() só com conteúdo gerado pelo servidor, ou raw(safeJson(dados)) para dados`,
+    )
+  }
   if (c instanceof Promise) return c.then(v => renderChildren(v, ctx))
   if (Array.isArray(c)) {
     const parts = c.map(x => renderChildren(x, ctx))
@@ -49,14 +55,9 @@ export function jsx<P extends Record<string, unknown>>(
   // component function
   if (typeof tag === 'function') {
     const result = tag({ ...rest, children } as unknown as P)
-    if (result instanceof Promise) {
-      return result.then(v => {
-        if (v instanceof HtmlSafeString) return v
-        return new HtmlSafeString(String(v))
-      })
-    }
     if (result instanceof HtmlSafeString) return result
-    return new HtmlSafeString(String(result))
+    // retorno passa pelo mesmo caminho dos filhos: texto é escapado
+    return toSafe(renderChildren(result, { escape: true }))
   }
 
   const attrs = serializeAttrs(rest as Record<string, unknown>)
@@ -67,7 +68,7 @@ export function jsx<P extends Record<string, unknown>>(
   }
 
   const isRaw = RAW_TEXT_ELEMENTS.has(tag)
-  const ctx: RenderCtx = { escape: !isRaw }
+  const ctx: RenderCtx = { escape: !isRaw, tag }
 
   const childResult = renderChildren(children, ctx)
 
@@ -78,12 +79,12 @@ export function jsx<P extends Record<string, unknown>>(
   return new HtmlSafeString(`${open}${childResult}</${tag}>`)
 }
 
+function toSafe(r: string | Promise<string>): HtmlSafeString | Promise<HtmlSafeString> {
+  return r instanceof Promise ? r.then(c => new HtmlSafeString(c)) : new HtmlSafeString(r)
+}
+
 export const jsxs = jsx
 
 export function Fragment(props: { children?: unknown }): HtmlSafeString | Promise<HtmlSafeString> {
-  const result = renderChildren(props.children, { escape: true })
-  if (result instanceof Promise) {
-    return result.then(c => new HtmlSafeString(c))
-  }
-  return new HtmlSafeString(result)
+  return toSafe(renderChildren(props.children, { escape: true }))
 }

@@ -4,10 +4,10 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 ## P0. Segurança (antes de qualquer uso em produção)
 
-- [ ] Falha 1 (alta): componente que devolve texto comum sai sem escape. O retorno passa pelo mesmo caminho dos filhos; só `HtmlSafeString` passa direto. Teste que falhava antes em `__tests__/security.test.ts`.
-- [ ] Falha 2 (alta): texto dentro de `<script>` ou `<style>` consegue fechar a tag. Ali só aceitar `raw()` ou `HtmlSafeString`; texto comum vira erro. Teste que falhava antes.
-- [ ] Falha 3 (média): `aria-expanded={true}` sai sem valor e `aria-hidden={false}` some. Em `aria-*` e `data-*`, booleano vira `"true"` ou `"false"`. Teste que falhava antes.
-- [ ] Teste de entrada aleatória para o retorno de componentes e para filhos de `<script>` e `<style>`.
+- [x] Falha 1 (alta): componente que devolve texto comum sai sem escape. O retorno passa pelo mesmo caminho dos filhos; só `HtmlSafeString` passa direto. Teste que falhava antes em `__tests__/security.test.ts`.
+- [x] Falha 2 (alta): texto dentro de `<script>` ou `<style>` consegue fechar a tag. Ali só aceitar `raw()` ou `HtmlSafeString`; texto comum vira erro. Teste que falhava antes.
+- [x] Falha 3 (média): `aria-expanded={true}` sai sem valor e `aria-hidden={false}` some. Em `aria-*` e `data-*`, booleano vira `"true"` ou `"false"`. Teste que falhava antes.
+- [x] Teste de entrada aleatória para o retorno de componentes e para filhos de `<script>` e `<style>`.
 - [ ] Antes de corrigir a falha 1, conferir se algum app que usa o htsx devolve, de um componente, texto vindo de entrada externa.
 
 ## P1. Mais fácil para a IA
