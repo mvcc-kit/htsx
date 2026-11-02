@@ -7,7 +7,7 @@ export type AlpinePluginName =
   | 'mask' | 'persist' | 'focus' | 'collapse'
   | 'intersect' | 'sort' | 'anchor' | 'morph'
 
-const STORE_NAME_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
+export const STORE_NAME_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
 
 /**
  * Emite `<script>` que registra um Alpine.store no `alpine:init`.

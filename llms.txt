@@ -308,6 +308,27 @@ Data is safeJson-serialized — `</script>`, U+2028, U+2029 are escaped automati
 
 ---
 
+### defineStore — typed store (state, derived, actions, effects)
+
+Same module on server and client, same types on both sides. Import from `{{PKG}}/store` (keeps server code out of the client bundle).
+
+```ts
+import { defineStore } from '{{PKG}}/store'
+
+export const cart = defineStore('cart', {
+  state: { items: [] as Item[] },                                      // $state → property
+  derived: { total: s => s.items.reduce((n, i) => n + i.price, 0) },  // $derived → getter
+  actions: { add: (s, item: Item) => { s.items.push(item) } },
+  effects: { log: s => console.log(s.total) },                         // $effect → Alpine.effect
+})
+
+cart.register()            // client entry, bundled with Bun.build, loaded before Alpine
+raw(cart.html({ items }))  // server: initial state only, via safeJson
+cart.create(initial)       // plain object for tests without a browser
+```
+
+---
+
 ## CSRF
 
 Bind CSRF to a `sessionId` to scope the token.

@@ -199,6 +199,12 @@ raw(alpinePlugin(`Alpine.data('dropdown', () => ({ open: false }))`))
 
 ---
 
+### `defineStore(name, { state, derived, actions, effects })`
+
+Typed Alpine store shared by server and client (`import { defineStore } from '@repo/htsx/store'`). `derived` become getters, `effects` run with `Alpine.effect`. Server: `raw(cart.html(initial))` emits the initial state with `safeJson`. Client: `cart.register()` in a `Bun.build` bundle loaded before Alpine. Tests: `cart.create(initial)` returns a plain object, no browser needed.
+
+---
+
 ## CSRF Protection
 
 ### `csrf.sign(secret)` / `csrf.verify(token, secret)`

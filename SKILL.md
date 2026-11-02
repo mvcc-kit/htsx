@@ -319,6 +319,34 @@ import { storeInit, raw } from '{{PKG}}'
 
 ---
 
+### `defineStore` — store tipado (state, derived, actions, effects)
+
+Mesmo módulo no servidor e no cliente; tipos iguais nos dois lados. Importe de `{{PKG}}/store` (não puxa código do servidor para o cliente).
+
+```ts
+// stores/cart.ts
+import { defineStore } from '{{PKG}}/store'
+
+export const cart = defineStore('cart', {
+  state: { items: [] as Item[], coupon: '' },                     // $state → propriedade
+  derived: { total: s => s.items.reduce((n, i) => n + i.price, 0) },  // $derived → getter
+  actions: { add: (s, item: Item) => { s.items.push(item) } },
+  effects: { title: s => { document.title = `Carrinho (${s.items.length})` } },  // $effect → Alpine.effect
+})
+
+// client.ts — empacote com Bun.build({ entrypoints: ['client.ts'], target: 'browser' })
+cart.register()   // carregue antes do Alpine
+
+// servidor: só o estado inicial, com safeJson
+{raw(cart.html({ items }))}
+<body x-data>...<p x-text="$store.cart.total"></p></body>
+
+// teste sem navegador
+const c = cart.create({ items: [{ name: 'a', price: 10 }] }); c.add(...); expect(c.total).toBe(...)
+```
+
+---
+
 ## CSRF
 
 Token sempre bound a um `sessionId` para escopar por usuário/sessão.

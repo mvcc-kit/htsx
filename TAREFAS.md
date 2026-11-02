@@ -31,9 +31,9 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 ## P4. Signals com Alpine (futuro)
 
-- [ ] `defineStore({ state, derived, actions })` tipado em TypeScript, empacotado pelo `Bun.build`: `$state` vira propriedade, `$derived` vira getter, `$effect` vira `Alpine.effect`.
-- [ ] Servidor emite só o estado inicial com `safeJson`; tipos iguais no servidor e no cliente.
-- [ ] Testes de derivados sem navegador.
+- [x] `defineStore({ state, derived, actions })` tipado em TypeScript, empacotado pelo `Bun.build`: `$state` vira propriedade, `$derived` vira getter, `$effect` vira `Alpine.effect`.
+- [x] Servidor emite só o estado inicial com `safeJson`; tipos iguais no servidor e no cliente.
+- [x] Testes de derivados sem navegador.
 
 ## P5. Design system separado do núcleo
 
