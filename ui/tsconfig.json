@@ -1,0 +1,13 @@
+{
+  // Fora do workspace do monorepo, @repo/htsx aponta para a pasta acima.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@repo/htsx": ["../index.ts"],
+      "@repo/htsx/*": ["../*"],
+      "@repo/htsx/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "@repo/htsx/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../jsx.d.ts"]
+}

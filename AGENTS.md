@@ -20,7 +20,8 @@
 4. **Funciona em Workers.** Sem APIs só do Node. `node:async_hooks` é aceito porque os Workers o oferecem com `nodejs_compat`.
 5. **Navegador sem CDN em produção.** Alpine e htmx entram como cópia própria, fixada por versão e sha256. CDN só em exemplo ou desenvolvimento.
 6. **Testes não dependem do relógio.** Espere a condição; use relógio falso em Suspense, SSE e flash.
-7. **Documentação junto com o código.** Mudou a API pública: atualize `SKILL.md`, `README.md` e `llms.txt` no mesmo commit. Exemplo de documentação precisa compilar e rodar.
+7. **Núcleo não importa do design system.** `ui/` (`@repo/htsx-ui`) fica uma camada acima; `__tests__/layers.test.ts` falha se `src/` importar dele.
+8. **Documentação junto com o código.** Mudou a API pública: atualize `SKILL.md`, `README.md` e `llms.txt` no mesmo commit. Exemplo de documentação precisa compilar e rodar.
 
 ## Antes de terminar
 
@@ -28,6 +29,7 @@
 cd pkg/htsx
 bun test             # 500+ testes; nenhum pode depender de tempo
 bunx tsc --noEmit -p .
+bunx tsc --noEmit -p ui   # design system @repo/htsx-ui
 ```
 
 Depois rode `bun run check-types` na raiz, porque o `apps/email-worker` usa a biblioteca. Relate o que verificou e o que não verificou.

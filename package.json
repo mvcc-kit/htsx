@@ -13,7 +13,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p ui",
     "build": "bun build.ts",
     "vendor": "bun scripts/vendor.ts"
   },

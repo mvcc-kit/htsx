@@ -383,6 +383,12 @@ await app.close()
 
 ---
 
+## Design system
+
+Base components live in a separate package, `@repo/htsx-ui` (folder `ui/`): `Button`, `Field`, `Panel`, `Badge`, plus CSS-variable `tokens` and `uiCss`. The core never imports it (checked by `__tests__/layers.test.ts`).
+
+---
+
 ## TypeScript
 
 ```ts

@@ -105,6 +105,8 @@ export const getDashboard = async (req: Request, env: Env): Promise<Response> =>
 
 ## Componentes
 
+Componentes base prontos (Button, Field, Panel, Badge, tokens em variáveis CSS) estão no pacote à parte `@repo/htsx-ui`: `import { Button, Field, Panel, Badge, uiCss } from '@repo/htsx-ui'` e `<style>{raw(uiCss)}</style>`. Os exemplos abaixo mostram como escrever os seus.
+
 ### `defineComponent` — componente com props tipadas
 
 ```tsx

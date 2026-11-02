@@ -37,8 +37,8 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 ## P5. Design system separado do núcleo
 
-- [ ] Tokens e componentes base (Button, Field, Panel, Badge) num pacote à parte, por exemplo `@repo/htsx-ui`.
-- [ ] Checagem que impede `src/` de importar desse pacote.
+- [x] Tokens e componentes base (Button, Field, Panel, Badge) num pacote à parte, por exemplo `@repo/htsx-ui`.
+- [x] Checagem que impede `src/` de importar desse pacote.
 
 ## P6. Placar
 

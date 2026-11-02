@@ -429,6 +429,12 @@ Use `raw()` only for HTML you generated server-side or sanitized yourself.
 
 ---
 
+## Design system
+
+Base components are in the separate package `@repo/htsx-ui`: `Button`, `Field`, `Panel`, `Badge`, CSS-variable `tokens` and `uiCss` (`<style>{raw(uiCss)}</style>`). The core never imports it.
+
+---
+
 ## TypeScript Types
 
 ```ts
