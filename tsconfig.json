@@ -8,7 +8,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "@repo/htsx",
-    "types": ["bun"]
+    "types": ["bun"],
+    "resolveJsonModule": true
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

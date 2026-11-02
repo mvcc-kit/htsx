@@ -42,12 +42,13 @@ Full page render. Prepends `<!DOCTYPE html>`. Use for initial page loads.
 ```tsx
 import { renderPage, head, raw } from '{{PKG}}'
 
+// Production: `vendor` is where the app serves the files from `{{PKG}}/vendor/*`
+// (version and sha256 pinned in vendor/pins.json). Without `vendor`, CDN with integrity.
 const HTML_HEAD = head({
   title: 'My App',
-  scripts: [
-    'https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js',
-    'https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js',
-  ],
+  htmx: true,
+  alpine: true,
+  vendor: '/static/vendor/',
 })
 
 export const handler = async (req: Request): Promise<Response> => {

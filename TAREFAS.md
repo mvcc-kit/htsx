@@ -26,8 +26,8 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 
 ## P3. Alpine e htmx sem CDN
 
-- [ ] Cópia própria em `vendor/`, com versão e sha256 num arquivo de pinos, e teste que confere o hash (falha 6).
-- [ ] `head()` aceita caminho local e emite `integrity` quando usar CDN.
+- [x] Cópia própria em `vendor/`, com versão e sha256 num arquivo de pinos, e teste que confere o hash (falha 6).
+- [x] `head()` aceita caminho local e emite `integrity` quando usar CDN.
 
 ## P4. Signals com Alpine (futuro)
 

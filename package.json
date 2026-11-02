@@ -7,12 +7,14 @@
     ".": "./index.ts",
     "./jsx-runtime": "./src/jsx-runtime.ts",
     "./jsx-dev-runtime": "./src/jsx-runtime.ts",
-    "./testing": "./testing.ts"
+    "./testing": "./testing.ts",
+    "./vendor/*": "./vendor/*"
   },
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build.ts"
+    "build": "bun build.ts",
+    "vendor": "bun scripts/vendor.ts"
   },
   "devDependencies": {
     "typescript": "5.9.2",

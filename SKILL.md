@@ -46,13 +46,13 @@ Use em navegação direta. Adiciona `<!DOCTYPE html>`.
 import { renderPage, head, raw } from '{{PKG}}'
 
 // Pré-compute scripts do head fora do handler (evita re-criar por request)
+// Produção: `vendor` aponta para onde o app serve os arquivos de `{{PKG}}/vendor/*`
+// (versão e sha256 fixados em vendor/pins.json). Sem `vendor`, usa CDN com integrity.
 const HEAD_INNER = head({
   title: 'Meu App',
-  scripts: [
-    'https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js',
-    'https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js',
-    'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4',
-  ],
+  htmx: true,
+  alpine: { plugins: ['collapse'] },
+  vendor: '/static/vendor/',
 })
 
 export const getIndex = async (req: Request, env: Env): Promise<Response> => {

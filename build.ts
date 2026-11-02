@@ -51,6 +51,14 @@ async function copyExtraFiles() {
   }
 }
 
+async function copyVendor() {
+  console.log('\n📦 Copiando vendor/ (Alpine e htmx fixados)...')
+  await mkdir(path.join(CONFIG.distDir, 'vendor'), { recursive: true })
+  for await (const f of new Bun.Glob('*.{js,json}').scan({ cwd: 'vendor' })) {
+    await copyFile(path.join('vendor', f), path.join(CONFIG.distDir, 'vendor', f))
+  }
+}
+
 async function buildJS() {
   console.log('\n🔨 Compilando JavaScript (Bun.build)...')
 
@@ -105,6 +113,7 @@ async function buildDeclarations() {
       '--lib', 'ESNext,DOM',
       '--strict',
       '--skipLibCheck',
+      '--resolveJsonModule',
       'index.ts',
       ...srcFiles,
     ],
@@ -155,6 +164,7 @@ async function generatePackageJson() {
         default: './jsx-runtime.js',
       },
       // tsx usa jsx-dev-runtime em modo dev — aponta para o mesmo arquivo
+      './vendor/*': './vendor/*',
       './jsx-dev-runtime': {
         types: './jsx-runtime.d.ts',
         import: './jsx-runtime.js',
@@ -162,7 +172,7 @@ async function generatePackageJson() {
       },
     },
     // Somente esses padrões vão para o pacote publicado
-    files: ['**/*.js', '**/*.d.ts', 'README.md', 'LICENSE', 'llms.txt', 'SKILL.md'],
+    files: ['**/*.js', '**/*.d.ts', 'vendor/pins.json', 'README.md', 'LICENSE', 'llms.txt', 'SKILL.md'],
     keywords: [...CONFIG.keywords],
     ...(CONFIG.author ? { author: CONFIG.author } : {}),
     license: CONFIG.license,
@@ -223,6 +233,7 @@ async function main() {
   console.log(`🚀 Build: ${CONFIG.name}@${CONFIG.version}\n`)
   await clean()
   await copyExtraFiles()
+  await copyVendor()
   await buildJS()
   await buildDeclarations()
   await generatePackageJson()

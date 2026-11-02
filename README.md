@@ -103,11 +103,17 @@ Marks a string as trusted HTML, bypassing escaping. Only use for server-generate
 
 ### `head(opts)`
 
-Emits `<script>` / `<link>` tags for HTMX and Alpine from CDN. Supports `nonce` for CSP.
+Emits `<script>` / `<link>` tags for HTMX and Alpine. Supports `nonce` for CSP.
+
+- `vendor: '/static/vendor/'` loads the package's own copies (`@repo/htsx/vendor/*.min.js`, served by your app). Use this in production.
+- Without `vendor`, loads from CDN at the version pinned in `vendor/pins.json`, with `integrity` (SRI) and `crossorigin`.
+- A custom `version` has no known hash, so it is emitted without `integrity` (an error in strict mode).
 
 ```tsx
-{raw(head({ htmx: true, alpine: true, nonce: 'abc123' }))}
+{raw(head({ htmx: true, alpine: { plugins: ['mask'] }, vendor: '/static/vendor/', nonce: 'abc123' }))}
 ```
+
+Update the pins with `bun run vendor` (or `bun scripts/vendor.ts alpinejs 3.18.0`): it checks the npm package integrity and rewrites the sha256.
 
 ---
 

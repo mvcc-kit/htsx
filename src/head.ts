@@ -1,16 +1,37 @@
 /**
- * Gera conteúdo de <head> com Alpine/HTMX via CDN.
+ * Gera conteúdo de <head> com Alpine/HTMX.
+ * Produção: `vendor: '/caminho/'` carrega as cópias próprias de `vendor/` (servidas pelo app).
+ * Sem `vendor`, usa CDN na versão fixada em `vendor/pins.json`, com `integrity` (SRI).
  * Opcional — para projetos com bundler próprio, escreva o <head> direto no JSX.
  */
 import { escapeHtml, escapeAttr } from './escape'
 import type { AlpinePluginName } from './alpine'
+import { strictFail } from './strict'
+import pins from '../vendor/pins.json'
 
-const ALPINE_CDN        = (v: string) => `https://cdn.jsdelivr.net/npm/alpinejs@${v}/dist/cdn.min.js`
-const ALPINE_PLUGIN_CDN = (v: string, name: string) => `https://cdn.jsdelivr.net/npm/@alpinejs/${name}@${v}/dist/cdn.min.js`
-const HTMX_CDN          = (v: string) => `https://unpkg.com/htmx.org@${v}/dist/htmx.min.js`
+export type VendorName = keyof typeof pins
 
-const ALPINE_DEFAULT_VERSION = '3.x.x'
-const HTMX_DEFAULT_VERSION   = '2.x.x'
+const CDN: Record<string, (pkg: string, v: string, file: string) => string> = {
+  'htmx.org': (pkg, v, file) => `https://unpkg.com/${pkg}@${v}/${file}`,
+}
+const JSDELIVR = (pkg: string, v: string, file: string) => `https://cdn.jsdelivr.net/npm/${pkg}@${v}/${file}`
+
+function hexToBase64(hex: string): string {
+  return btoa(String.fromCharCode(...hex.match(/../g)!.map(b => parseInt(b, 16))))
+}
+
+/** Atributos `src` (e `integrity` quando possível) de um arquivo de `vendor/`. */
+function vendorSrc(name: VendorName, vendorBase: string | undefined, version: string | undefined): string {
+  const pin = pins[name]
+  if (vendorBase !== undefined) return `src="${escapeAttr(vendorBase + pin.file)}"`
+  const v = version ?? pin.version
+  const url = (CDN[pin.package] ?? JSDELIVR)(pin.package, v, pin.path)
+  if (v !== pin.version) {
+    strictFail(`${pin.package}@${v} vem de CDN sem integrity; use a versão fixada (${pin.version}) ou vendor: '/caminho/'`)
+    return `src="${escapeAttr(url)}"`
+  }
+  return `src="${escapeAttr(url)}" integrity="sha256-${hexToBase64(pin.sha256)}" crossorigin="anonymous"`
+}
 
 export interface HeadOpts {
   title?:       string
@@ -22,6 +43,8 @@ export interface HeadOpts {
   alpine?:      boolean | { version?: string; plugins?: AlpinePluginName[] }
   htmx?:        boolean | { version?: string }
   nonce?:       string
+  /** Caminho local onde o app serve os arquivos de `vendor/` (ex.: '/static/vendor/'). Sem CDN. */
+  vendor?:      string
 }
 
 export function head(opts: HeadOpts = {}): string {
@@ -40,18 +63,15 @@ export function head(opts: HeadOpts = {}): string {
 
   if (opts.alpine) {
     const cfg     = typeof opts.alpine === 'object' ? opts.alpine : {}
-    const version = cfg.version ?? ALPINE_DEFAULT_VERSION
-    const plugins = cfg.plugins ?? []
-    for (const p of plugins) {
-      parts.push(`<script defer src="${escapeAttr(ALPINE_PLUGIN_CDN(version, p))}"${nonceAttr}></script>`)
+    for (const p of cfg.plugins ?? []) {
+      parts.push(`<script defer ${vendorSrc(`alpine-${p}`, opts.vendor, cfg.version)}${nonceAttr}></script>`)
     }
-    parts.push(`<script defer src="${escapeAttr(ALPINE_CDN(version))}"${nonceAttr}></script>`)
+    parts.push(`<script defer ${vendorSrc('alpine', opts.vendor, cfg.version)}${nonceAttr}></script>`)
   }
 
   if (opts.htmx) {
-    const cfg     = typeof opts.htmx === 'object' ? opts.htmx : {}
-    const version = cfg.version ?? HTMX_DEFAULT_VERSION
-    parts.push(`<script src="${escapeAttr(HTMX_CDN(version))}"${nonceAttr}></script>`)
+    const cfg = typeof opts.htmx === 'object' ? opts.htmx : {}
+    parts.push(`<script ${vendorSrc('htmx', opts.vendor, cfg.version)}${nonceAttr}></script>`)
   }
 
   for (const s of opts.scripts ?? []) {
