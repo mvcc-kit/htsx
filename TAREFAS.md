@@ -55,7 +55,7 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Modo Cloudflare Workers (`cloudflare`, `buildCloudflare`), com checagem do wrangler, `_headers`/`_redirects`, `.assetsignore`, manifesto e `cloudflarePlatform`.
 - [x] Regra "lógica separada da implementação" no `AGENTS.md`, conferida em `__tests__/layers.test.ts`.
 - [ ] Códigos de erro com link para a seção do `SKILL.md` (como `svelte.dev/e/kit/<código>`).
-- [ ] Rotas por arquivos (`src/routes/**/+page.tsx`) com o manifesto gerado no build.
+- [x] Rotas por arquivos (opcional): `+page.tsx`, `+page.server.ts`, `+layout.tsx`, `+layout.server.ts` com `parent()`, `+server.ts`, `+error.tsx`, grupos, `src/params`; `htsx sync` gera o manifesto e os tipos `./$types`.
 - [ ] Testar o Worker no `workerd` de verdade. Hoje é testado com `assetsFromDir` e `env` simulado; o `wrangler` entraria como dependência de desenvolvimento, que precisa do pedido do dono.
 - [ ] Streaming de `load` (promessas resolvidas depois do primeiro byte).
 - [ ] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker.

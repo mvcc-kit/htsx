@@ -127,7 +127,7 @@ A lógica do app (rotas, dados, páginas, ações) fica separada da implementaç
 | **Estático** | site todo pré-renderizado em HTML; qualquer hospedagem estática | `@repo/htsx/adapter-static` (build) |
 | **Cloudflare Workers** | rotas dinâmicas no Worker + páginas pré-renderizadas no Static Assets | `@repo/htsx/adapter-cloudflare` (Worker) e `/build` |
 
-Estrutura sugerida: `src/app.tsx` (lógica, sem plataforma), `build.ts` (estático) e `src/worker.tsx` (Cloudflare). Só os dois últimos sabem da plataforma.
+Estrutura sugerida: `src/app.tsx` (lógica, sem plataforma), `build.ts` (estático) e `src/worker.tsx` (Cloudflare). Só os dois últimos sabem da plataforma. As rotas podem ser declaradas com `route()` ou por arquivos (`src/routes/**/+page.tsx`), à escolha.
 
 ### Rotas — `defineApp` e `route`
 
@@ -196,6 +196,97 @@ Comportamento padrão, como no SvelteKit:
 - `event.cookies` usa `HttpOnly`, `Secure` e `SameSite=Lax` por padrão. `event.setHeaders()` acrescenta cabeçalhos e `event.locals` guarda dados dos hooks.
 - `getRequestEvent()` devolve o evento atual dentro de qualquer componente. `HEAD` e `405` com `Allow` saem sozinhos.
 - Um `redirect()` numa requisição htmx também manda `HX-Redirect`.
+
+### Rotas por arquivos (opcional) — `+page.tsx`, `+layout.tsx`...
+
+Em vez de listar `route()` à mão, use pastas como no SvelteKit. Tudo roda no servidor. Os dados descem: cada layout recebe os dados dele e os de cima, e a página recebe todos (`locals` dos hooks inclusive).
+
+```txt
+src/
+  params/int.ts                     export function match(v) → usado como [id=int]
+  routes/
+    +layout.tsx                     layout raiz (o <html>); recebe { children, data, params, event }
+    +layout.server.ts               load do layout → data do layout e de tudo abaixo
+    +error.tsx                      página de erro (a mais próxima vale)
+    +page.tsx                       página "/"
+    (marketing)/sobre/+page.tsx     grupo: não entra na URL → "/sobre"
+    blog/+layout.tsx                layout aninhado
+    blog/+layout.server.ts          load com parent() → dados dos layouts acima
+    blog/[slug]/+page.server.ts     load, actions, prerender, entries
+    blog/[slug]/+page.tsx           export default da página
+    api/posts.json/+server.ts       GET/POST/... (endpoint)
+```
+
+| Arquivo | Exporta |
+|---|---|
+| `+page.tsx` | `default` (componente: `{ data, form, params, event }`) |
+| `+page.server.ts` | `load`, `actions`, `prerender`, `entries` |
+| `+layout.tsx` | `default` (componente: `{ children, data, params, event }`) |
+| `+layout.server.ts` | `load`, `prerender` (vale para as rotas abaixo) |
+| `+server.ts` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `prerender`, `entries` |
+| `+error.tsx` | `default` (`{ status, message, event }`), mostrado dentro dos layouts acima dele |
+
+`htsx sync` (o `bin` do pacote) gera `.htsx/routes.ts`, com imports estáticos que o Worker empacota, e os tipos de cada pasta em `./$types`. Rode antes do build e do `tsc`, ou deixe `htsx sync --watch` aberto no desenvolvimento. No `tsconfig.json`: `"extends": ["./.htsx/tsconfig.json"]` (põe `.htsx/types` em `rootDirs`). Ponha `.htsx/` no `.gitignore`.
+
+```ts arquivo=src/app.ts
+import { defineApp } from '@repo/htsx/app'
+import { files } from '../.htsx/routes'   // { routes, errorPage, matchers }
+
+export const app = defineApp({
+  ...files,
+  handle: async ({ event, resolve }) => {
+    event.locals.user = event.cookies.get('user')   // chega em todo load como event.locals
+    return resolve(event)
+  },
+})
+```
+
+```ts arquivo=src/routes/blog/+layout.server.ts
+import type { LayoutServerLoad } from './$types'
+
+export const load = (async ({ parent, locals }) => {
+  const { site } = await parent()                   // dados de src/routes/+layout.server.ts
+  return { secao: `${site} / Blog`, user: locals.user }
+}) satisfies LayoutServerLoad                       // `satisfies` mantém o tipo do retorno para o $types
+```
+
+```ts arquivo=src/routes/blog/[slug]/+page.server.ts
+import { error, fail } from '@repo/htsx/app'
+import type { Actions, PageServerLoad } from './$types'
+
+export const load = (async ({ params }) => {
+  const post = posts[params.slug] ?? error(404, 'Post não existe')   // vai para o +error.tsx mais próximo
+  return { post }
+}) satisfies PageServerLoad
+
+export const actions = {
+  comentar: async ({ request }) => {                // <form method="post" action="?/comentar">
+    const texto = String((await request.formData()).get('texto') ?? '')
+    return texto ? { ok: texto } : fail(400, { erro: 'Escreva algo' })
+  },
+} satisfies Actions
+```
+
+```tsx arquivo=src/routes/blog/[slug]/+page.tsx
+import type { PageProps } from './$types'
+
+// data = { site, secao, user, post }: tudo dos layouts + o load da página, tipado
+export default function Post({ data, form, params }: PageProps) {
+  return (
+    <article data-slug={params.slug}>
+      <h1>{data.post}</h1>
+      {form ? <p role="alert">{'erro' in form ? form.erro : form.ok}</p> : null}
+    </article>
+  )
+}
+```
+
+Regras:
+- Os `load` dos layouts rodam em paralelo, e cada `parent()` espera os de cima. Mesma chave: o nível de baixo vence.
+- O `load` devolve objeto. O id da rota vem das pastas: `[slug]`, `[[opcional]]`, `[...rest]`, `[id=matcher]`, e os grupos `(nome)` não entram na URL.
+- Uma requisição htmx parcial recebe só a página, sem layouts. O `+error.tsx` fica dentro dos layouts acima dele que carregaram.
+- Nome de arquivo desconhecido, a mesma URL em dois grupos, `+page.server.ts` sem `+page.tsx` e `+page.tsx` sem `export default` dão erro com a correção.
+- `route()` e as rotas por arquivos se misturam: `defineApp({ ...files, routes: [...files.routes, route('/x', {...})] })`.
 
 ### Modo estático — `buildStatic`
 

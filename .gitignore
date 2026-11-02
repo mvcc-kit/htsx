@@ -3,3 +3,4 @@ dist/
 .DS_Store
 .cache/
 __tests__/fixtures/site/.htsx/
+__tests__/fixtures/fs-site/.htsx/

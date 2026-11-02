@@ -35,6 +35,7 @@ const ENTRYPOINTS: Record<string, string> = {
   'adapter-static.ts': './adapter-static',
   'adapter-cloudflare.ts': './adapter-cloudflare',
   'adapter-cloudflare-build.ts': './adapter-cloudflare/build',
+  'routes.ts': './routes',
 }
 
 // ==========================================
@@ -69,7 +70,7 @@ async function buildJS() {
   console.log('\n🔨 Compilando JavaScript (Bun.build)...')
 
   const result = await Bun.build({
-    entrypoints: Object.keys(ENTRYPOINTS),
+    entrypoints: [...Object.keys(ENTRYPOINTS), 'cli.ts'],
     outdir: CONFIG.distDir,
     target: CONFIG.target,
     format: 'esm',
@@ -159,6 +160,7 @@ async function generatePackageJson() {
     description: CONFIG.description,
     type: 'module',
     main: './index.js',
+    bin: { htsx: './cli.js' },
     types: './index.d.ts',
     exports: {
       '.': {

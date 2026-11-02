@@ -34,7 +34,7 @@ const isNodeOnly = (s: string) => s.startsWith('node:') && s !== 'node:async_hoo
 
 describe('camadas', () => {
   it('núcleo não importa do design system (@repo/htsx-ui, ui/)', async () => {
-    const core = ['index.ts', 'testing.ts', 'store.ts', 'app.ts', 'adapter-static.ts', 'adapter-cloudflare.ts', 'adapter-cloudflare-build.ts', 'jsx.d.ts', ...await glob('src/**/*.{ts,tsx}')]
+    const core = ['index.ts', 'testing.ts', 'store.ts', 'app.ts', 'adapter-static.ts', 'adapter-cloudflare.ts', 'adapter-cloudflare-build.ts', 'routes.ts', 'cli.ts', 'jsx.d.ts', ...await glob('src/**/*.{ts,tsx}')]
     expect(await violations(core, isUi)).toEqual([])
   })
 

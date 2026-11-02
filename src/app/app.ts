@@ -70,6 +70,8 @@ export interface RouteDef<Id extends string, D, A> {
   prerender?: boolean | 'auto'
   /** Valores dos parâmetros para o prerender de rotas dinâmicas. */
   entries?: () => MaybePromise<Array<ParamsOf<Id>>>
+  /** Página de erro desta rota (no lugar da do app); devolve o documento inteiro. */
+  errorPage?: ErrorPage
   GET?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<Response>
   POST?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<Response>
   PUT?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<Response>
@@ -96,6 +98,7 @@ export function route<const Id extends string, D = undefined, A = {}>(id: Id, de
 }
 
 export type Layout = (props: { children?: Children; event: RequestEvent }) => Node
+export type ErrorPage = (props: { status: number; message: string; event: RequestEvent }) => Node
 export type Handle = (input: { event: RequestEvent; resolve: (event: RequestEvent) => Promise<Response> }) => MaybePromise<Response>
 export type HandleError = (input: { error: unknown; event: RequestEvent; status: number; message: string }) => MaybePromise<{ message: string } | void>
 
@@ -108,7 +111,7 @@ export interface AppOptions {
   /** Chamado em erro inesperado: registre e devolva uma mensagem segura para o usuário. */
   handleError?: HandleError
   /** Página de erro (404, 500...). */
-  errorPage?: (props: { status: number; message: string; event: RequestEvent }) => Node
+  errorPage?: ErrorPage
   matchers?: Record<string, ParamMatcher>
   /** Valor padrão de `prerender` das rotas. */
   prerender?: boolean | 'auto'
@@ -185,8 +188,9 @@ export function defineApp(options: AppOptions): App {
     if (accept.includes('application/json') && !accept.includes('text/html')) {
       return Response.json({ message }, { status, headers })
     }
-    const page = options.errorPage
-      ? await renderNode(options.errorPage({ status, message, event }))
+    const errorPage = routes.find(r => r.id === event.route.id)?.def.errorPage ?? options.errorPage
+    const page = errorPage
+      ? await renderNode(errorPage({ status, message, event }))
       : `<h1>${status}</h1><p>${String(await Fragment({ children: message }))}</p>`
     headers.set('content-type', 'text/html; charset=utf-8')
     return new Response(event.isFragment ? page : `<!DOCTYPE html>${page}`, { status, headers })

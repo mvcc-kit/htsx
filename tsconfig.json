@@ -12,5 +12,5 @@
     "resolveJsonModule": true
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", "ui", ".cache"]
+  "exclude": ["node_modules", "dist", "ui", ".cache", "__tests__/fixtures/fs-site"]
 }
