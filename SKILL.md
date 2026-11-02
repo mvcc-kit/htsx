@@ -380,6 +380,24 @@ await p.byTestId('enviar')         // { tag, attrs, text } do 1º [data-testid="
 await p.find('ul li')              // todos os elementos, em ordem
 ```
 
+Navegador real pelo Chrome DevTools Protocol (Chrome/Chromium da máquina ou `CHROME_PATH`; sem Playwright):
+
+```tsx
+import { open, findChrome } from '{{PKG}}/testing'
+
+const app = await open(handler, '/support')         // sobe handler num servidor local e abre o Chrome
+await app.type('id:email', 'a@b.com')               // seletores: text:, id:, testid: ou CSS
+await app.press('text:Enviar')                      // clique real do mouse
+await app.waitFor('text:Recebemos sua mensagem')    // espera por condição (MutationObserver), sem sleep
+expect(await app.inspect()).toMatchObject({ stores: { form: { sent: true } } })
+await app.set('data.#menu.open', true)              // mesmo formato do inspect()
+await app.screenshot('support-enviado.png')
+await app.close()
+// describe.skipIf(!findChrome())(...) pula onde não houver navegador
+```
+
+`inspect()` e `set()` usam o inspetor de desenvolvimento: `{raw(inspector())}` no `<head>`, antes de qualquer `storeInit()`. Ele expõe `window.__htsx.inspect()` → `{ url, stores, data }` (chave de cada `x-data`: `#id`, `testid:<data-testid>` ou `x-data:<índice>`) e `__htsx.set(caminho, valor)`. **Só em desenvolvimento.**
+
 Ligue o modo estrito nos testes (`HTSX_STRICT=1`, por exemplo num `preload` do `bunfig.toml`).
 
 ---

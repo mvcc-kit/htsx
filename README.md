@@ -363,10 +363,16 @@ clx('btn', isActive && 'btn-active', { 'btn-disabled': !canClick })
 ## Testing
 
 ```ts
-import { page } from '@repo/htsx/testing'
+import { page, open } from '@repo/htsx/testing'
 
 const p = await page(htmlOrResponse)   // HTMLRewriter, no browser
 await p.text('h1'); await p.attr('a', 'href'); await p.byTestId('submit'); await p.find('li')
+
+// Real browser over CDP (local Chrome/Chromium or CHROME_PATH)
+const app = await open(handler, '/support')
+await app.type('id:email', 'a@b.com'); await app.press('text:Send'); await app.waitFor('text:Received')
+await app.inspect()   // Alpine state, needs {raw(inspector())} in <head> (development only)
+await app.close()
 ```
 
 ---

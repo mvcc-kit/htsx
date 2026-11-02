@@ -447,6 +447,23 @@ await p.byTestId('submit')         // { tag, attrs, text } of first [data-testid
 await p.find('ul li')              // all matches, in order
 ```
 
+Real browser over the Chrome DevTools Protocol (local Chrome/Chromium or `CHROME_PATH`; no Playwright):
+
+```tsx
+import { open, findChrome } from '{{PKG}}/testing'
+
+const app = await open(handler, '/support')         // serves handler locally and opens Chrome
+await app.type('id:email', 'a@b.com')               // selectors: text:, id:, testid: or CSS
+await app.press('text:Send')                        // real mouse click
+await app.waitFor('text:Message received')          // waits on a condition (MutationObserver), no sleep
+expect(await app.inspect()).toMatchObject({ stores: { form: { sent: true } } })
+await app.set('data.#menu.open', true)              // same shape as inspect()
+await app.screenshot('support-sent.png')
+await app.close()
+```
+
+`inspect()` / `set()` need the dev inspector: `{raw(inspector())}` in `<head>`, before any `storeInit()`. It exposes `window.__htsx.inspect()` → `{ url, stores, data }` (each `x-data` keyed `#id`, `testid:<data-testid>` or `x-data:<index>`) and `__htsx.set(path, value)`. **Development only.**
+
 Turn strict mode on in tests (`HTSX_STRICT=1`, e.g. in a `bunfig.toml` preload).
 
 ---

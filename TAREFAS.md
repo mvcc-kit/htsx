@@ -21,8 +21,8 @@ Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revi
 ## P2. Testar interatividade como usuário, sem dependência
 
 - [x] Consultas ao HTML do servidor com `HTMLRewriter`: `page.text()`, `page.byTestId()`, `page.attr()`.
-- [ ] Navegador real pelo Chrome DevTools Protocol com o `WebSocket` nativo do Bun: `type`, `press`, `waitFor`, `inspect` e `screenshot`. Seletores por texto, `id:` e `data-testid`; espera por condição, sem `sleep`.
-- [ ] Inspetor só em desenvolvimento: `window.__htsx.inspect()` devolve o estado do Alpine em JSON e `__htsx.set(caminho, valor)` altera.
+- [x] Navegador real pelo Chrome DevTools Protocol com o `WebSocket` nativo do Bun: `type`, `press`, `waitFor`, `inspect` e `screenshot`. Seletores por texto, `id:` e `data-testid`; espera por condição, sem `sleep`.
+- [x] Inspetor só em desenvolvimento: `window.__htsx.inspect()` devolve o estado do Alpine em JSON e `__htsx.set(caminho, valor)` altera.
 
 ## P3. Alpine e htmx sem CDN
 
