@@ -3,6 +3,8 @@ import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileRoutes, type App } from '../app'
 import { buildStatic } from '../adapter-static'
+import type { AssetsFetcher, WorkerContext } from '../adapter-cloudflare'
+import { assetsFromDir, buildCloudflare } from '../adapter-cloudflare-build'
 import { scanRoutes, syncRoutes } from '../routes'
 import { page } from '../testing'
 
@@ -111,12 +113,51 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     expect(await (await req('/api/posts.json')).json()).toEqual(['ola', 'segundo'])
   })
 
-  it('funciona com os modos de entrega (estático)', async () => {
-    const { defineApp } = await import('../app')
-    const { files } = await import(path.join(ROOT, '.htsx', 'routes.ts'))
+  it('modo estático: só as rotas com prerender (herdado do grupo e da página)', async () => {
     const out = path.join(import.meta.dir, '..', '.cache', 'fs-static')
-    const r = await buildStatic(defineApp({ ...files, prerender: true, routes: files.routes.filter((x: { id: string }) => x.id !== '/item/[id=int]') }), { root: ROOT, outDir: out, vendor: false, strict: false })
-    expect(r.files).toContain('/blog/segundo')
-    expect(await Bun.file(path.join(out, 'blog', 'segundo.html')).text()).toContain('Segundo post')
+    const r = await buildStatic(app, { root: ROOT, outDir: out, vendor: false, strict: false })
+    expect(r.files).toEqual(['/404.html', '/blog', '/sobre'])
+    expect(await (await page(await Bun.file(path.join(out, 'sobre.html')).text())).text('header b')).toBe('Meu site')
+  })
+
+})
+
+describe('rotas por arquivos no modo Cloudflare Workers', () => {
+  const committed = Bun.file(path.join(ROOT, 'cloudflare-manifest.json')).json()
+  let worker: { fetch(req: Request, env: object, ctx: WorkerContext): Promise<Response> }
+  let env: { ASSETS: AssetsFetcher }
+  const fromAssets: string[] = []
+  const waited: unknown[] = []
+  const ctx: WorkerContext = { waitUntil: p => { waited.push(p) } }
+  const call = (p: string, init: RequestInit = {}) => worker.fetch(new Request('https://site.dev' + p, init), env, ctx)
+
+  beforeAll(async () => {
+    const r = await buildCloudflare(app, { root: ROOT, manifest: 'cloudflare-manifest.json' })
+    expect(r.dynamic.sort()).toEqual(['/', '/api/posts.json', '/blog/[slug]', '/item/[id=int]'])
+    expect(await committed).toEqual(r.manifest)   // o worker.ts importa o arquivo versionado
+    const assets = await assetsFromDir(r.outDir)
+    env = { ASSETS: { fetch: req => { fromAssets.push(new URL(typeof req === 'string' ? req : req.url).pathname); return assets.fetch(req) } } }
+    worker = (await import(path.join(ROOT, 'src', 'worker.ts'))).default
+  })
+
+  it('página pré-renderizada (layout do grupo) vem do binding de assets', async () => {
+    const p = await page(await call('/sobre'))
+    expect(fromAssets).toEqual(['/sobre'])
+    expect(await p.text('h1')).toBe('Sobre')
+  })
+
+  it('rota dinâmica no Worker: layouts, parent(), locals do cookie', async () => {
+    const p = await page(await call('/blog/ola', { headers: { cookie: 'user=Bia' } }))
+    expect(await p.text('small')).toBe('notas · Bia')
+    expect(await p.text('[data-testid=blog] h2')).toBe('Meu site / Blog')
+  })
+
+  it('ação, endpoint, +error aninhado e 404 no Worker', async () => {
+    const bad = await call('/blog/ola?/comentar', { method: 'POST', body: new URLSearchParams({ texto: '' }), headers: { origin: 'https://site.dev' } })
+    expect(bad.status).toBe(400)
+    expect(await (await call('/api/posts.json')).json()).toEqual(['ola', 'segundo'])
+    expect(await (await page(await call('/blog/x'))).byTestId('erro-post')).toMatchObject({ text: 'Post "x" não existe' })
+    expect((await call('/nada')).status).toBe(404)
   })
 })
+
