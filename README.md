@@ -32,7 +32,7 @@ export default {
 Sem npm: a instalação vem direto do GitHub, por tag imutável. Só para Bun, porque `exports` aponta para os `.ts`. O pacote `htsx` do npm é outro projeto: use sempre `github:`.
 
 ```json
-{ "dependencies": { "htsx": "github:mvcc-kit/htsx#v0.3.0-beta.1" } }
+{ "dependencies": { "htsx": "github:mvcc-kit/htsx#v0.4.0-beta.1" } }
 ```
 
 E no `tsconfig.json`:
@@ -52,7 +52,7 @@ O htsx está em beta e a API ainda pode mudar. O que mudou em cada versão está
 - [`RELEASING.md`](RELEASING.md): regras de versão e como publicar.
 - [`docs/sveltekit-analise.md`](docs/sveltekit-analise.md): o que veio do SvelteKit (modos estático e Cloudflare) e o que falta.
 
-Entradas públicas: `htsx` (renderização), `htsx/meta` (`<Title>`, `<Meta>`, `<Link>`, `<Htmx>`, `<Alpine>`), `htsx/app` (rotas, load, ações, hooks; sem plataforma), `htsx/config` (`htsx.config.ts`: modo, pastas e opções; roda os comandos sem CLI), `htsx/project` (`loadApp`, `build`, `start`, `sync` em código), `htsx/adapter-static`, `htsx/adapter-cloudflare` (+ `/build`) e `htsx/adapter-bun` (os modos de entrega), `htsx/store` (cliente, `defineStore`), `htsx/testing` (testes) e `htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `htsx-ui` (pasta `ui/`).
+Entradas públicas: `htsx/kit` (modo framework: rotas, parciais e `<Head>` juntos), `htsx` (só renderização, para qualquer servidor), `htsx/meta` (`<Title>`, `<Meta>`, `<Link>`, `<Htmx>`, `<Alpine>`), `htsx/app` (rotas, load, ações, hooks; sem plataforma), `htsx/config` (`htsx.config.ts`: modo, pastas e opções; roda os comandos sem CLI), `htsx/project` (`loadApp`, `build`, `start`, `sync` em código), `htsx/adapter-static`, `htsx/adapter-cloudflare` (+ `/build`) e `htsx/adapter-bun` (os modos de entrega), `htsx/store` (cliente, `defineStore`), `htsx/testing` (testes) e `htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `htsx-ui` (pasta `ui/`).
 
 ## Num app
 

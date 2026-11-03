@@ -71,6 +71,15 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P10. Modo framework do htmx
+
+- [x] `htsx/kit` e `partial()`: componente tipado com URL própria (`?/nome`), `+nome.partial.tsx`, `input` com Standard Schema, `guard` e `load` dos layouts antes do parcial.
+- [x] `event.htmx`: leitura do pedido e comandos da resposta.
+- [x] `<Head>` mais seguro por padrão: `allowEval: false`, e `fail()` com 400 ou 422 aparece na tela.
+- [ ] Pré-carregar links com `hx-boost` ao passar o mouse.
+- [ ] `HX-Location` no lugar de `HX-Redirect` em `redirect()` dentro de um layout com `Outlet`.
+- [ ] Morph (`idiomorph`), para manter foco e estado do Alpine na troca. Exige copiar mais uma biblioteca para `vendor/`.
+
 ## P9. Navegação fluida na raiz
 
 - [x] `<Head>` com htmx, Alpine e navegação por padrão, e `<Outlet>`: navegação troca só o conteúdo, parcial no servidor e no estático, testado no Chrome real.

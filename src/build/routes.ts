@@ -8,6 +8,7 @@ import { parseRouteId } from '../app/routing'
 const KINDS = ['+page', '+page.server', '+layout', '+layout.server', '+server', '+error'] as const
 type Kind = (typeof KINDS)[number]
 export const EXTS = ['.tsx', '.ts', '.jsx', '.js']
+const PARTIAL_FILE = /^\+([a-zA-Z][\w-]*)\.partial$/
 
 const HINTS: Record<string, string> = {
   '+page.svelte': 'use +page.tsx',
@@ -21,6 +22,8 @@ export interface ScannedDir {
   /** Id da rota desta pasta, sem grupos (ex.: `/blog`). */
   id: string
   files: Partial<Record<Kind, string>>
+  /** `+nome.partial.tsx`: nome → arquivo. */
+  partials: Record<string, string>
   parent: ScannedDir | null
 }
 
@@ -54,12 +57,22 @@ export async function scanRoutes(root: string, routesDir: string): Promise<Scann
 
   async function walk(dirAbs: string, segments: string[], parent: ScannedDir | null) {
     const rel = posix(path.relative(root, dirAbs))
-    const node: ScannedDir = { dir: rel, id: '/' + segments.join('/'), files: {}, parent }
+    const node: ScannedDir = { dir: rel, id: '/' + segments.join('/'), files: {}, partials: {}, parent }
     const entries = (await readdir(dirAbs, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))
     for (const e of entries) {
       if (!e.isFile() || !e.name.startsWith('+')) continue
       const ext = EXTS.find(x => e.name.endsWith(x))
       const kind = ext ? e.name.slice(0, -ext.length) : e.name
+      const partialName = PARTIAL_FILE.exec(kind)?.[1]
+      if (ext && partialName) {
+        if (node.partials[partialName]) problems.push(`${rel}: +${partialName}.partial aparece duas vezes`)
+        node.partials[partialName] = `${rel}/${e.name}`
+        continue
+      }
+      if (/partials?$/.test(kind)) {
+        problems.push(`${rel}/${e.name}: use +nome.partial.tsx, por exemplo +lista.partial.tsx`)
+        continue
+      }
       if (!ext || !KINDS.includes(kind as Kind)) {
         problems.push(`${rel}/${e.name}: ${HINTS[e.name] ?? `nome desconhecido; use ${KINDS.map(k => k + '.tsx|.ts').join(', ')}`}`)
         continue
@@ -79,8 +92,12 @@ export async function scanRoutes(root: string, routesDir: string): Promise<Scann
   const byId = new Map<string, string[]>()
   for (const d of out) {
     const isRoute = d.files['+page'] || d.files['+server'] || d.files['+page.server']
-    if (!isRoute) continue
+    if (!isRoute) {
+      if (Object.keys(d.partials).length) problems.push(`${d.dir}: +${Object.keys(d.partials)[0]}.partial sem +page.tsx; o parcial pertence à página da pasta`)
+      continue
+    }
     try { parseRouteId(d.id) } catch (e) { problems.push(`${d.dir}: ${(e as Error).message.replace(/^htsx: /, '')}`) }
+    if (Object.keys(d.partials).length && !d.files['+page']) problems.push(`${d.dir}: +${Object.keys(d.partials)[0]}.partial sem +page.tsx; o parcial pertence à página da pasta`)
     if (d.files['+page.server'] && !d.files['+page']) problems.push(`${d.dir}: +page.server.ts sem +page.tsx; crie a página ou troque por +server.ts`)
     byId.set(d.id, [...(byId.get(d.id) ?? []), d.dir])
   }
@@ -131,6 +148,8 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
     const parts = [`id: ${JSON.stringify(d.id)}`, `levels: [${chain(d).map(level).join(', ')}]`]
     const add = (k: string, f?: string) => { const m = mod(f); if (m) parts.push(`${k}: ${m}`) }
     add('page', d.files['+page']); add('pageServer', d.files['+page.server']); add('endpoint', d.files['+server'])
+    const partials = Object.entries(d.partials).map(([name, file]) => `${JSON.stringify(name)}: ${mod(file)}`)
+    if (partials.length) parts.push(`partials: { ${partials.join(', ')} }`)
     routeEntries.push(`    { ${parts.join(', ')} },`)
   }
   if (!routeEntries.length && !dirs.some(d => d.files['+error'])) {
@@ -188,7 +207,7 @@ function typesFor(d: ScannedDir, root: string, out: string, pkg: string): string
   return `// Gerado pelo htsx (htsx.config.ts) para ${d.dir}. Não edite.
 import type { ActionDataOf, Children, LoadData, MaybePromise, MergeData, ParamsOf, RequestEvent, ServerLoadEvent } from ${JSON.stringify(pkg + '/app')}
 
-type Params = ParamsOf<${JSON.stringify(d.id)}>
+export type Params = ParamsOf<${JSON.stringify(d.id)}>
 type LayoutParentData = ${parent}
 
 export type LayoutServerLoad = (event: ServerLoadEvent<Params, LayoutParentData>) => MaybePromise<Record<string, unknown> | void>

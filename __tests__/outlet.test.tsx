@@ -14,7 +14,7 @@ describe('regras do <Head>', () => {
   it('htmx: true e vazio usam o padrão, objeto soma, false desliga', () => {
     expect(resolveHtmxConfig(undefined)).toEqual({ ...DEFAULT_HTMX_CONFIG })
     expect(resolveHtmxConfig(true)).toEqual({ ...DEFAULT_HTMX_CONFIG })
-    expect(resolveHtmxConfig({ timeout: 5, historyCacheSize: 3 })).toEqual({ globalViewTransitions: true, historyCacheSize: 3, timeout: 5 })
+    expect(resolveHtmxConfig({ timeout: 5, historyCacheSize: 3 })).toEqual({ ...DEFAULT_HTMX_CONFIG, historyCacheSize: 3, timeout: 5 })
     expect(resolveHtmxConfig(false)).toBeNull()
   })
 

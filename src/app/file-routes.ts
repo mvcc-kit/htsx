@@ -3,9 +3,10 @@
 //   +page.tsx / +page.server.ts     → página; `load`, `actions`, `prerender`, `entries`
 //   +server.ts                      → GET/POST/... (endpoint)
 //   +error.tsx                      → página de erro mais próxima
+//   +nome.partial.tsx               → trecho da página com URL própria (`?/nome`), pedido pelo htmx
 // Os dados descem: cada layout recebe os dados dele e dos layouts acima; a página recebe todos.
 // Lógica pura: recebe os módulos já importados (o manifesto gerado no sync do htsx.config.ts).
-import { route, type ErrorPage, type Layout, type RequestEvent, type Route, type RouteDef } from './app'
+import { route, type ErrorPage, type Layout, type RequestEvent, type Route, type RouteDef, type RoutePartial } from './app'
 import type { ParamMatcher } from './routing'
 import type { ActionFailure } from './errors'
 import { createElement as h } from '../jsx-runtime'
@@ -41,6 +42,7 @@ export interface PageServerModule {
 }
 export interface PageModule { default: AnyFn }
 export interface ErrorModule { default: AnyFn }
+export interface PartialModule { default: RoutePartial }
 export interface EndpointModule {
   GET?: AnyFn; POST?: AnyFn; PUT?: AnyFn; PATCH?: AnyFn; DELETE?: AnyFn; OPTIONS?: AnyFn
   prerender?: boolean | 'auto'
@@ -64,6 +66,8 @@ export interface RouteFiles {
   page?: PageModule
   pageServer?: PageServerModule
   endpoint?: EndpointModule
+  /** `+nome.partial.tsx` da pasta da rota. */
+  partials?: Record<string, PartialModule>
 }
 
 export interface FileRoutesInput {
@@ -97,7 +101,7 @@ function asData(value: unknown, where: string): Data {
 }
 
 /** Roda os `load` dos layouts (em paralelo; cada `parent()` espera os de cima) e o da página. */
-async function runLoads(r: RouteFiles, event: RequestEvent): Promise<Data> {
+async function runLoads(r: RouteFiles, event: RequestEvent, withPage = true): Promise<Data> {
   const state: LevelState = { data: [] }
   STATE.set(event, state)
   let merged: Promise<Data> = Promise.resolve({})
@@ -112,7 +116,7 @@ async function runLoads(r: RouteFiles, event: RequestEvent): Promise<Data> {
     steps.push(merged)
   }
   const parent = merged
-  const pageLoad = r.pageServer?.load
+  const pageLoad = withPage ? r.pageServer?.load : undefined
   const page = pageLoad ? Promise.resolve().then(() => pageLoad({ ...event, parent: () => parent })) : Promise.resolve(undefined)
 
   // espera tudo antes de lançar, para não sobrar Promise rejeitada sem tratamento
@@ -193,6 +197,16 @@ export function fileRoutes(input: FileRoutesInput): FileRoutes {
       def.page = props => r.page!.default(props)
       def.layout = hasLayout ? (({ children, event }) => wrap(r, event, children, r.levels.length - 1)) as Layout : false
       if (r.pageServer?.actions) def.actions = r.pageServer.actions
+    }
+    if (r.partials && Object.keys(r.partials).length > 0) {
+      def.partials = {}
+      for (const [name, module] of Object.entries(r.partials)) {
+        if (typeof module.default?.handle !== 'function') throw new Error(`htsx: ${dir}/+${name}.partial.tsx precisa de export default partial({ ... })`)
+        def.partials[name] = module.default
+      }
+      if (inherited) throw new Error(`htsx: ${from!.dir}/+layout.server.ts marca prerender, mas ${dir} tem parciais, que precisam de servidor; ponha prerender: false em ${dir}/+page.server.ts`)
+      // Os `load` dos layouts continuam valendo: é neles que costuma estar a exigência de login.
+      def.guard = event => runLoads(r, event, false)
     }
     for (const m of METHODS) {
       const fn = r.endpoint?.[m]

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./meta": "./meta.ts",
+    "./kit": "./kit.ts",
     "./jsx-runtime": "./src/jsx-runtime.ts",
     "./jsx-dev-runtime": "./src/jsx-runtime.ts",
     "./testing": "./testing.ts",

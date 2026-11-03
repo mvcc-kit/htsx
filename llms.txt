@@ -564,6 +564,64 @@ export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpi
 
 ---
 
+## Modo framework: `htsx/kit` e parciais
+
+`htsx/kit` junta rotas, parciais e `<Head>`. Quem só renderiza HTML no próprio servidor continua usando `htsx`.
+
+Um parcial é um trecho de página com URL própria. Na página, é um componente tipado; no navegador, o htmx pede de novo só aquele trecho.
+
+Em arquivos, fica ao lado da página, como `src/routes/tarefas/+lista.partial.tsx`. Na mão, entra em `route(id, { partials: { lista } })`.
+
+```tsx
+import { defineApp, partial, route, type StandardSchema } from '{{PKG}}/kit'
+
+// Qualquer Standard Schema serve (Valibot, Zod...). O que vem da URL é sempre texto: o schema converte.
+const pagina: StandardSchema<{ pagina: number }> = {
+  '~standard': {
+    version: 1,
+    vendor: 'exemplo',
+    validate: value => {
+      const n = Number((value as { pagina?: string }).pagina)
+      return Number.isInteger(n) && n > 0 ? { value: { pagina: n } } : { issues: [{ message: 'página inválida' }] }
+    },
+  },
+}
+
+const Lista = partial({
+  input: pagina,
+  load: ({ input }) => ({ itens: [`Item da página ${input.pagina}`] }),
+  render: ({ input, data }) => (
+    <ul id="lista">
+      {data.itens.map(item => <li>{item}</li>)}
+      <button {...Lista.get({ pagina: input.pagina + 1 }, { target: '#lista', swap: 'outerHTML' })}>Próxima</button>
+    </ul>
+  ),
+})
+
+export const app = defineApp({
+  routes: [
+    route('/tarefas', {
+      partials: { lista: Lista },
+      // o load da página não roda neste pedido: o que proteger o parcial fica aqui ou em handle
+      guard: ({ cookies }) => { if (!cookies.get('sessao')) throw new Error('sem sessão') },
+      page: () => <Lista pagina={1} />,
+    }),
+  ],
+})
+```
+
+- **URL:** `?/lista&pagina=2`, no mesmo formato das ações. `GET` pede o parcial; `POST` roda a ação.
+- **`Lista.get(props, opções)`** gera os atributos do htmx, com as mesmas props tipadas do componente.
+- **Só o que o parcial precisa roda:** sem layout e sem o `load` da página.
+- **Segurança:** a entrada passa pelo `input` (erro 400 sem detalhes), e `handle` sempre roda. O que chega pela URL é do usuário: confira a permissão de cada dado.
+- **Em arquivos:** os `load` de `+layout.server.ts` rodam antes do parcial, inclusive a exigência de login. Para `params` tipado, use `partialFor<Params>()`, com `Params` de `./$types`.
+- **Ação que devolve só o parcial:** `actions: { add: () => Lista.respond({ pagina: 1 }) }`.
+- **Precisa de servidor:** o build falha se a rota tiver `prerender`.
+
+`event.htmx` traz o pedido (`request`, `boosted`, `target`, `triggeredBy`, `currentUrl`) e os comandos da resposta: `trigger(nome, dados)`, `retarget`, `reswap`, `reselect`, `pushUrl`, `replaceUrl`, `location`, `redirect` e `refresh`.
+
+---
+
 ## `<Head>` e `<Outlet>`: o jeito simples
 
 `<Head>` já traz charset, viewport, htmx, Alpine e navegação. `false` desliga; objeto configura. Os arquivos vêm de `VENDOR_PATH`, que os adaptadores servem.
@@ -604,8 +662,8 @@ Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteú
 - **Cada página precisa do próprio `<Title>`:** sem ele, o título da página anterior continua.
 - **O que fica fora do `Outlet` não muda na navegação.** Se depender da página (como o idioma ou o link ativo), ponha dentro dele.
 - **Script de uma página específica vai dentro do conteúdo**, não no `<head>`: o `<head>` não é trocado. Evite `type="module"`, porque o navegador não o executa de novo.
-- Padrão do htmx no `<Head>`: `globalViewTransitions: true` e `historyCacheSize: 0`, para não deixar cópias de páginas no `localStorage`.
-- CSP estrita: o Alpine padrão precisa de `unsafe-eval`, e o htmx, de `includeIndicatorStyles: false` e `allowEval: false`.
+- Padrão do htmx no `<Head>`: `globalViewTransitions: true`; `historyCacheSize: 0`, para não deixar cópias de páginas no `localStorage`; `allowEval: false`, então `hx-on` pede `htmx={{ allowEval: true }}`; e `400` e `422` aparecem na tela, para o `fail()` funcionar.
+- CSP estrita: o Alpine padrão precisa de `unsafe-eval`, e o htmx, de `includeIndicatorStyles: false`.
 
 ---
 

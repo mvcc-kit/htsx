@@ -6,6 +6,8 @@ import { withContext, maybeContext } from '../context'
 import { cacheContext } from '../cache'
 import { withMeta } from '../meta/collector'
 import { OUTLET_ID, wantsOutlet } from '../outlet'
+import { createHtmxContext, type HtmxContext } from './htmx'
+import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
 import { compareRoutes, matchRoute, parseRouteId, type ParamMatcher, type ParamsOf, type ParsedRoute } from './routing'
@@ -35,6 +37,8 @@ export interface RequestEvent<Params = Record<string, string>> {
   prerendering: boolean
   /** Requisição htmx que não é `hx-boost`: a página sai sem layout. */
   isFragment: boolean
+  /** O que o htmx mandou no pedido e o que a resposta manda ele fazer. */
+  htmx: HtmxContext
   getClientAddress(): string
 }
 
@@ -66,6 +70,10 @@ export interface RouteDef<Id extends string, D, A> {
   page?: (props: PageProps<ParamsOf<Id>, Awaited<D>, ActionData<A>>) => Node
   /** Ações de formulário (POST). `?/nome` escolhe a ação; sem nome, usa `default`. */
   actions?: A & Record<string, Action<ParamsOf<Id>>>
+  /** Trechos da página com URL própria (`?/nome`), pedidos pelo htmx. Veja `partial()`. */
+  partials?: Record<string, RoutePartial>
+  /** Roda antes de cada parcial (ex.: exigir login), porque o `load` da página não roda nesse pedido. */
+  guard?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<unknown>
   /** Layout desta rota; `false` desliga o layout do app. */
   layout?: Layout | false
   /** `true`: gera HTML no build; `'auto'`: gera no build e também atende dinamicamente. */
@@ -82,6 +90,12 @@ export interface RouteDef<Id extends string, D, A> {
   OPTIONS?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<Response>
 }
 
+/** O que o roteador precisa de um parcial. */
+export interface RoutePartial {
+  bind(name: string, owner: string): void
+  handle(event: RequestEvent): Promise<string>
+}
+
 export interface Route {
   readonly id: string
   readonly parsed: ParsedRoute
@@ -95,6 +109,8 @@ export function route<const Id extends string, D = undefined, A = {}>(id: Id, de
     throw new Error(`htsx: rota ${JSON.stringify(id)}: com ações nomeadas não use "default"; dê nome a todas`)
   }
   if (def.actions && def.POST) throw new Error(`htsx: rota ${JSON.stringify(id)} tem actions e POST; escolha um dos dois`)
+  if (def.prerender && def.partials) throw new Error(`htsx: rota ${JSON.stringify(id)} tem partials e prerender; parciais precisam de servidor`)
+  for (const [name, part] of Object.entries(def.partials ?? {})) part.bind(name, `rota ${JSON.stringify(id)}`)
   if (def.prerender && def.actions) throw new Error(`htsx: rota ${JSON.stringify(id)} tem actions e prerender; ações precisam de servidor`)
   return r
 }
@@ -232,6 +248,7 @@ export function defineApp(options: AppOptions): App {
       return errorResponse(event, 404, `Ação "${name}" não existe nesta rota (use ${known})`, headers)
     }
     const result = await action(event)
+    if (result instanceof Response) return mergeHeaders(result, headers)
     if (result instanceof ActionFailure) return renderPage(route, event, result.data, result.status, headers)
     if (!route.def.page) return Response.json(result ?? null, { headers })
     return renderPage(route, event, result ?? undefined, 200, headers)
@@ -241,6 +258,18 @@ export function defineApp(options: AppOptions): App {
     if (!match) return errorResponse(event, 404, 'Não encontrado', headers)
     const { def } = match.route
     const method = event.request.method.toUpperCase() as Method | 'HEAD'
+    if (def.partials && (method === 'GET' || method === 'HEAD')) {
+      const name = partialNameFromQuery(event.url.searchParams)
+      if (name !== null) {
+        if (!Object.hasOwn(def.partials, name)) return errorResponse(event, 404, 'Não encontrado', headers)
+        await def.guard?.(event as never)
+        const html = await withMeta(() => def.partials![name]!.handle(event))
+        headers.set('content-type', 'text/html; charset=utf-8')
+        // pedaço de página: não deve aparecer em buscadores
+        headers.set('x-robots-tag', 'noindex')
+        return new Response(method === 'HEAD' ? null : html, { status: 200, headers })
+      }
+    }
     const endpoint = def[method === 'HEAD' ? 'GET' : method as Method]
     if (endpoint && !(method === 'GET' && def.page && wantsHtml(event.request))) {
       const res = mergeHeaders(await endpoint(event), headers)
@@ -286,6 +315,7 @@ export function defineApp(options: AppOptions): App {
       },
       prerendering: !!opts.prerendering,
       isFragment: isHtmxReq && request.headers.get('hx-boosted') !== 'true' && request.headers.get('hx-history-restore-request') !== 'true',
+      htmx: createHtmxContext(request.headers, headers),
       getClientAddress: opts.getClientAddress ?? (() => { throw new Error('htsx: getClientAddress() não está disponível nesta plataforma') }),
     }
 

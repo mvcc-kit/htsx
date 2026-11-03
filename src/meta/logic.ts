@@ -89,8 +89,23 @@ export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
   return { html: head + unique.map(tag => tag.html).join('') + html.slice(end), dropped: [] }
 }
 
-/** Padrão do <Head>: mesma transição da navegação e histórico sem cópia de páginas no aparelho. */
-export const DEFAULT_HTMX_CONFIG = { globalViewTransitions: true, historyCacheSize: 0 } as const
+/**
+ * Padrão do <Head>: mesma transição da navegação, sem cópia de páginas no aparelho, sem `eval` no
+ * navegador (`hx-on` precisa de `allowEval: true`) e com a resposta de `fail()` aparecendo na tela,
+ * porque o htmx não troca o conteúdo em erro 4xx por padrão.
+ */
+export const DEFAULT_HTMX_CONFIG = {
+  globalViewTransitions: true,
+  historyCacheSize: 0,
+  allowEval: false,
+  responseHandling: [
+    { code: '204', swap: false },
+    { code: '[23]..', swap: true },
+    { code: '400', swap: true, error: true },
+    { code: '422', swap: true, error: true },
+    { code: '[45]..', swap: false, error: true },
+  ],
+} as const
 
 /** `false` desliga, `true` usa o padrão, objeto soma ao padrão. `null`: não carregar. */
 export function resolveHtmxConfig(value: boolean | Record<string, unknown> | undefined): Record<string, unknown> | null {

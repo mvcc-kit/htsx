@@ -83,6 +83,7 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
       continue
     }
     if (!isPrerenderable(app, r)) continue
+    if (r.def.partials) problems.push(`rota ${r.id} tem partials, que precisam de servidor; tire prerender da rota ou use um modo com servidor`)
     reached.add(r)
 
     const requestPath = slash === 'always' && path !== '/' && !/\.[a-z0-9]+$/i.test(path) ? path + '/' : path

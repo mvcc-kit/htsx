@@ -2,6 +2,16 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.0-beta.1 (02/11/2026)
+
+**Mudança incompatível:** o `<Head>` agora liga `allowEval: false`. Quem usa `hx-on` precisa de `<Head htmx={{ allowEval: true }}>`.
+
+- Nova entrada `htsx/kit`: rotas, parciais, `<Head>` e `<Outlet>` juntos.
+- `partial()`: trecho de página que é componente tipado e tem URL própria (`?/nome`). Em arquivos, `+nome.partial.tsx`. Entrada validada por Standard Schema, com `guard` e os `load` dos layouts rodando antes.
+- `event.htmx`: leitura do pedido e comandos da resposta, como `trigger` e `retarget`.
+- Ação pode devolver `Response`, como `Lista.respond(props)`.
+- Correção: resposta de `fail()` com 400 ou 422 agora aparece na tela com `<Head>`; antes, o htmx a descartava.
+
 ## 0.3.0-beta.1 (02/11/2026)
 
 **Mudança incompatível:** o pacote agora se chama `htsx`. Troque `@mvcc-kit/htsx` nos imports, no `jsxImportSource` e no `package.json`, onde a dependência fica `"htsx": "github:mvcc-kit/htsx#v0.3.0-beta.1"`. O pacote `htsx` do npm é outro projeto.

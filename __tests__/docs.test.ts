@@ -41,6 +41,7 @@ describe('docs: exemplos compilam e rodam', async () => {
         paths: {
           'htsx': ['../../index.ts'],
           'htsx/meta': ['../../meta.ts'],
+          'htsx/kit': ['../../kit.ts'],
           'htsx/store': ['../../store.ts'],
           'htsx/testing': ['../../testing.ts'],
           'htsx/app': ['../../app.ts'],

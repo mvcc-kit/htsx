@@ -31,6 +31,7 @@ const ENTRYPOINTS: Record<string, string> = {
   'src/jsx-runtime.ts': './jsx-runtime',
   'app.ts': './app',
   'meta.ts': './meta',
+  'kit.ts': './kit',
   'store.ts': './store',
   'testing.ts': './testing',
   'adapter-static.ts': './adapter-static',

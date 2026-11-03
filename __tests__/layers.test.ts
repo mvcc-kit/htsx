@@ -43,13 +43,15 @@ describe('camadas', () => {
   })
 
   it('o que roda no Worker não usa node:* (exceto node:async_hooks)', async () => {
-    const runtime = ['index.ts', 'meta.ts', 'app.ts', 'store.ts', 'config.ts', 'adapter-cloudflare.ts', ...(await glob('src/**/*.ts')).filter(f => !/^src\/(build|testing)\//.test(f) && !['src/adapters/static.ts', 'src/adapters/cloudflare-build.ts', 'src/adapters/bun.ts'].includes(f))]
+    const runtime = ['index.ts', 'meta.ts', 'kit.ts', 'app.ts', 'store.ts', 'config.ts', 'adapter-cloudflare.ts', ...(await glob('src/**/*.ts')).filter(f => !/^src\/(build|testing)\//.test(f) && !['src/adapters/static.ts', 'src/adapters/cloudflare-build.ts', 'src/adapters/bun.ts'].includes(f))]
     expect(await violations(runtime, isNodeOnly)).toEqual([])
   })
 
-  it('as regras de /meta (src/meta/logic.ts) não importam nada', async () => {
-    expect(imports('src/meta/logic.ts', await Bun.file(path.join(ROOT, 'src/meta/logic.ts')).text())).toEqual([])
-  })
+  for (const file of ['src/meta/logic.ts', 'src/app/partial-logic.ts']) {
+    it(`as regras de ${file} não importam nada`, async () => {
+      expect(imports(file, await Bun.file(path.join(ROOT, file)).text())).toEqual([])
+    })
+  }
 
   it('a checagem pega import relativo, pelo nome do pacote e dinâmico', () => {
     expect(imports('src/x.ts', `import { Button } from '../ui/index'`).filter(isUi)).toEqual(['ui/index'])
