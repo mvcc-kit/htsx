@@ -67,7 +67,12 @@ describe('cadenceProblem', () => {
 
   it('segura antes de 24 h, salvo falha de segurança', () => {
     expect(cadenceProblem(0, 23 * HOUR, false)).toContain('faltam 1 h')
-    expect(cadenceProblem(0, HOUR, true)).toBeNull()
+    expect(cadenceProblem(0, HOUR, true, '### Segurança\n\n- Falha.')).toBeNull()
+  })
+
+  it('--security sem a falha descrita nas notas é recusado', () => {
+    expect(cadenceProblem(0, HOUR, true, '### Melhorado\n\n- Algo.')).toContain('exige a seção')
+    expect(cadenceProblem(0, HOUR, true)).toContain('exige a seção')
   })
 })
 

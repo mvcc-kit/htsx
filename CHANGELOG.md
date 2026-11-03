@@ -2,6 +2,38 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.1-beta (04/11/2026)
+
+### Adicionado
+
+- `src/server.ts` como `main` do wrangler no modo Cloudflare: recebe cada requisição antes das rotas, que vêm geradas em `.htsx/server.ts`, e também exporta Durable Objects, `scheduled` e `queue`.
+- `routes.fetch(request, env, ctx, { locals })`: o que o servidor calcula chega às rotas em `event.locals`.
+- `cloudflareAdapter({ server, wranglerBin })`.
+
+### Melhorado
+
+- `bun htsx.config.ts dev` no Cloudflare roda no workerd pelo `wrangler dev`, sem build. Rota nova, código e `static/` se atualizam sozinhos.
+- O wrangler passa a empacotar o Worker, então o `build` só prepara os assets e as páginas prontas.
+- O `dev` mostra a pilha do erro; `wrangler deploy` nunca, mesmo com `NODE_ENV=development`.
+- O `dev` e o `build` recusam `tsconfig.json` com JSX errado, que só cairia em produção.
+- `.htsx/routes.ts` e `.htsx/server.ts` só são gravados se mudaram, e o `dev` recarrega menos.
+- `cloudflareAdapter({ wranglerBin: 'wrangler' })` aceita nome solto, vindo do PATH.
+
+### Corrigido
+
+- Um `sync` depois do `build`, como o `loadApp()` dos testes, não apaga mais a lista de páginas prontas.
+
+### Segurança
+
+- `event.locals` é copiado a cada requisição: objeto fixo passado em `respond(request, { locals })` não vaza entre requisições.
+- `--security` no comando de release exige a seção `### Segurança` nas notas.
+
+### Mudanças de quebra
+
+- O build não gera mais `_worker.js`. No `wrangler.jsonc`, troque `"main": ".htsx/cloudflare/_worker.js"` por `"main": "src/server.ts"` ou, sem esse arquivo, por `"main": ".htsx/server.ts"`.
+- `src/worker.ts` e `cloudflareAdapter({ worker })` saem. Passe o conteúdo para `src/server.ts`, com um `fetch` que chama `routes.fetch`.
+- O `tsconfig.json` precisa de `"jsx": "react-jsx"` e `"jsxImportSource": "htsx"`, porque o wrangler lê o JSX dali.
+
 ## 0.1.0-beta (03/11/2026)
 
 Primeira versão beta. A numeração recomeçou aqui: as versões anteriores foram apagadas, e o código é o mesmo da última delas.

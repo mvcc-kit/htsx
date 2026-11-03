@@ -48,6 +48,13 @@ export interface SyncResult {
 
 const posix = (p: string) => p.split(path.sep).join('/')
 
+/** Só grava se mudou: no `dev`, cada escrita faz o wrangler reempacotar o Worker. */
+export async function writeIfChanged(file: string, content: string): Promise<void> {
+  const current = Bun.file(file)
+  if (await current.exists() && (await current.text()) === content) return
+  await Bun.write(file, content)
+}
+
 /** Lê a árvore de rotas e valida os nomes de arquivo. */
 export async function scanRoutes(root: string, routesDir: string): Promise<ScannedDir[]> {
   const abs = path.resolve(root, routesDir)
@@ -186,7 +193,7 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
 
   await rm(path.join(out, 'types'), { recursive: true, force: true })
   await mkdir(out, { recursive: true })
-  await Bun.write(path.join(out, 'routes.ts'), manifest)
+  await writeIfChanged(path.join(out, 'routes.ts'), manifest)
 
   // ── tipos ──
   for (const d of dirs) await Bun.write(path.join(out, 'types', d.dir, '$types.d.ts'), typesFor(d, root, out, pkg))

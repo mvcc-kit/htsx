@@ -70,8 +70,9 @@ export function versionProblem(version: string, tags: readonly string[], changel
   return notesProblem(notes)
 }
 
-/** Motivo para esperar, ou null. No máximo uma versão por dia, salvo falha de segurança. */
-export function cadenceProblem(lastReleaseMs: number | null, nowMs: number, security: boolean): string | null {
+/** Motivo para esperar, ou null. No máximo uma versão por dia, salvo falha de segurança descrita nas notas. */
+export function cadenceProblem(lastReleaseMs: number | null, nowMs: number, security: boolean, notes = ''): string | null {
+  if (security && !/^### Segurança$/m.test(notes)) return '--security exige a seção "### Segurança" nas notas, dizendo qual é a falha'
   if (security || lastReleaseMs === null) return null
   const waitMs = lastReleaseMs + DAY_MS - nowMs
   if (waitMs <= 0) return null

@@ -1,15 +1,17 @@
 // Comandos de `bun htsx.config.ts <comando>` e as funções equivalentes para usar em código.
 // Só Bun (build, dev, servidor): nunca vai para o Worker.
-import { existsSync, watch } from 'node:fs'
+import { existsSync, statSync, watch } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { createLiveReload } from './live-reload'
 import path from 'node:path'
 import { defineApp, type App, type AppOptions } from '../app/app'
 import type { FileRoutes } from '../app/file-routes'
 import type { CloudflareAdapter, Command, HtsxConfig } from '../config/config'
+import type { CloudflareManifest } from '../adapters/cloudflare'
 import { buildStatic } from '../adapters/static'
-import { buildCloudflare } from '../adapters/cloudflare-build'
+import { buildCloudflare, jsxConfigProblem, prepareCloudflareAssets, writeAssetRules } from '../adapters/cloudflare-build'
 import { serve } from '../adapters/bun'
-import { EXTS, syncRoutes } from './routes'
+import { EXTS, syncRoutes, writeIfChanged } from './routes'
 import { emulateCloudflare, type EmulatedPlatform } from './platform'
 import type { Platform } from '../app/app'
 
@@ -23,9 +25,11 @@ function optionalFile(root: string, file: string): string | undefined {
 const hooksFile = (config: HtsxConfig, root: string) => optionalFile(root, config.hooks ?? 'src/hooks.server')
 const outDirOf = (config: HtsxConfig, root: string) => path.resolve(root, config.out ?? '.htsx')
 
-/** Gera o manifesto e os tipos `./$types` (o que a CLI `sync` fazia). */
+/** Gera o manifesto, os tipos `./$types` e, no Cloudflare, `.htsx/server.ts`. */
 export async function sync(config: HtsxConfig, root = '.') {
-  return syncRoutes({ root, routes: config.routes, params: config.params, out: config.out, pkg: config.pkg })
+  const result = await syncRoutes({ root, routes: config.routes, params: config.params, out: config.out, pkg: config.pkg })
+  if (config.adapter.name === 'cloudflare') await writeServerEntry(config, config.adapter, path.resolve(root))
+  return result
 }
 
 let generation = 0
@@ -84,29 +88,51 @@ export async function loadApp(config?: HtsxConfig, root = '.', opts: LoadOptions
   }
 }
 
-/** Código do Worker gerado: o app + o módulo opcional `src/worker.ts` (Durable Objects, scheduled...). */
-function workerEntry(config: HtsxConfig, adapter: CloudflareAdapter, root: string, manifest: object): string {
+const manifestPath = (config: HtsxConfig, root: string) => path.join(outDirOf(config, root), 'cloudflare-manifest.json')
+
+/** Recusa projeto cujo JSX o wrangler compilaria errado. */
+async function assertJsxConfig(config: HtsxConfig, root: string): Promise<void> {
+  const file = Bun.file(path.join(root, 'tsconfig.json'))
+  const problem = jsxConfigProblem(await file.exists() ? await file.text() : null, config.pkg ?? 'htsx')
+  if (problem) throw new Error(problem)
+}
+
+/** `src/server.ts` (ou o que o adapter indicar), se existir. */
+function serverFile(adapter: CloudflareAdapter, root: string): string | undefined {
+  const file = optionalFile(root, adapter.server ?? 'src/server')
+  if (adapter.server && !file) throw new Error(`htsx: cloudflare.server aponta para ${adapter.server}, que não existe`)
+  return file
+}
+
+/** O `main` que o wrangler precisa ter: o arquivo do projeto ou o gerado. */
+const serverMain = (config: HtsxConfig, adapter: CloudflareAdapter, root: string) =>
+  serverFile(adapter, root) ?? path.join(outDirOf(config, root), 'server.ts')
+
+/** `.htsx/server.ts`: as rotas prontas para o `src/server.ts` chamar, ou para ser o próprio `main`. */
+async function writeServerEntry(config: HtsxConfig, adapter: CloudflareAdapter, root: string): Promise<void> {
   const out = outDirOf(config, root)
-  const rel = (abs: string) => JSON.stringify(path.relative(out, abs).split(path.sep).join('/').replace(/^(?!\.)/, './').replace(/\.(tsx?|jsx?)$/, ''))
+  // o manifesto do último build: um sync depois dele (testes, tipos) não pode apagar a lista
+  const manifestFile = Bun.file(manifestPath(config, root))
+  const manifest: CloudflareManifest = await manifestFile.exists() ? await manifestFile.json() : { prerendered: [] }
   const pkg = config.pkg ?? 'htsx'
   const hooks = hooksFile(config, root)
-  const extra = optionalFile(root, adapter.worker ?? 'src/worker')
-  if (adapter.worker && !extra) throw new Error(`htsx: cloudflare.worker aponta para ${adapter.worker}, que não existe`)
-  return [
-    '// Gerado pelo build do htsx (modo Cloudflare). Não edite.',
-    `import { defineApp } from ${JSON.stringify(pkg + '/app')}`,
+  const rel = (abs: string) => JSON.stringify(path.relative(out, abs).split(path.sep).join('/').replace(/^(?!\.)/, './').replace(/\.(tsx?|jsx?)$/, ''))
+  await writeIfChanged(path.join(out, 'server.ts'), [
+    '// Gerado pelo htsx (htsx.config.ts). Não edite.',
+    '// Só o `bun htsx.config.ts dev` define __HTSX_DEV__: nenhum deploy mostra a pilha do erro.',
+    'declare const __HTSX_DEV__: boolean | undefined',
+    `import { defineApp, type AppOptions } from ${JSON.stringify(pkg + '/app')}`,
     `import { cloudflare } from ${JSON.stringify(pkg + '/adapter-cloudflare')}`,
     `import { files } from './routes'`,
-    hooks ? `import * as hooks from ${rel(hooks)}` : 'const hooks = {} as Record<string, undefined>',
-    extra ? `import * as extra from ${rel(extra)}\nexport * from ${rel(extra)}` : 'const extra = {} as { default?: object }',
+    ...(hooks ? [`import * as userHooks from ${rel(hooks)}`] : []),
     '',
-    `const app = defineApp({ ...files, ...${JSON.stringify(config.options ?? {})}, handle: hooks.handle, handleError: hooks.handleError, context: hooks.context })`,
-    `const worker = cloudflare(app, { manifest: ${JSON.stringify(manifest)}, assetsBinding: ${JSON.stringify(adapter.assetsBinding ?? 'ASSETS')} })`,
+    `const hooks: Partial<Pick<AppOptions, 'handle' | 'handleError' | 'context'>> = ${hooks ? 'userHooks' : '{}'}`,
     '',
-    '// fetch do htsx + scheduled/queue/email do src/worker.ts, se houver',
-    'export default { ...(extra.default ?? {}), fetch: worker.fetch }',
+    `export const app = defineApp({ ...files, ...${JSON.stringify(config.options ?? {})}, handle: hooks.handle, handleError: hooks.handleError, context: hooks.context })`,
+    `export const routes = cloudflare<object>(app, { manifest: ${JSON.stringify(manifest)}, assetsBinding: ${JSON.stringify(adapter.assetsBinding ?? 'ASSETS')}, dev: typeof __HTSX_DEV__ !== 'undefined' && __HTSX_DEV__ })`,
+    'export default routes',
     '',
-  ].join('\n')
+  ].join('\n'))
 }
 
 /** Build do modo configurado. */
@@ -131,25 +157,11 @@ async function buildWith(app: App, config: HtsxConfig, root: string): Promise<{ 
   }
 
   if (adapter.name === 'cloudflare') {
-    const out = outDirOf(config, root)
-    const r = await buildCloudflare(app, { root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, manifest: path.join(out, 'cloudflare-manifest.json'), expectMain: path.join(path.resolve(root, adapter.outDir ?? '.htsx/cloudflare'), '_worker.js') })
-    const entry = path.join(out, 'worker.ts')
-    await Bun.write(entry, workerEntry(config, adapter, root, r.manifest))
-    const bundled = await Bun.build({
-      entrypoints: [entry],
-      outdir: r.outDir,
-      naming: '_worker.js',
-      target: 'browser',
-      conditions: ['workerd', 'worker', 'browser'],
-      format: 'esm',
-      minify: true,
-      // JSX do htsx explícito: não depende do tsconfig do projeto ser lido pelo bundler
-      jsx: { runtime: 'automatic', importSource: config.pkg ?? 'htsx', development: false },
-      // node:async_hooks vem da flag nodejs_als; cloudflare:* é do próprio runtime
-      external: ['node:*', 'cloudflare:*'],
-    })
-    if (!bundled.success) throw new AggregateError(bundled.logs, 'htsx: o bundle do Worker falhou')
-    console.log(`htsx: Worker em ${path.relative(root, path.join(r.outDir, '_worker.js'))}; rotas dinâmicas: ${r.dynamic.join(', ') || 'nenhuma'}`)
+    const main = serverMain(config, adapter, root)
+    const r = await buildCloudflare(app, { root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, manifest: manifestPath(config, root), expectMain: main })
+    await assertJsxConfig(config, root)
+    await writeServerEntry(config, adapter, root)
+    console.log(`htsx: assets em ${path.relative(root, r.outDir)}; main ${path.relative(root, main)}; rotas dinâmicas: ${r.dynamic.join(', ') || 'nenhuma'}. Publique com wrangler deploy`)
     return r
   }
 
@@ -208,9 +220,75 @@ export async function start(config?: HtsxConfig, root = '.', opts: { watch?: boo
   }
 }
 
+/** Acha o wrangler do projeto, subindo as pastas, e depois o do PATH. */
+function findWrangler(adapter: CloudflareAdapter, root: string): string | undefined {
+  // nome solto vem do PATH; caminho é relativo ao projeto
+  if (adapter.wranglerBin) return adapter.wranglerBin.includes('/') ? path.resolve(root, adapter.wranglerBin) : adapter.wranglerBin
+  for (let dir = root; ; dir = path.dirname(dir)) {
+    const bin = path.join(dir, 'node_modules', '.bin', 'wrangler')
+    if (existsSync(bin)) return bin
+    if (dir === path.dirname(dir)) break
+  }
+  return Bun.which('wrangler') ?? undefined
+}
+
+/** Copia um arquivo estático alterado, ou apaga a cópia se ele saiu. */
+async function syncAsset(from: string, to: string): Promise<void> {
+  if (!existsSync(from)) return rm(to, { force: true })
+  if (statSync(from).isFile()) await Bun.write(to, Bun.file(from))
+}
+
+/**
+ * `dev` no Cloudflare: o `wrangler dev` roda o `main` no workerd, com os bindings locais e sem build.
+ * Aqui só ficam as rotas e os arquivos estáticos em dia; o wrangler recarrega quando o código muda.
+ */
+async function devCloudflare(config: HtsxConfig, adapter: CloudflareAdapter, root: string, wrangler: string): Promise<{ stop(): void; exited: Promise<number> }> {
+  const assets = config.assets ?? 'static'
+  // sem páginas prontas no dev: o Worker responde tudo, e a lista do último build não vale
+  await rm(manifestPath(config, root), { force: true })
+  await sync(config, root)
+  await assertJsxConfig(config, root)
+  const { cwd, outDir } = await prepareCloudflareAssets({ root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, expectMain: serverMain(config, adapter, root) })
+  await writeAssetRules(cwd, outDir)
+  const port = process.env.PORT
+  const child = Bun.spawn([wrangler, 'dev', '--live-reload', '--define', '__HTSX_DEV__:true', ...(port ? ['--port', port] : [])], { cwd: root, stdio: ['inherit', 'inherit', 'inherit'] })
+  const report = (e: unknown) => console.error((e as Error).message)
+  let queue: Promise<unknown> = Promise.resolve()
+  const enqueue = (job: () => Promise<unknown>) => { queue = queue.then(job).catch(report) }
+  const watchers = [config.routes ?? 'src/routes', config.params ?? 'src/params']
+    .map(d => path.resolve(root, d))
+    .filter(d => existsSync(d))
+    // arquivo novo ou apagado muda o manifesto; conteúdo o wrangler já vê sozinho
+    .map(d => watch(d, { recursive: true }, ev => { if (ev === 'rename') enqueue(() => sync(config, root)) }))
+  const staticDir = path.resolve(root, assets)
+  // um arquivo por vez: o wrangler observa a pasta e cai se ela sumir
+  if (existsSync(staticDir)) {
+    watchers.push(watch(staticDir, { recursive: true }, (_ev, file) => {
+      if (file) enqueue(() => syncAsset(path.join(staticDir, file), path.join(outDir, file)))
+    }))
+  }
+  return {
+    stop() { for (const w of watchers) w.close(); child.kill() },
+    exited: child.exited,
+  }
+}
+
 export async function run(cmd: Command, config: HtsxConfig, root: string): Promise<void> {
   if (cmd === 'sync') { const r = await sync(config, root); console.log(`htsx: ${r.routes.length} rotas, tipos em ${path.relative(root, outDirOf(config, root))}/types`); return }
   if (cmd === 'build') { await build(config, root); return }
+  if (cmd === 'dev' && config.adapter.name === 'cloudflare') {
+    const wrangler = findWrangler(config.adapter, path.resolve(root))
+    if (wrangler) {
+      const dev = await devCloudflare(config, config.adapter, path.resolve(root), wrangler)
+      const signals = process as unknown as { once(signal: string, listener: () => void): unknown }
+      signals.once('SIGINT', dev.stop)
+      signals.once('SIGTERM', dev.stop)
+      process.exitCode = await dev.exited
+      dev.stop()
+      return
+    }
+    console.warn('htsx: wrangler não encontrado; dev no Bun, sem o workerd e sem src/server.ts. Instale o wrangler ou use cloudflareAdapter({ wranglerBin })')
+  }
   const server = await start(config, root, { watch: cmd === 'dev' })
   // Ctrl+C / parada do processo: fecha o servidor e o wrangler local antes de sair
   const stop = () => { void server.stop().finally(() => process.exit(0)) }

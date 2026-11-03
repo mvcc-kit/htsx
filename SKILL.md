@@ -145,8 +145,8 @@ export default defineConfig({
 
 | Comando | Faz |
 |---|---|
-| `bun htsx.config.ts dev` | servidor em `localhost` com as rotas e o mesmo `event.platform` do modo (no Cloudflare, emulado pelo `wrangler.jsonc`); recarrega quando um arquivo de rota entra ou sai. Sem build |
-| `bun htsx.config.ts build` | build do modo: `build/` (estático) ou `.htsx/cloudflare/` com o `_worker.js` (Cloudflare) |
+| `bun htsx.config.ts dev` | servidor em `localhost` com as rotas. No Cloudflare, o `wrangler dev` roda o `main` no workerd, sem build, e as rotas se atualizam sozinhas (sem wrangler instalado, cai no Bun, sem o `src/server.ts`) |
+| `bun htsx.config.ts build` | build do modo: `build/` (estático) ou `.htsx/cloudflare/` com os assets (Cloudflare; quem empacota o Worker é o `wrangler deploy`) |
 | `bun htsx.config.ts start` | servidor Bun de produção |
 | `bun htsx.config.ts sync` | só gera os tipos `./$types` (útil antes do `tsc` no CI) |
 
@@ -336,13 +336,21 @@ Sem configuração, com rotas declaradas à mão: `buildStatic(app, { outDir: 'b
 
 ### Modo Cloudflare Workers
 
-Segue o `adapter-cloudflare` do SvelteKit. O build pré-renderiza as rotas com `prerender` para o Static Assets, servidas sem acordar o Worker. Depois empacota o resto num único `.htsx/cloudflare/_worker.js`, com `event.platform = { env, ctx, caches, cf }`. Ele confere o `wrangler.jsonc` e explica o que faltar:
+O `main` do wrangler é o `src/server.ts`, um arquivo seu, como o `server.ts` do TanStack Start. Ele recebe cada requisição antes das rotas, e as rotas vêm geradas em `.htsx/server.ts`, que fica fora do Git. O wrangler empacota o Worker a partir daí, então não existe `_worker.js`. Sem `src/server.ts`, use `"main": ".htsx/server.ts"`.
+
+- **`dev`:** `bun htsx.config.ts dev` roda no workerd, com os bindings locais e sem build. Rota nova, código e `static/` se atualizam sozinhos.
+- **Publicar:** `bun htsx.config.ts build && wrangler deploy`. O build pré-renderiza as rotas com `prerender` para o Static Assets, servidas sem acordar o Worker. O `build` só é preciso antes de publicar.
+- **Primeiro uso:** `bun htsx.config.ts sync` gera os tipos e `.htsx/server.ts`. Num clone novo, ele vem antes de `tsc` e `wrangler`.
+- **`minify: true`:** o wrangler não minifica por padrão. Num projeto de teste, o Worker caiu de 70 KB para 41 KB.
+- **`event.dev`:** só o `bun htsx.config.ts dev` liga, e é ele que mostra a pilha do erro. `wrangler dev` direto e `wrangler deploy` ficam sem.
+- **`tsconfig.json`:** precisa de `"jsx": "react-jsx"` e `"jsxImportSource": "htsx"`, porque o wrangler lê o JSX dali. O `dev` e o `build` recusam o que estiver errado.
 
 ```jsonc
-// wrangler.jsonc → bun htsx.config.ts build && wrangler deploy
+// wrangler.jsonc
 {
   "name": "meu-site",
-  "main": ".htsx/cloudflare/_worker.js",
+  "main": "src/server.ts",
+  "minify": true,
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_als"],
   "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" },
@@ -367,11 +375,18 @@ export const POST = (async event => {
 }) satisfies RequestHandler
 ```
 
-```ts arquivo=src/worker.ts
-// Opcional: juntado ao Worker gerado. Exports nomeados (Durable Objects, Workflows) e outros handlers.
-export class Contador { /* Durable Object */ }
+```ts arquivo=src/server.ts
+import { routes } from '../.htsx/server'
+
+export class Contador { /* Durable Object: export nomeado */ }
 
 export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const { pathname } = new URL(request.url)
+    if (pathname === '/health') return new Response('ok')
+    // locals chega às rotas em event.locals; env e ctx em cloudflarePlatform(event)
+    return routes.fetch(request, env, ctx, { locals: { requestStart: Date.now() } })
+  },
   async scheduled(controller: ScheduledController, env: Env) { /* cron */ },
   async queue(batch: MessageBatch, env: Env) { /* filas */ },
 }

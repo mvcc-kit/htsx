@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
-import { fileRoutes, type App } from '../app'
+import { defineApp, fileRoutes, route, type App } from '../app'
 import type { AssetsFetcher, WorkerContext } from '../adapter-cloudflare'
 import { assetsFromDir } from '../adapter-cloudflare-build'
+import { jsxConfigProblem } from '../src/adapters/cloudflare-build'
 import { staticAdapter } from '../config'
 import { build, loadApp, sync, type LoadedApp } from '../project'
 import { scanRoutes } from '../src/build/routes'
@@ -161,7 +162,7 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
 
 })
 
-describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de verdade)', () => {
+describe('rotas por arquivos no modo Cloudflare Workers (src/server.ts como main)', () => {
   type W = { fetch(req: Request, env: object, ctx: WorkerContext): Promise<Response>; scheduled(c: unknown, env: object): Promise<void> }
   let worker: W
   let mod: Record<string, unknown>
@@ -184,13 +185,19 @@ describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de ve
       KV: { get: async (k: string) => (k === 'flag' ? 'ligada' : null) },
       LOG: [] as string[],
     }
-    mod = await import(path.join(r.outDir, '_worker.js'))
+    mod = await import(path.join(ROOT, 'src', 'server.ts'))
     worker = mod.default as W
   })
 
-  it('o build gera um único _worker.js e o wrangler aponta para ele', async () => {
-    const files = [...new Bun.Glob('*.js').scanSync(path.join(ROOT, '.htsx', 'cloudflare'))]
-    expect(files).toEqual(['_worker.js'])
+  it('o build não gera Worker: quem empacota é o wrangler, a partir do main', async () => {
+    expect([...new Bun.Glob('*.js').scanSync(path.join(ROOT, '.htsx', 'cloudflare'))]).toEqual([])
+    expect(await Bun.file(path.join(ROOT, '.htsx', 'server.ts')).text()).toContain('"prerendered":["/about"')
+  })
+
+  it('src/server.ts recebe a requisição antes das rotas e pode passar locals', async () => {
+    expect(await (await call('/health')).text()).toBe('ok')
+    const p = await page(await call('/blog/ola', { headers: { 'x-from-server': '1' } }))
+    expect(await p.text('small')).toBe('notes · servidor')
   })
 
   it('página pré-renderizada (layout do grupo) vem do binding de assets', async () => {
@@ -213,7 +220,7 @@ describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de ve
     expect(await (await call('/api/notes')).json()).toEqual({ notas: ['primeira', 'nova'], anexo: 'conteúdo do R2', flag: 'ligada' })
   })
 
-  it('src/worker.ts: Durable Object exportado e scheduled junto do fetch', async () => {
+  it('src/server.ts: Durable Object exportado e scheduled junto do fetch', async () => {
     const Contador = mod.Contador as new (s: unknown, e: unknown) => { fetch(): Promise<Response> }
     const c = new Contador({}, env)
     await c.fetch()
@@ -230,13 +237,50 @@ describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de ve
     expect((await call('/nada')).status).toBe(404)
   })
 
-  it('wrangler com main errado → erro dizendo o caminho do Worker gerado', async () => {
+  it('um sync depois do build não apaga a lista de páginas prontas', async () => {
+    await sync(config, ROOT)
+    expect(await Bun.file(path.join(ROOT, '.htsx', 'server.ts')).text()).toContain('"prerendered":["/about"')
+  })
+
+  it('só o dev do htsx liga event.dev: a pilha do erro nunca vai no deploy', async () => {
+    const generated = await Bun.file(path.join(ROOT, '.htsx', 'server.ts')).text()
+    expect(generated).toContain("dev: typeof __HTSX_DEV__ !== 'undefined' && __HTSX_DEV__")
+    expect(generated).not.toContain('NODE_ENV')
+  })
+
+  it('locals fixo no server.ts não vaza entre requisições', async () => {
+    const shared = { n: 0 }
+    const app = defineApp({
+      routes: [route('/', { page: () => 'x', load: ({ locals }) => { locals.n = 1; locals.mine = true } })],
+    })
+    await app.respond(new Request('https://site.dev/'), { locals: shared })
+    expect(shared).toEqual({ n: 0 })
+  })
+
+  it('sem src/server.ts, o main é o .htsx/server.ts gerado', async () => {
+    const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-default-main')
+    await rm(tmp, { recursive: true, force: true })
+    await Bun.write(path.join(tmp, 'src', 'routes', '+page.tsx'), 'export default () => "x"\n')
+    await Bun.write(path.join(tmp, 'tsconfig.json'), JSON.stringify({ compilerOptions: { jsx: 'react-jsx', jsxImportSource: 'htsx' } }))
+    await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: '.htsx/server.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
+    await build(config, tmp)
+    expect(await Bun.file(path.join(tmp, '.htsx', 'server.ts')).text()).toContain('export default routes')
+  })
+
+  it('JSX errado no tsconfig → erro antes de ir para produção', () => {
+    expect(jsxConfigProblem(null, 'htsx')).toContain('tsconfig.json não encontrado')
+    expect(jsxConfigProblem('{ "compilerOptions": { "jsx": "react" } }', 'htsx')).toContain('"jsxImportSource": "htsx"')
+    expect(jsxConfigProblem('{ "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "htsx" } }', 'htsx')).toBeNull()
+    expect(jsxConfigProblem('{ "extends": "./base.json" }', 'htsx')).toBeNull()
+  })
+
+  it('wrangler com main errado → erro dizendo a entrada do servidor', async () => {
     const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-wrangler')
     await rm(tmp, { recursive: true, force: true })
     await Bun.write(path.join(tmp, 'src', 'routes', '+page.tsx'), 'export default () => "x"\n')
     await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: 'src/index.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
     const err = await build(config, tmp).then(() => null, (e: Error) => e)
-    expect(err?.message).toContain('"main" em wrangler.jsonc é "src/index.ts", mas o Worker gerado pelo build é ".htsx/cloudflare/_worker.js"')
+    expect(err?.message).toContain('"main" em wrangler.jsonc é "src/index.ts", mas a entrada do servidor é ".htsx/server.ts"')
   })
 })
 

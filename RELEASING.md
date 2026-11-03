@@ -18,7 +18,7 @@ Uma versão é uma tag no GitHub, com uma release que diz o que mudou. Quem usa 
    - `### Mudanças de quebra`
 
    Use só os títulos que tiverem itens. O texto vai do `CHANGELOG.md` para a release.
-4. **Subir devagar:** no máximo uma versão por dia. Junte as mudanças. Só falha de segurança passa disso, com `--security`.
+4. **Subir devagar:** no máximo uma versão por dia. Junte as mudanças. Só falha de segurança passa disso, com `--security`, e ela precisa estar descrita em `### Segurança`.
 5. **Só publique o que foi testado em um projeto real.** A versão nova entra no app antes de receber outra por cima.
 6. **Tag publicada não muda nem é apagada.** Versão ruim se corrige com a seguinte.
 7. **Só o comando cria tag.** Nada de `git tag` à mão.

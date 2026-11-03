@@ -15,17 +15,20 @@ export interface StaticAdapter {
 
 export interface CloudflareAdapter {
   name: 'cloudflare'
-  /** Pasta de Static Assets e do `_worker.js`. Padrão `.htsx/cloudflare`. */
+  /** Pasta de Static Assets. Padrão `.htsx/cloudflare`. */
   outDir?: string
   /** Arquivo do wrangler a conferir. Padrão `wrangler.jsonc`/`wrangler.json`; `false` pula. */
   wrangler?: string | false
   /** Binding dos assets (`assets.binding`). Padrão `ASSETS`. */
   assetsBinding?: string
   /**
-   * Módulo opcional juntado ao Worker gerado: exports nomeados (Durable Objects, Workflows)
-   * e `export default { scheduled, queue, email }`. Padrão `src/worker.ts` (se existir).
+   * Entrada do servidor, seu arquivo: o `main` do wrangler. Recebe cada requisição antes das rotas
+   * e pode exportar Durable Objects, `scheduled` e `queue`. Padrão `src/server.ts`; sem ele, o
+   * `main` é `.htsx/server.ts`, gerado, que só chama as rotas.
    */
-  worker?: string
+  server?: string
+  /** Comando do wrangler no `dev`. Padrão: `node_modules/.bin/wrangler` subindo as pastas, depois o PATH. */
+  wranglerBin?: string
   /**
    * Opções do `getPlatformProxy` do wrangler (ex.: `{ persist: false }`). Fora do Worker (dev,
    * testes, prerender), `event.platform.env` vem do mesmo wrangler.jsonc: com o `wrangler` instalado

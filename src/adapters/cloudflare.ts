@@ -34,25 +34,32 @@ export interface CloudflareOptions {
   /** Nome do binding de assets no wrangler (`assets.binding`). Padrão `ASSETS`. */
   assetsBinding?: string
   manifest?: CloudflareManifest
+  /** `event.dev`: mostra a pilha do erro. Só o `dev` do htsx liga. */
+  dev?: boolean
+}
+
+/** Extras de quem chama, normalmente o `src/server.ts`. */
+export interface WorkerFetchOptions {
+  /** Valor inicial de `event.locals` nas rotas. */
+  locals?: Record<string, unknown>
 }
 
 export interface Worker<Env> {
-  fetch(request: Request, env: Env, ctx: WorkerContext): Promise<Response>
+  fetch(request: Request, env: Env, ctx: WorkerContext, opts?: WorkerFetchOptions): Promise<Response>
 }
 
-/** `export default cloudflare(app, { manifest })` no arquivo `main` do wrangler. */
+/** As rotas do app como handler do Worker: `routes.fetch(request, env, ctx)` no `main` do wrangler. */
 export function cloudflare<Env extends object = Record<string, unknown>>(app: App, opts: CloudflareOptions = {}): Worker<Env> {
   const binding = opts.assetsBinding ?? 'ASSETS'
   const prerendered = new Set(opts.manifest?.prerendered ?? [])
 
   return {
-    async fetch(request, env, ctx) {
-      const url = new URL(request.url)
-      let pathname = url.pathname
-      try { pathname = decodeURIComponent(pathname) } catch { /* URL inválida: segue como veio */ }
-
+    async fetch(request, env, ctx, fetchOpts) {
       // Páginas pré-renderizadas (`prerender: 'auto'` ou quando o Worker roda antes dos assets)
       if (prerendered.size && (request.method === 'GET' || request.method === 'HEAD')) {
+        const url = new URL(request.url)
+        let pathname = url.pathname
+        try { pathname = decodeURIComponent(pathname) } catch { /* URL inválida: segue como veio */ }
         const stripped = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname
         if (prerendered.has(stripped)) {
           if (stripped !== pathname) return new Response(null, { status: 308, headers: { location: stripped + url.search } })
@@ -79,6 +86,8 @@ export function cloudflare<Env extends object = Record<string, unknown>>(app: Ap
       return app.respond(request, {
         platform: platform as unknown as Record<string, unknown>,
         getClientAddress: () => request.headers.get('cf-connecting-ip') ?? '',
+        locals: fetchOpts?.locals,
+        dev: opts.dev,
       })
     },
   }

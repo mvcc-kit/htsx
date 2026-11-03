@@ -23,7 +23,7 @@ export interface CloudflareBuildOptions {
   wrangler?: string | false
   /** Copia Alpine, htmx e a navegação para `VENDOR_PATH`. Padrão `true`; `'navigation'` copia só a navegação. */
   vendor?: Exclude<VendorOption, 'auto'>
-  /** Worker gerado pelo build (htsx.config.ts): o `main` do wrangler precisa apontar para ele. */
+  /** Entrada do servidor (htsx.config.ts): o `main` do wrangler precisa apontar para ela. */
   expectMain?: string
   prerender?: Omit<PrerenderOptions, 'assets'>
 }
@@ -64,9 +64,9 @@ export function validateWrangler(config: WranglerConfig, file: string, outDir: s
   const errors: string[] = []
   const want = expectMain && path.relative(cwd, expectMain).split(path.sep).join('/')
   if (want && config.main && path.resolve(path.dirname(path.resolve(cwd, file)), config.main) !== expectMain) {
-    errors.push(`"main" em ${file} é "${config.main}", mas o Worker gerado pelo build é "${want}"; use "main": "${want}"`)
+    errors.push(`"main" em ${file} é "${config.main}", mas a entrada do servidor é "${want}"; use "main": "${want}"`)
   }
-  if (want && !config.main) errors.push(`defina "main": "${want}" em ${file} (o Worker gerado pelo build)`)
+  if (want && !config.main) errors.push(`defina "main": "${want}" em ${file} (a entrada do servidor)`)
   if (config.site) errors.push(`tire "site" de ${file}: Workers Sites foi substituído por Static Assets ("assets")`)
   if (config.main && !config.assets?.directory) errors.push(`defina "assets": { "directory": "${path.relative(cwd, outDir)}" } em ${file}`)
   if (config.main && !config.assets?.binding) errors.push(`defina "assets.binding" (ex.: "ASSETS") em ${file} para o Worker ler as páginas pré-renderizadas`)
@@ -79,6 +79,18 @@ export function validateWrangler(config: WranglerConfig, file: string, outDir: s
     errors.push(`adicione "compatibility_flags": ["nodejs_als"] em ${file}: o htsx usa AsyncLocalStorage para o contexto da requisição`)
   }
   return errors
+}
+
+/** O wrangler lê o JSX do tsconfig: sem isso, a página cai em produção com "React is not defined". */
+export function jsxConfigProblem(tsconfig: string | null, pkg: string): string | null {
+  const fix = `defina "jsx": "react-jsx" e "jsxImportSource": "${pkg}" no tsconfig.json`
+  if (tsconfig === null) return `htsx: tsconfig.json não encontrado; ${fix}`
+  const config = parseJsonc(tsconfig) as { extends?: unknown; compilerOptions?: { jsx?: string; jsxImportSource?: string } }
+  const { jsx, jsxImportSource } = config.compilerOptions ?? {}
+  // herdado de outro arquivo: só reclama do que está escrito aqui
+  if (config.extends && jsx === undefined && jsxImportSource === undefined) return null
+  if (jsx !== 'react-jsx' || jsxImportSource !== pkg) return `htsx: o wrangler lê o JSX do tsconfig; ${fix}`
+  return null
 }
 
 function headersFile(userHeaders: string): string {
@@ -94,7 +106,15 @@ function headersFile(userHeaders: string): string {
   return userHeaders.trim() ? `${userHeaders.trimEnd()}\n\n${ours}\n` : `${ours}\n`
 }
 
-export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {}): Promise<CloudflareBuildResult> {
+interface PreparedAssets {
+  cwd: string
+  outDir: string
+  /** Arquivos copiados, para o prerender não sobrescrever. */
+  assets: Set<string>
+}
+
+/** Confere o wrangler e recria a pasta de Static Assets com `static/` e o vendor. */
+export async function prepareCloudflareAssets(opts: CloudflareBuildOptions = {}): Promise<PreparedAssets> {
   const cwd = path.resolve(opts.root ?? '.')
   const outDir = path.resolve(cwd, opts.outDir ?? '.htsx/cloudflare')
   const assetsDir = path.resolve(cwd, opts.assets ?? 'static')
@@ -116,22 +136,31 @@ export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {
   await cleanDir(outDir)
   const assets = new Set(await copyAssets(assetsDir, outDir))
   for (const f of await copyVendor(outDir, opts.vendor ?? true)) assets.add(f)
+  return { cwd, outDir, assets }
+}
 
-  const result = await prerender(app, { ...opts.prerender, assets })
-  await writePrerendered(result.files, outDir)
-
+/** `_headers`, `_redirects` e `.assetsignore` da pasta de Static Assets. */
+export async function writeAssetRules(cwd: string, outDir: string, redirects: Array<{ from: string; to: string; status: number }> = []): Promise<void> {
   const at = (f: string) => path.join(cwd, f)
   const userHeaders = existsSync(at('_headers')) ? await Bun.file(at('_headers')).text() : ''
   await Bun.write(path.join(outDir, '_headers'), headersFile(userHeaders))
-  const redirects = [
+  const lines = [
     existsSync(at('_redirects')) ? (await Bun.file(at('_redirects')).text()).trimEnd() : '',
-    ...result.redirects.map(r => `${r.from} ${r.to} ${r.status}`),
+    ...redirects.map(r => `${r.from} ${r.to} ${r.status}`),
   ].filter(Boolean).join('\n')
-  if (redirects) await Bun.write(path.join(outDir, '_redirects'), redirects + '\n')
+  if (lines) await Bun.write(path.join(outDir, '_redirects'), lines + '\n')
   await Bun.write(path.join(outDir, '.assetsignore'), '_worker.js\n_routes.json\n')
+}
+
+export async function buildCloudflare(app: App, opts: CloudflareBuildOptions = {}): Promise<CloudflareBuildResult> {
+  const { cwd, outDir, assets } = await prepareCloudflareAssets(opts)
+
+  const result = await prerender(app, { ...opts.prerender, assets })
+  await writePrerendered(result.files, outDir)
+  await writeAssetRules(cwd, outDir, result.redirects)
 
   // caminhos decodificados: o Worker compara com o pathname já decodificado (/olá, não /ol%C3%A1)
-  const manifest: CloudflareManifest = { prerendered: result.files.filter(f => f.contentType.startsWith('text/html')).map(f => decodeURIComponent(f.path)) }
+  const manifest: CloudflareManifest = { prerendered: result.files.filter(f => f.contentType.startsWith('text/html')).map(f => decodeURIComponent(f.path.replace(/\.html$/, '').replace(/\/index$/, '') || '/')) }
   await Bun.write(path.resolve(cwd, opts.manifest ?? '.htsx/cloudflare-manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
 
   return { outDir, manifest, dynamic: result.dynamic.map(r => r.id) }

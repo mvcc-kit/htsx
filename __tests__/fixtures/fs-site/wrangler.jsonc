@@ -1,6 +1,6 @@
 {
   "name": "fs-site",
-  "main": ".htsx/cloudflare/_worker.js",
+  "main": "src/server.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_als"],
   "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" },

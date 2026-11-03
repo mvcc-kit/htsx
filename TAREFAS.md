@@ -64,11 +64,11 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 ## P8. Sem CLI: configuração como no SvelteKit
 
 - [x] `htsx.config.ts` (`defineConfig`, `staticAdapter`/`cloudflareAdapter`/`bunAdapter`); o próprio arquivo roda `dev`, `build`, `start` e `sync`.
-- [x] `src/hooks.server.ts` (`handle`, `handleError`, `context`) e `src/worker.ts` opcional (Durable Objects, `scheduled`, `queue`).
-- [x] Build do Cloudflare empacota um único `.htsx/cloudflare/_worker.js` (sem manifesto versionado); tipos `./$types` gerados sozinhos.
+- [x] `src/hooks.server.ts` (`handle`, `handleError`, `context`) e `src/server.ts` como `main` do wrangler (Durable Objects, `scheduled`, `queue`).
+- [x] Modo Cloudflare sem `_worker.js`: o wrangler empacota o `src/server.ts`, e o `dev` roda no workerd sem build; tipos `./$types` em `.htsx/types`.
 - [x] Modo servidor Bun (`serve`, `start`).
 - [x] `event.platform` igual em dev, testes e prerender: emulado pelo `wrangler.jsonc` (com o wrangler do projeto, D1/R2/KV locais reais; sem ele, `vars` e `.dev.vars`).
-- [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
+- [x] Testado no `workerd` real (`wrangler dev` no `src/server.ts`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
 ## P17. Performance com segurança (03/11/2026)

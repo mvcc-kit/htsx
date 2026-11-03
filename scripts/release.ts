@@ -39,7 +39,7 @@ const problem = versionProblem(version, tags, changelog)
 if (problem) fail(problem)
 const latest = latestVersion(tags)
 const lastReleaseMs = latest ? Number(run(['git', 'log', '-1', '--format=%ct', `v${latest}`])) * 1000 : null
-const tooSoon = cadenceProblem(lastReleaseMs, Date.now(), security)
+const tooSoon = cadenceProblem(lastReleaseMs, Date.now(), security, changelogSection(changelog, version) ?? '')
 if (tooSoon) fail(tooSoon)
 
 step('Rodando testes e tipos')

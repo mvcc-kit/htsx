@@ -156,6 +156,8 @@ export interface AppOptions {
 export interface RespondOptions {
   platform?: Platform
   getClientAddress?: () => string
+  /** Valor inicial de `event.locals` (ex.: o `src/server.ts` passa o que já calculou). */
+  locals?: Record<string, unknown>
   prerendering?: boolean
   /** Só o servidor de desenvolvimento liga: expõe a pilha do erro. */
   dev?: boolean
@@ -322,7 +324,8 @@ export function defineApp(options: AppOptions): App {
       url,
       params: match?.params ?? {},
       route: { id: match?.route.id ?? null },
-      locals: {},
+      // cópia: o hooks grava aqui, e um objeto fixo do server.ts vazaria entre requisições
+      locals: { ...opts.locals },
       dev: !!opts.dev,
       platform: opts.platform,
       cookies: createCookies(request, secureCookiesByDefault(url)),
