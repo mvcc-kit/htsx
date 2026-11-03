@@ -1,5 +1,4 @@
-import { HtmlSafeString, raw } from './jsx-runtime'
-import { escapeAttr, escapeHtml } from './escape'
+import { HtmlSafeString, jsx, toHtml } from './jsx-runtime'
 import { maybeContext } from './context'
 
 /**
@@ -79,7 +78,7 @@ export interface SuspenseProps {
  * Marca uma região como assíncrona. Emite placeholder imediatamente
  * e a Promise é resolvida via endpoint separado quando o cliente busca.
  */
-export function Suspense({ fallback, children, id, timeout }: SuspenseProps): HtmlSafeString {
+export function Suspense({ fallback, children, id, timeout }: SuspenseProps): HtmlSafeString | Promise<HtmlSafeString> {
   const reg = getRegistry()
   const suspenseId = id ?? generateId()
   if (!ID_RE.test(suspenseId)) {
@@ -90,26 +89,23 @@ export function Suspense({ fallback, children, id, timeout }: SuspenseProps): Ht
   }
 
   const ms = timeout ?? reg.defaultTimeoutMs
-  const timeoutPromise = new Promise<string>((_, rej) =>
-    setTimeout(() => rej(new Error(`Suspense timeout (${ms}ms)`)), ms),
-  )
-  const childPromise = Promise.resolve(children).then((v) => String(v ?? ''))
-  reg.promises.set(suspenseId, {
-    promise: Promise.race([childPromise, timeoutPromise]),
-    expiresAt: Date.now() + ms,
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<string>((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`Suspense timeout (${ms}ms)`)), ms)
   })
+  // Pelo caminho normal: texto vindo de fora é escapado.
+  const promise = Promise.race([toHtml(children), timeoutPromise]).finally(() => clearTimeout(timer))
+  // A falha aparece em resolveSuspense; se o cliente nunca pedir, não derruba o processo.
+  promise.catch(() => {})
+  reg.promises.set(suspenseId, { promise, expiresAt: Date.now() + ms })
 
-  const url = `${reg.prefix}/${suspenseId}`
-  // Safe-stringify fallback: HtmlSafeString passes through; plain strings are escaped.
-  const fallbackStr = fallback instanceof HtmlSafeString
-    ? String(fallback)
-    : escapeHtml(String(fallback ?? ''))
-  return raw(
-    `<div id="susp-${escapeAttr(suspenseId)}" ` +
-    `hx-get="${escapeAttr(url)}" ` +
-    `hx-trigger="load" ` +
-    `hx-swap="outerHTML">${fallbackStr}</div>`,
-  )
+  return jsx('div', {
+    id: `susp-${suspenseId}`,
+    'hx-get': `${reg.prefix}/${suspenseId}`,
+    'hx-trigger': 'load',
+    'hx-swap': 'outerHTML',
+    children: fallback,
+  })
 }
 
 /**

@@ -2,7 +2,8 @@
  * CSRF token sign/verify usando HMAC-SHA256 (Web Crypto API).
  * Framework-agnostic — funções puras, sem middleware.
  *
- * Padrão: signed token (sessionId.timestamp.signature)
+ * Padrão: signed token (timestamp.signature), com o sessionId só dentro da assinatura:
+ * o token vai para o HTML, e o id da sessão não pode ir junto.
  * - Stateless (não precisa store no server)
  * - Bound a sessionId — token de A não funciona pra B
  * - Expira via timestamp + maxAge
@@ -41,15 +42,6 @@ function strToB64Url(s: string): string {
   return toB64Url(ENCODER.encode(s))
 }
 
-function b64UrlToStr(s: string): string {
-  const pad = (4 - (s.length % 4)) % 4
-  const padded = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad)
-  const bin = atob(padded)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return new TextDecoder().decode(bytes)
-}
-
 async function hmacSha256(key: string, data: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
@@ -71,6 +63,11 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+/** Prefixo separa do flash, caso usem o mesmo segredo. */
+function signedText(sessionId: string, ts: number): string {
+  return `csrf:${strToB64Url(sessionId)}.${ts}`
+}
+
 function validateSecret(secret: string): void {
   if (typeof secret !== 'string' || secret.length < MIN_SECRET_LENGTH) {
     throw new Error(`csrf: secret deve ter no mínimo ${MIN_SECRET_LENGTH} chars`)
@@ -83,10 +80,7 @@ export const csrf = {
     validateSecret(opts.secret)
     if (!opts.sessionId) throw new Error('csrf: sessionId obrigatório')
     const ts = Math.floor(Date.now() / 1000)
-    const sid = strToB64Url(opts.sessionId)
-    const payload = `${sid}.${ts}`
-    const sig = await hmacSha256(opts.secret, payload)
-    return `${payload}.${sig}`
+    return `${ts}.${await hmacSha256(opts.secret, signedText(opts.sessionId, ts))}`
   },
 
   /**
@@ -99,22 +93,18 @@ export const csrf = {
     if (!opts.sessionId) return false
 
     const parts = token.split('.')
-    if (parts.length !== 3) return false
-    const [sidEnc, tsStr, sig] = parts as [string, string, string]
-
-    let sid: string
-    try { sid = b64UrlToStr(sidEnc) } catch { return false }
-    if (sid !== opts.sessionId) return false
-
-    const ts = parseInt(tsStr, 10)
-    if (!Number.isFinite(ts) || ts <= 0) return false
+    if (parts.length !== 2) return false
+    const [tsStr, sig] = parts as [string, string]
+    if (!/^\d{1,12}$/.test(tsStr)) return false
+    const ts = Number(tsStr)
+    if (ts <= 0) return false
 
     const maxAge = opts.maxAge ?? 3600
     const now = Math.floor(Date.now() / 1000)
     if (now - ts > maxAge) return false
     if (ts > now + 60) return false // tolerância clock skew + bloqueia futuro
 
-    const expected = await hmacSha256(opts.secret, `${sidEnc}.${ts}`)
+    const expected = await hmacSha256(opts.secret, signedText(opts.sessionId, ts))
     return timingSafeEqual(sig, expected)
   },
 }

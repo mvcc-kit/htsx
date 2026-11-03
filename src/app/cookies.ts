@@ -23,23 +23,30 @@ export interface Cookies {
 const NAME_RE = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/
 
 export function createCookies(request: Request, secureByDefault: boolean): Cookies {
-  const parsed: Record<string, string> = {}
+  // Sem protótipo: get('constructor') não pode devolver uma função.
+  const parsed: Record<string, string> = Object.create(null)
   for (const part of (request.headers.get('cookie') ?? '').split(';')) {
     const i = part.indexOf('=')
     if (i < 1) continue
     const k = part.slice(0, i).trim()
+    // Repetido: vale o primeiro, o de caminho mais específico. Assim um subdomínio não sobrescreve.
+    if (k in parsed) continue
     try { parsed[k] = decodeURIComponent(part.slice(i + 1).trim()) } catch { parsed[k] = part.slice(i + 1).trim() }
   }
   const headers: string[] = []
 
   function serialize(name: string, value: string, o: CookieOptions): string {
     if (!NAME_RE.test(name)) throw new Error(`htsx: nome de cookie inválido ${JSON.stringify(name)}; use só letras, números e !#$%&'*+-.^_\`|~`)
+    for (const [attr, text] of [['path', o.path], ['domain', o.domain]] as const) {
+      if (text !== undefined && /[;\r\n]/.test(text)) throw new Error(`htsx: ${attr} do cookie "${name}" não pode ter ";" nem quebra de linha`)
+    }
+    if (o.sameSite === 'None' && o.secure === false) throw new Error(`htsx: cookie "${name}" com SameSite=None precisa de Secure; o navegador o recusaria`)
     const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${o.path ?? '/'}`]
     if (o.domain) parts.push(`Domain=${o.domain}`)
     if (o.maxAge !== undefined) parts.push(`Max-Age=${Math.floor(o.maxAge)}`)
     if (o.expires) parts.push(`Expires=${o.expires.toUTCString()}`)
     if (o.httpOnly ?? true) parts.push('HttpOnly')
-    if (o.secure ?? secureByDefault) parts.push('Secure')
+    if (o.secure ?? (secureByDefault || o.sameSite === 'None')) parts.push('Secure')
     parts.push(`SameSite=${o.sameSite ?? 'Lax'}`)
     return parts.join('; ')
   }

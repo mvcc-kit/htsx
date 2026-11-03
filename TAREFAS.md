@@ -71,6 +71,19 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P11. Auditoria de segurança (02/11/2026)
+
+Testes em `__tests__/hardening.test.tsx`.
+
+- [x] Open redirect por `//site/` no ajuste de barra final.
+- [x] `javascript:` em `redirect()`, `event.htmx.redirect` e `location`, que o htmx executaria.
+- [x] Atributos de URL com qualquer capitalização (`formAction`, `HREF`) e `data`, `poster`, `xlink:href` e outros.
+- [x] XSS em `Suspense` com texto comum; token CSRF sem o id da sessão; injeção por CR em SSE.
+- [x] Nome de elemento, função em atributo, `;` em CSS, atributos de cookie, cookie repetido e `constructor`.
+- [x] Prerender não grava fora da saída; `inspector()` some em produção; `handleError` que falha; cabeçalhos de segurança.
+- [ ] O registro do `Suspense` vive em uma requisição, mas o pedido do cliente é outra: o fluxo documentado não funciona no `defineApp`.
+- [ ] Teto de corpo de requisição e limite de tempo fora do modo Bun.
+
 ## P10. Modo framework do htmx
 
 - [x] `htsx/kit` e `partial()`: componente tipado com URL própria (`?/name`), `+name.partial.tsx`, `input` com Standard Schema, `guard` e `load` dos layouts antes do parcial.

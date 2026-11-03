@@ -1,6 +1,7 @@
 // `event.htmx`: o que o htmx mandou no pedido e o que a resposta manda ele fazer.
 import { HX_HEADERS } from '../htmx-headers'
-import { triggerHeader } from './partial-logic'
+import { triggerHeader } from '../htmx-headers'
+import { safeUrl } from '../safe-url'
 
 export interface HtmxContext {
   /** O pedido veio do htmx. */
@@ -32,6 +33,11 @@ export interface HtmxContext {
 export function createHtmxContext(request: Headers, response: Headers): HtmxContext {
   const events: Record<string, unknown> = {}
   const set = (name: string) => (value: string | false) => { response.set(name, String(value)) }
+  // o htmx faz location.href = valor, então `javascript:` executaria na página
+  const navigate = (name: string) => (url: string) => {
+    if (safeUrl(url) !== url) throw new Error('htsx: event.htmx recusou uma URL com esquema perigoso')
+    response.set(name, url)
+  }
   return {
     request: request.get('hx-request') === 'true',
     boosted: request.get('hx-boosted') === 'true',
@@ -48,8 +54,8 @@ export function createHtmxContext(request: Headers, response: Headers): HtmxCont
     reselect: set(HX_HEADERS.Reselect),
     pushUrl: set(HX_HEADERS.PushUrl),
     replaceUrl: set(HX_HEADERS.ReplaceUrl),
-    location: set(HX_HEADERS.Location),
-    redirect: set(HX_HEADERS.Redirect),
+    location: navigate(HX_HEADERS.Location),
+    redirect: navigate(HX_HEADERS.Redirect),
     refresh() { response.set(HX_HEADERS.Refresh, 'true') },
   }
 }

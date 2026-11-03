@@ -44,7 +44,8 @@ export function sseEvent(
   if (opts.id) lines.push(`id: ${opts.id}`)
   if (opts.retry !== undefined) lines.push(`retry: ${opts.retry}`)
   lines.push(`event: ${name}`)
-  for (const part of payload.split('\n')) {
+  // CR sozinho também termina a linha no SSE: sem isso, um texto de usuário criaria outro evento
+  for (const part of payload.split(/\r\n|\r|\n/)) {
     lines.push(`data: ${part}`)
   }
   return lines.join('\n') + '\n\n'
@@ -65,28 +66,29 @@ export function sseResponse(
   generator: () => AsyncGenerator<string> | AsyncIterable<string>,
   opts: SseResponseOpts = {},
 ): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const encoder = new TextEncoder()
-      const abort = () => {
-        try { controller.close() } catch {}
-      }
-      opts.signal?.addEventListener('abort', abort, { once: true })
+  const encoder = new TextEncoder()
+  const iterator = generator()[Symbol.asyncIterator]()
+  // Encerra o gerador, para o `finally` dele rodar quando o cliente sair.
+  const stop = () => iterator.return?.().then(() => {}, () => {})
 
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      opts.signal?.addEventListener('abort', () => {
+        void stop()
+        try { controller.close() } catch {}
+      }, { once: true })
+    },
+    async pull(controller) {
       try {
-        for await (const chunk of generator()) {
-          if (opts.signal?.aborted) break
-          controller.enqueue(encoder.encode(chunk))
-        }
+        const { done, value } = await iterator.next()
+        if (opts.signal?.aborted) return
+        if (done) controller.close()
+        else controller.enqueue(encoder.encode(value))
       } catch (err) {
         try { controller.error(err) } catch {}
-        return
       }
-      try { controller.close() } catch {}
     },
-    cancel() {
-      // upstream cancelado — generator deve respeitar via signal
-    },
+    cancel: () => stop(),
   })
 
   return new Response(stream, {

@@ -4,6 +4,7 @@ import { strictFail } from './strict'
 
 export const JSX_TO_HTML_ATTRS: Record<string, string> = {
   className:       'class',
+  formAction:      'formaction',
   htmlFor:         'for',
   tabIndex:        'tabindex',
   readOnly:        'readonly',
@@ -29,7 +30,8 @@ export const JSX_TO_HTML_ATTRS: Record<string, string> = {
 }
 
 // HTML attributes that carry URLs — auto-sanitized via safeUrl
-const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction'])
+// Comparados em minúsculas: HTML ignora maiúsculas, então formAction e HREF também valem.
+const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'data', 'poster', 'background', 'ping', 'cite', 'manifest', 'xlink:href'])
 
 function serializeStyle(obj: Record<string, string | number>, tag: string): string {
   return Object.entries(obj)
@@ -74,6 +76,12 @@ export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento')
 
     // omit falsy values
     if (value === null || value === undefined || value === false) continue
+
+    // função viraria o código-fonte dela no HTML
+    if (typeof value === 'function') {
+      strictFail(`atributo "${rawKey}" de <${tag}> recebeu uma função; chame a função ou passe o valor`)
+      continue
+    }
 
     // boolean true
     if (value === true) {
@@ -132,7 +140,7 @@ export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento')
     const htmlKey = JSX_TO_HTML_ATTRS[rawKey] ?? rawKey
     // Auto-sanitize URL attributes — blocks javascript:, data:, vbscript:, blob:
     let finalEscaped = escaped
-    if (URL_ATTRS.has(htmlKey)) {
+    if (URL_ATTRS.has(htmlKey.toLowerCase())) {
       const url = safeUrl(String(value))
       if (url === '#' && String(value) !== '#') {
         strictFail(`URL ${JSON.stringify(String(value))} em ${htmlKey} de <${tag}> foi trocada por "#"; use http(s), caminho relativo, mailto: ou tel:`)

@@ -73,8 +73,3 @@ export function partialAttrs(url: string, opts: PartialRequestOpts = {}): Partia
   if (opts.pushUrl !== undefined) attrs['hx-push-url'] = String(opts.pushUrl)
   return attrs
 }
-
-/** `HX-Trigger` em JSON. Cabeçalho não aceita acento, então o que não for ASCII vira `\uXXXX`. */
-export function triggerHeader(events: Readonly<Record<string, unknown>>): string {
-  return JSON.stringify(events).replace(/[^\x20-\x7e]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
-}

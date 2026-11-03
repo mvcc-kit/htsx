@@ -2,6 +2,35 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.1-beta.1 (02/11/2026)
+
+**Atualize:** esta versão corrige falhas de segurança.
+
+Falhas corrigidas:
+
+- **Open redirect:** `https://site//evil.com/` redirecionava para `//evil.com`, outro site. Afeta apps com `defineApp`.
+- **XSS em `redirect()`:** com htmx, `redirect(303, 'javascript:...')` chegava a `HX-Redirect`, que o htmx executa. Agora é erro, também em `event.htmx.redirect` e `location`.
+- **XSS em atributos de URL:** `formAction` e `HREF` escapavam da checagem, e `data`, `poster`, `xlink:href` e outros não eram checados.
+- **XSS em `Suspense`:** texto comum em `children` saía sem escape.
+- **Id da sessão no HTML:** o token CSRF levava o `sessionId`, legível por qualquer um com acesso à página.
+- **Injeção em SSE:** CR em texto de usuário criava outro evento.
+- **Injeção por nome de elemento, CSS e cookie:** nome com atributos, `;` em valor de `style`, e `;` em `path` ou `domain`.
+- **Escrita fora da saída:** link como `..%2f` no conteúdo gravava arquivo fora da pasta no prerender.
+
+**Mudanças incompatíveis:**
+
+- Tokens CSRF agora são `ts.sig`. Tokens de páginas já abertas deixam de valer depois do deploy.
+- `OOB` e `Suspense` podem devolver `Promise`. Em JSX não muda nada; quem usa `String(...)` deve usar `renderToString`.
+- Cookie repetido na requisição: vale o primeiro, antes valia o último.
+- Valor de `style` é cortado no primeiro `;` fora de aspas e parênteses.
+
+Outras melhorias:
+
+- `defineApp` envia `X-Content-Type-Options`, `X-Frame-Options` e `Referrer-Policy`, ajustáveis com `securityHeaders`.
+- `OOB` e `Suspense` aceitam lista e componente assíncrono; antes saía `[object Promise]`.
+- `sseResponse` encerra o gerador quando o cliente sai.
+- `htmxResponse` aceita emoji em `trigger`; `handleError` que falha não derruba a resposta; `inspector()` some em produção.
+
 ## 0.4.0-beta.2 (02/11/2026)
 
 - Exemplos, testes e o padrão de arquivo na documentação em inglês: `+name.partial.tsx`, `?/name`, `List`. A API não mudou.

@@ -16,6 +16,10 @@ const MIN_SECRET_LENGTH = 32
 // RFC 6265 §4.1.1 — cookie-name = token (visible ASCII, no separators/CTLs)
 const VALID_COOKIE_NAME_RE = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/
 
+function assertCookieAttr(attr: string, text: string | undefined): void {
+  if (text !== undefined && /[;\r\n]/.test(text)) throw new Error(`flash: ${attr} não pode ter ";" nem quebra de linha`)
+}
+
 function assertCookieName(name: string): void {
   if (!VALID_COOKIE_NAME_RE.test(name)) {
     throw new Error(`flash: invalid cookie name "${name}" — must be RFC 6265 token`)
@@ -144,6 +148,9 @@ export const flash = {
   setCookie(value: string, opts: CookieOpts = {}): string {
     const name = opts.name ?? '_flash'
     assertCookieName(name)
+    assertCookieAttr('value', value)
+    assertCookieAttr('path', opts.path)
+    assertCookieAttr('domain', opts.domain)
     const parts: string[] = [`${name}=${value}`]
     parts.push(`Path=${opts.path ?? '/'}`)
     parts.push(`Max-Age=${opts.maxAge ?? 120}`)
@@ -158,6 +165,8 @@ export const flash = {
   clearCookie(opts: Pick<CookieOpts, 'name' | 'path' | 'domain'> = {}): string {
     const name = opts.name ?? '_flash'
     assertCookieName(name)
+    assertCookieAttr('path', opts.path)
+    assertCookieAttr('domain', opts.domain)
     const parts = [
       `${name}=`,
       `Path=${opts.path ?? '/'}`,

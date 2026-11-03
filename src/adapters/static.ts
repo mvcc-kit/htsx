@@ -3,7 +3,7 @@
 // Como o adapter-static do SvelteKit: falha se alguma rota precisar de servidor.
 import path from 'node:path'
 import type { App } from '../app/app'
-import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, redirectHtml, writePrerendered, type VendorOption } from '../build/files'
+import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, outputPath, redirectHtml, writePrerendered, type VendorOption } from '../build/files'
 import { outputFile, prerender, type PrerenderOptions } from '../build/prerender'
 
 export interface StaticOptions {
@@ -63,7 +63,7 @@ export async function buildStatic(app: App, opts: StaticOptions = {}): Promise<B
   await writePrerendered(result.files, outDir)
   const slash = app.options.trailingSlash ?? 'never'
   for (const r of result.redirects) {
-    await Bun.write(path.join(outDir, outputFile(r.from, true, slash)), redirectHtml(r.to))
+    await Bun.write(outputPath(outDir, outputFile(r.from, true, slash)), redirectHtml(r.to))
   }
 
   const fallback = opts.fallback ?? '404.html'

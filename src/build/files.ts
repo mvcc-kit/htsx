@@ -70,8 +70,16 @@ export async function copyVendor(to: string, what: VendorOption = true): Promise
   return out
 }
 
+/** Caminho dentro da saída. O nome vem da URL, inclusive de links do conteúdo: `..%2f` não pode sair da pasta. */
+export function outputPath(to: string, file: string): string {
+  const base = path.resolve(to)
+  const target = path.resolve(base, file)
+  if (!inside(target, base)) throw new Error(`htsx: o prerender tentou gravar fora da pasta de saída: ${JSON.stringify(file)}`)
+  return target
+}
+
 export async function writePrerendered(files: PrerenderedFile[], to: string): Promise<void> {
-  for (const f of files) await Bun.write(path.join(to, f.file), f.body)
+  for (const f of files) await Bun.write(outputPath(to, f.file), f.body)
 }
 
 /** Página HTML de redirecionamento para hospedagem estática sem regras de servidor. */

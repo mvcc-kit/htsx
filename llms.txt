@@ -707,6 +707,20 @@ export const html = await renderPage(() => (
 
 ---
 
+## Segurança: o que o htsx faz e o que fica com você
+
+O htsx escapa texto, recusa `javascript:` em atributos de URL e em `redirect()`, valida nomes de elemento e confere a origem de formulários. `defineApp` envia `X-Content-Type-Options`, `X-Frame-Options` e `Referrer-Policy`, que `securityHeaders` ajusta ou desliga. Eles não valem para arquivos estáticos: use `_headers` ou o servidor.
+
+Continua sendo responsabilidade do app:
+
+- **Permissão de cada dado:** `handle`, `guard` e `load` decidem quem pode ver o quê.
+- **Redirecionar para URL vinda do usuário:** `redirect()` barra `javascript:`, mas aceita outro site. Confira o destino.
+- **Valor de usuário em diretiva:** `$click`, `x-data`, `x-html`, `x-bind-*` e `hx-on` executam código, e o escape não impede isso.
+- **`raw()` e `srcdoc`:** só com HTML gerado pelo servidor.
+- **CSP:** defina em `securityHeaders`. O Alpine padrão exige `unsafe-eval`.
+
+---
+
 ## Navegação fluida
 
 `head({ navigation: true })` ou `<Navigation />` em qualquer `<head>`, com ou sem `defineApp`:

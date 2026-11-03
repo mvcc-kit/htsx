@@ -52,6 +52,8 @@ function childFix(c: unknown): string {
   return 'escolha o campo a mostrar ou serialize com JSON.stringify(valor)'
 }
 
+const VALID_TAG = /^[a-zA-Z][a-zA-Z0-9:._-]*$/
+
 type Tag<P extends Record<string, unknown>> = string | ((props: P) => unknown)
 
 /**
@@ -79,6 +81,8 @@ export function createElement<P extends Record<string, unknown>>(
     return toSafe(renderChildren(result, { escape: true }))
   }
 
+  // o nome sai sem escape no HTML: nome vindo de fora injetaria atributos
+  if (!VALID_TAG.test(tag)) throw new Error(`htsx: nome de elemento inválido ${JSON.stringify(tag)}`)
   const attrs = serializeAttrs(rest as Record<string, unknown>, tag)
   const open = `<${tag}${attrs}>`
 

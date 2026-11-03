@@ -27,10 +27,27 @@ export function attrJson(value: unknown): string {
   return safeJson(value).replace(/'/g, '&#39;')
 }
 
+/** Corta no primeiro `;` fora de aspas e parênteses: ali começaria outra propriedade CSS. */
+function firstCssValue(s: string): string {
+  let quote = ''
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!
+    if (quote) {
+      if (c === '\\') i++
+      else if (c === quote) quote = ''
+    } else if (c === '"' || c === "'") quote = c
+    else if (c === '(') depth++
+    else if (c === ')') depth = Math.max(0, depth - 1)
+    else if (c === ';' && depth === 0) return s.slice(0, i)
+  }
+  return s
+}
+
 export function cssValue(v: string | number): string {
   // Escape " to prevent breaking out of style="..." HTML attribute.
   // Strip < > to block any HTML/tag injection within the CSS value.
-  return String(v).replace(/"/g, '&quot;').replace(/[<>]/g, '')
+  return firstCssValue(String(v)).replace(/"/g, '&quot;').replace(/[<>]/g, '')
 }
 
 // Valid CSS property name after camelCase→kebab conversion:

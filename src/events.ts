@@ -44,7 +44,7 @@ export function defineEvents<E extends EventMap>(events: E): EventEmitter<E> {
       if (!EVENT_NAME_RE.test(name)) {
         throw new Error(`emit: nome inválido "${name}"`)
       }
-      if (!(name in events)) {
+      if (!Object.hasOwn(events, name)) {
         throw new Error(`emit: evento não registrado "${name}"`)
       }
       const handler = events[name]

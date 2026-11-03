@@ -8,8 +8,8 @@
     "motivo": "02/11/2026: entrada do cliente (defineStore) = 1.043 bytes; vai para o navegador, então teto apertado"
   },
   "app.ts": {
-    "maxBytes": 25000,
-    "motivo": "02/11/2026: núcleo do app + coletor de /meta + parciais e event.htmx = cerca de 24.000 bytes; vai para o Worker"
+    "maxBytes": 27000,
+    "motivo": "02/11/2026: núcleo do app + /meta + parciais, event.htmx e cabeçalhos de segurança = cerca de 25.500 bytes; vai para o Worker"
   },
   "adapter-cloudflare.ts": {
     "maxBytes": 4000,

@@ -137,6 +137,8 @@ export interface AppOptions {
   trailingSlash?: 'never' | 'always'
   /** Checagem de origem em POST/PUT/PATCH/DELETE de formulário. */
   csrf?: { checkOrigin?: boolean; trustedOrigins?: string[] }
+  /** Cabeçalhos de segurança: objeto soma ao padrão; `false` desliga. Não valem para arquivos estáticos. */
+  securityHeaders?: Record<string, string> | false
   /** Contexto extra para `useContext()` nos componentes. */
   context?: (event: RequestEvent) => Record<string | symbol, unknown>
 }
@@ -291,7 +293,8 @@ export function defineApp(options: AppOptions): App {
     if (request.method === 'GET' || request.method === 'HEAD') {
       const p = url.pathname
       const fixed = p === '/' ? p : slash === 'never' && p.endsWith('/') ? p.replace(/\/+$/, '') : slash === 'always' && !p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p) ? p + '/' : p
-      if (fixed !== p) return new Response(null, { status: 308, headers: { location: fixed + url.search } })
+      // "//evil.com/" sem a barra final viraria "//evil.com", que o navegador lê como outro site
+      if (fixed !== p) return new Response(null, { status: 308, headers: { location: fixed.replace(/^\/{2,}/, '/') + url.search } })
     }
     // barra no fim não muda a rota (POST para /contato/ casa com /contato)
     const match = find(url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : url.pathname)
@@ -333,7 +336,7 @@ export function defineApp(options: AppOptions): App {
         return fromError(err, event, headers)
       }
     })
-    return withCookies(res, event.cookies.headers)
+    return withCookies(withSecurityHeaders(res, options.securityHeaders), event.cookies.headers)
   }
 
   async function safeResolve(event: RequestEvent, match: { route: Route } | null, headers: Headers): Promise<Response> {
@@ -349,7 +352,12 @@ export function defineApp(options: AppOptions): App {
     }
     if (err instanceof HttpError) return errorResponse(event, err.status, err.message, headers)
     const fallback = { message: 'Erro interno' }
-    const safe = (await options.handleError?.({ error: err, event, status: 500, message: 'Erro interno' })) ?? fallback
+    let safe: { message: string } = fallback
+    try {
+      safe = (await options.handleError?.({ error: err, event, status: 500, message: 'Erro interno' })) ?? fallback
+    } catch (handlerError) {
+      console.error('htsx: handleError falhou', handlerError)
+    }
     if (!options.handleError) console.error(err)
     return errorResponse(event, 500, safe.message, headers)
   }
@@ -382,6 +390,22 @@ function mergeHeaders(res: Response, headers: Headers): Response {
     if (!out.headers.has(k)) out.headers.set(k, v)
   })
   return out ?? res
+}
+
+/** Valem para toda resposta do app, menos o que a rota já definiu. */
+export const DEFAULT_SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'SAMEORIGIN',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+}
+
+function withSecurityHeaders(res: Response, custom: AppOptions['securityHeaders']): Response {
+  if (custom === false) return res
+  const out = new Response(res.body, res)
+  for (const [k, v] of Object.entries({ ...DEFAULT_SECURITY_HEADERS, ...custom })) {
+    if (!out.headers.has(k)) out.headers.set(k, v)
+  }
+  return out
 }
 
 function withCookies(res: Response, cookies: string[]): Response {

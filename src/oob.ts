@@ -1,5 +1,4 @@
-import { HtmlSafeString, raw } from './jsx-runtime'
-import { escapeAttr, escapeHtml } from './escape'
+import { HtmlSafeString, jsx } from './jsx-runtime'
 
 export type OOBSwap =
   | 'innerHTML' | 'outerHTML' | 'textContent'
@@ -36,7 +35,7 @@ export function OOB({
   swap = 'outerHTML',
   tag = 'div',
   children,
-}: OOBProps): HtmlSafeString {
+}: OOBProps): HtmlSafeString | Promise<HtmlSafeString> {
   const id = target.startsWith('#') ? target.slice(1) : target
   if (!ID_RE.test(id)) {
     throw new Error(`OOB: target inválido "${target}" — use ID HTML válido (letra inicial, alfanum/_/-/:/.)`)
@@ -46,12 +45,6 @@ export function OOB({
   const oobValue = swap === 'outerHTML' || swap === 'true'
     ? 'true'
     : `${swap}:#${id}`
-  // Safe-stringify children: HtmlSafeString passes through as-is (already escaped);
-  // plain strings are escaped so callers can't inject raw HTML via OOB children.
-  const childStr = children instanceof HtmlSafeString
-    ? String(children)
-    : escapeHtml(String(children ?? ''))
-  return raw(
-    `<${tag} id="${escapeAttr(id)}" hx-swap-oob="${escapeAttr(oobValue)}">${childStr}</${tag}>`,
-  )
+  // Filhos pelo caminho normal: texto é escapado; lista e componente assíncrono funcionam.
+  return jsx(tag, { id, 'hx-swap-oob': oobValue, children })
 }

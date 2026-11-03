@@ -1,7 +1,7 @@
 /**
  * Builder de Response HTMX com HX-* headers tipados.
  */
-import { HX_HEADERS } from './htmx-headers'
+import { HX_HEADERS, triggerHeader } from './htmx-headers'
 import { toHtml } from './jsx-runtime'
 
 export interface HtmxResponseOpts {
@@ -26,7 +26,7 @@ export async function htmxResponse(
 
   if (opts.trigger != null) {
     headers[HX_HEADERS.Trigger] =
-      typeof opts.trigger === 'string' ? opts.trigger : JSON.stringify(opts.trigger)
+      typeof opts.trigger === 'string' ? opts.trigger : triggerHeader(opts.trigger)
   }
   if (opts.retarget) headers[HX_HEADERS.Retarget] = opts.retarget
   if (opts.reswap)   headers[HX_HEADERS.Reswap]   = opts.reswap

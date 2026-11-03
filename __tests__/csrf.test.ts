@@ -6,10 +6,10 @@ const SECRET = 'a'.repeat(32) // exatos 32 chars (mínimo)
 const STRONG = 'super-secret-key-with-at-least-32-chars-x' // ~40 chars
 
 describe('csrf.sign', () => {
-  it('gera token no formato sid.ts.sig', async () => {
+  it('gera token no formato ts.sig, sem o id da sessão', async () => {
     const t = await csrf.sign({ secret: SECRET, sessionId: 'u1' })
     const parts = t.split('.')
-    expect(parts).toHaveLength(3)
+    expect(parts).toHaveLength(2)
   })
 
   it('throw se secret < 32 chars', async () => {
