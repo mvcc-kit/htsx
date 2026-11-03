@@ -45,7 +45,7 @@ describe('modo Cloudflare: build', () => {
 
   it('_headers com vendor immutable + os do projeto; _redirects; .assetsignore', async () => {
     const headers = await Bun.file(path.join(OUT, '_headers')).text()
-    expect(headers).toBe(`/*\n  X-Frame-Options: DENY\n\n${VENDOR_PATH}*\n  Cache-Control: public, max-age=31536000, immutable\n  X-Robots-Tag: noindex\n`)
+    expect(headers).toBe(`/*\n  X-Frame-Options: DENY\n\n${VENDOR_PATH}*\n  Cache-Control: public, max-age=31536000, immutable\n  X-Robots-Tag: noindex\n\n/_htsx/partial/*\n  Cache-Control: public, max-age=300, stale-while-revalidate=86400\n  X-Robots-Tag: noindex\n`)
     expect(await Bun.file(path.join(OUT, '_redirects')).text()).toBe('/x-antigo /sobre 301\n/antigo /sobre 308\n')
     expect(await Bun.file(path.join(OUT, '.assetsignore')).text()).toBe('_worker.js\n_routes.json\n')
     expect(await Bun.file(path.join(OUT, 'robots.txt')).exists()).toBe(true)

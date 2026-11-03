@@ -19,16 +19,23 @@ export const navigationCss = '@media (prefers-reduced-motion:no-preference){@vie
   + '[x-cloak]{display:none!important}'
 
 /**
+ * Com `<Head>`, baixa o Alpine só quando a página tem \`x-data\` ou \`x-init\`, inclusive depois de uma troca.
  * Com \`hx-boost\` e \`<Outlet>\`, a navegação troca só o conteúdo da página; se a resposta não tiver
  * esse conteúdo ou for um erro, cai para a navegação completa.
  * Baixa antes o HTML do link, ao passar o mouse, focar ou tocar. Fica de fora: outra origem,
- * `target`, `download`, `hx-get`, link com boost (o htmx pediria de novo, e seriam dois downloads) e `data-no-prefetch`, que todo link GET
+ * `target`, `download`, `hx-get`, link com boost sem `<Outlet preload>` (seriam dois downloads) e `data-no-prefetch`, que todo link GET
  * com efeito colateral (como `/logout`) precisa ter. Respeita economia de dados e rede 2G.
  */
 export const navigationJs = `(function(){
-var d=document,c=navigator.connection,seen={},timer;
+var d=document,c=navigator.connection,seen={},timer,alpine,self=d.currentScript,nonce=self&&self.nonce;
 function outlet(){return d.getElementById('htsx-page')}
-function partials(){var m=d.querySelector('meta[name="htsx-partials"]');return m&&m.content}
+function partialsMeta(){return d.querySelector('meta[name="htsx-partials"]')}
+function partials(){var m=partialsMeta();return m&&m.content}
+function loadAlpine(){
+var m=d.querySelector('meta[name="htsx-alpine"]');
+if(alpine||!m||window.Alpine||!d.querySelector('[x-data],[x-init]'))return;alpine=1;
+m.content.split(' ').forEach(function(src){var s=d.createElement('script');s.src=src;s.async=false;if(nonce)s.nonce=nonce;d.head.appendChild(s)})}
+loadAlpine();d.addEventListener('DOMContentLoaded',loadAlpine);d.addEventListener('htmx:afterSettle',loadAlpine);
 d.addEventListener('htmx:configRequest',function(e){
 var x=e.detail,p=partials();
 if(!x.boosted||!outlet())return;
@@ -48,9 +55,10 @@ function fetchLink(a){
 if(!a||typeof a.href!=='string'||(a.target&&a.target!=='_self')||a.hasAttribute('download')||a.hasAttribute('hx-get')||a.closest('[data-no-prefetch]'))return;
 var u=new URL(a.href);if(u.origin!==location.origin)return;
 u.hash='';if(u.href===location.href.split('#')[0])return;
-var b=a.closest('[hx-boost]');if(b&&b.getAttribute('hx-boost')!=='false')return;
-if(seen[u.href])return;seen[u.href]=1;
-var l=d.createElement('link');l.rel='prefetch';l.href=u.href;d.head.appendChild(l)}
+var b=a.closest('[hx-boost]'),href=u.href;
+if(b&&b.getAttribute('hx-boost')!=='false'){var m=partialsMeta();if(!m||!m.dataset.preload)return;href=u.origin+m.content+u.pathname+u.search}
+if(seen[href])return;seen[href]=1;
+var l=d.createElement('link');l.rel='prefetch';l.href=href;d.head.appendChild(l)}
 d.addEventListener('mouseover',function(e){var a=anchor(e);clearTimeout(timer);if(a)timer=setTimeout(function(){fetchLink(a)},65)},{passive:true});
 d.addEventListener('focusin',function(e){fetchLink(anchor(e))},{passive:true});
 d.addEventListener('touchstart',function(e){fetchLink(anchor(e))},{passive:true});

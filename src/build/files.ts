@@ -51,8 +51,23 @@ export async function copyAssets(from: string, to: string): Promise<string[]> {
   return files
 }
 
-/** O que copiar para VENDOR_PATH: tudo, só a navegação (site sem Alpine nem htmx) ou nada. */
-export type VendorOption = boolean | 'navigation'
+/**
+ * O que copiar para VENDOR_PATH: tudo, só a navegação, nada, ou `'auto'`: só o que as
+ * páginas geradas citam (modo estático, em que todas as páginas são conhecidas).
+ */
+export type VendorOption = boolean | 'navigation' | 'auto'
+
+/** Arquivos de `vendor/` citados nas páginas geradas. */
+export async function copyVendorUsed(to: string, pages: readonly string[]): Promise<string[]> {
+  const out = await copyVendor(to, 'navigation')
+  for (const pin of Object.values(pins)) {
+    const target = VENDOR_PATH + pin.file
+    if (!pages.some(html => html.includes(target))) continue
+    await Bun.write(path.join(to, VENDOR_PATH, pin.file), Bun.file(path.join(VENDOR_DIR, pin.file)))
+    out.push(target)
+  }
+  return out
+}
 
 /** Copia Alpine, htmx, plugins e os arquivos de navegação para `<saída>` + VENDOR_PATH. */
 export async function copyVendor(to: string, what: VendorOption = true): Promise<string[]> {
@@ -62,7 +77,7 @@ export async function copyVendor(to: string, what: VendorOption = true): Promise
     await Bun.write(path.join(to, VENDOR_PATH, file), body)
     out.push(VENDOR_PATH + file)
   }
-  if (what === 'navigation') return out
+  if (what === 'navigation' || what === 'auto') return out
   for (const pin of Object.values(pins)) {
     await Bun.write(path.join(to, VENDOR_PATH, pin.file), Bun.file(path.join(VENDOR_DIR, pin.file)))
     out.push(VENDOR_PATH + pin.file)

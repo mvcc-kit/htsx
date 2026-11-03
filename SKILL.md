@@ -659,6 +659,9 @@ Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteú
 
 - **Com servidor:** a resposta traz só a página e o título, sem renderizar o layout.
 - **Em site estático:** o build gera cada parcial em `/_htsx/partial/...`, e o navegador baixa só ele, sem mudar a URL. Se o arquivo faltar, cai para a navegação completa. O hospedeiro precisa servir `/x` a partir de `x.html`. Não ponha cache permanente nessa pasta.
+- **Pré-carregar:** `<Outlet preload>` baixa o parcial ao passar o mouse. Só ligue se o host der cache a `/_htsx/partial/`, como `max-age=300`; o adaptador Cloudflare já configura.
+- **Só o que a página usa:** o `<Head>` baixa o Alpine só quando a página tem `x-data` ou `x-init`, inclusive depois de uma troca. Com `navigation={false}`, ele carrega sempre. Em site estático, `buildStatic(app, { vendor: 'auto' })` publica só os arquivos citados pelas páginas.
+- **Com servidor:** as páginas levam `ETag`, e o que não mudou volta como 304.
 - **Só o `Outlet` anima:** o resto da página fica parado, e um `hx-get` interno troca só o alvo dele.
 - **O que fica dentro do `Outlet` é o que muda:** quanto menor o trecho, menor o parcial.
 - `hx-get` dentro da página continua funcionando como antes.

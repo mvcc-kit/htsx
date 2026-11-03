@@ -7,6 +7,7 @@ import type { App } from '../app/app'
 import { assertSafeOutDir, cleanDir, copyAssets, copyVendor, fileServer, writePrerendered, type VendorOption } from '../build/files'
 import { prerender, type PrerenderOptions } from '../build/prerender'
 import { VENDOR_PATH } from '../vendor-path'
+import { PARTIALS_PATH } from '../outlet'
 import type { AssetsFetcher, CloudflareManifest } from './cloudflare'
 
 export interface CloudflareBuildOptions {
@@ -21,7 +22,7 @@ export interface CloudflareBuildOptions {
   /** Arquivo do wrangler a conferir. Padrão: `wrangler.jsonc` ou `wrangler.json`; `false` pula. */
   wrangler?: string | false
   /** Copia Alpine, htmx e a navegação para `VENDOR_PATH`. Padrão `true`; `'navigation'` copia só a navegação. */
-  vendor?: VendorOption
+  vendor?: Exclude<VendorOption, 'auto'>
   /** Worker gerado pelo build (htsx.config.ts): o `main` do wrangler precisa apontar para ele. */
   expectMain?: string
   prerender?: Omit<PrerenderOptions, 'assets'>
@@ -84,6 +85,10 @@ function headersFile(userHeaders: string): string {
   const ours = [
     `${VENDOR_PATH}*`,
     '  Cache-Control: public, max-age=31536000, immutable',
+    '  X-Robots-Tag: noindex',
+    '',
+    `${PARTIALS_PATH}/*`,
+    '  Cache-Control: public, max-age=300, stale-while-revalidate=86400',
     '  X-Robots-Tag: noindex',
   ].join('\n')
   return userHeaders.trim() ? `${userHeaders.trimEnd()}\n\n${ours}\n` : `${ours}\n`

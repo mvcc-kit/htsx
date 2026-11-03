@@ -7,6 +7,7 @@ import { cacheContext } from '../cache'
 import { withMeta } from '../meta/collector'
 import { OUTLET_ID, wantsOutlet } from '../outlet'
 import { createHtmxContext, type HtmxContext } from './htmx'
+import { etagMatches, weakEtag } from './etag'
 import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
@@ -237,7 +238,7 @@ export function defineApp(options: AppOptions): App {
     })
     headers.set('content-type', 'text/html; charset=utf-8')
     if (layout) headers.append('vary', partial ? 'HX-Request, HX-Target' : 'HX-Request')
-    return new Response(html, { status, headers })
+    return htmlResponse(event, html, status, headers)
   }
 
   async function runAction(route: Route, event: RequestEvent, headers: Headers): Promise<Response> {
@@ -269,7 +270,8 @@ export function defineApp(options: AppOptions): App {
         headers.set('content-type', 'text/html; charset=utf-8')
         // pedaço de página: não deve aparecer em buscadores
         headers.set('x-robots-tag', 'noindex')
-        return new Response(method === 'HEAD' ? null : html, { status: 200, headers })
+        const res = await htmlResponse(event, html, 200, headers)
+        return method === 'HEAD' ? new Response(null, res) : res
       }
     }
     const endpoint = def[method === 'HEAD' ? 'GET' : method as Method]
@@ -406,6 +408,16 @@ function withSecurityHeaders(res: Response, custom: AppOptions['securityHeaders'
     if (!out.headers.has(k)) out.headers.set(k, v)
   }
   return out
+}
+
+/** Página que não mudou vira 304: o `load` já rodou, mas o HTML não trafega de novo. */
+async function htmlResponse(event: RequestEvent, html: string, status: number, headers: Headers): Promise<Response> {
+  const method = event.request.method
+  if (status !== 200 || (method !== 'GET' && method !== 'HEAD') || headers.has('etag')) return new Response(html, { status, headers })
+  const etag = await weakEtag(html)
+  headers.set('etag', etag)
+  if (etagMatches(event.request.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers })
+  return new Response(html, { status, headers })
 }
 
 function withCookies(res: Response, cookies: string[]): Response {

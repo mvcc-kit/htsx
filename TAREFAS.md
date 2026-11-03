@@ -90,7 +90,8 @@ Testes em `__tests__/hardening.test.tsx`.
 - [x] `event.htmx`: leitura do pedido e comandos da resposta.
 - [x] `<Head>` mais seguro por padrão: `allowEval: false`, e `fail()` com 400 ou 422 aparece na tela.
 - [x] Parciais em arquivo no build estático.
-- [ ] Pré-carregar parciais sem baixar duas vezes: o `<link rel="prefetch">` não é reaproveitado pelo pedido do htmx.
+- [x] `<Outlet preload>`: pré-carrega parciais em arquivo, com cache do host, sem baixar duas vezes.
+- [x] Alpine sob demanda, `vendor: 'auto'` e `ETag` nas páginas renderizadas.
 - [ ] `HX-Location` no lugar de `HX-Redirect` em `redirect()` dentro de um layout com `Outlet`.
 - [ ] Morph (`idiomorph`), para manter foco e estado do Alpine na troca. Exige copiar mais uma biblioteca para `vendor/`.
 

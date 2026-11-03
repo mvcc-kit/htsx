@@ -64,6 +64,11 @@ export function alpineTags(opts: AlpineOpts = {}): string[] {
   ]
 }
 
+/** Arquivos do Alpine na ordem de carregar, para o navegador só baixar quando a página usar. */
+export function alpineFiles(vendor: string, plugins: AlpinePluginName[] = []): string[] {
+  return [...plugins.map(p => vendor + pins[`alpine-${p}`].file), vendor + pins.alpine.file]
+}
+
 export function htmxTags(opts: HtmxOpts = {}): string {
   return `<script ${opts.defer ? 'defer ' : ''}${vendorSrc('htmx', opts.vendor, opts.version)}${nonceOf(opts.nonce)}></script>`
 }

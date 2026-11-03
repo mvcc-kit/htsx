@@ -2,6 +2,13 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.4-beta.1 (02/11/2026)
+
+- **Alpine sob demanda:** o `<Head>` baixa o Alpine só quando a página tem `x-data` ou `x-init`, inclusive depois de uma troca. Script inline que usa `Alpine` direto deve esperar `alpine:init`.
+- **`buildStatic(app, { vendor: 'auto' })`:** publica só os arquivos que as páginas citam.
+- **`<Outlet preload>`:** pré-carrega o parcial ao passar o mouse. Exige cache do host em `/_htsx/partial/`, que o adaptador Cloudflare já configura.
+- **`ETag` e 304** nas páginas e parciais renderizados no servidor.
+
 ## 0.4.3-beta.1 (02/11/2026)
 
 - **Sem download duplicado:** links com `hx-boost` não são mais pré-carregados, porque cada clique baixava o parcial duas vezes.

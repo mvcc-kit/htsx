@@ -1,15 +1,15 @@
 {
   "index.ts": {
-    "maxBytes": 32000,
-    "motivo": "02/11/2026: núcleo + Navigation (com parciais em arquivo) + coletor de /meta = cerca de 30.800 bytes; folga de ~4%"
+    "maxBytes": 33000,
+    "motivo": "02/11/2026: núcleo + Navigation (parciais em arquivo, Alpine sob demanda) + coletor de /meta = cerca de 31.700 bytes; folga de ~4%"
   },
   "store.ts": {
     "maxBytes": 1500,
     "motivo": "02/11/2026: entrada do cliente (defineStore) = 1.043 bytes; vai para o navegador, então teto apertado"
   },
   "app.ts": {
-    "maxBytes": 27000,
-    "motivo": "02/11/2026: núcleo do app + /meta + parciais, event.htmx e cabeçalhos de segurança = cerca de 25.500 bytes; vai para o Worker"
+    "maxBytes": 28000,
+    "motivo": "02/11/2026: núcleo do app + /meta + parciais, event.htmx, cabeçalhos de segurança e ETag = cerca de 26.000 bytes; vai para o Worker"
   },
   "adapter-cloudflare.ts": {
     "maxBytes": 4000,

@@ -1,5 +1,5 @@
 // Componentes de /meta. As regras estão em ./logic; aqui só se gera o HTML e se entrega ao coletor.
-import { alpineTags, htmxTags, type AlpineOpts, type HtmxOpts } from '../head'
+import { alpineFiles, alpineTags, htmxTags, type AlpineOpts, type HtmxOpts } from '../head'
 import { HtmlSafeString, jsx, raw, toHtml } from '../jsx-runtime'
 import { navigationTags, type NavigationOpts } from '../navigation'
 import { escapeAttr } from '../escape'
@@ -70,17 +70,28 @@ export function Head(props: HeadProps = {}): Rendered {
       Meta({ name: 'viewport', content: 'width=device-width, initial-scale=1' }),
       props.navigation === false ? null : Navigation({ base: vendor, nonce }),
       config ? Htmx({ vendor, nonce, config, defer: true }) : null,
-      alpine ? Alpine({ ...alpine, vendor, nonce }) : null,
+      // Com a navegação ligada, o Alpine só é baixado quando a página usa: é ela que carrega.
+      alpine && props.navigation !== false
+        ? place('alpine', raw(`<meta name="htsx-alpine" content="${escapeAttr(alpineFiles(vendor, (alpine as AlpineOpts).plugins).join(' '))}">`))
+        : alpine ? Alpine({ ...alpine, vendor, nonce }) : null,
       props.children,
     ],
   })
 }
 
 /** Onde o conteúdo fica no layout. Com `hx-boost` no `<body>`, a navegação troca só este trecho. */
-export function Outlet(props: { children?: Children }): Rendered {
+export function Outlet(props: {
+  /**
+   * Em site estático, baixa o parcial ao passar o mouse. Só ligue se o host der cache a
+   * `/_htsx/partial/` (ex.: `max-age=300`); sem cache, cada clique baixaria duas vezes.
+   */
+  preload?: boolean
+  children?: Children
+}): Rendered {
   // hx-history-elt: voltar no navegador troca só este trecho, não o <body> inteiro
   const outlet = jsx('div', { id: OUTLET_ID, 'hx-history-elt': 'true', children: props.children })
   if (!isPrerendering()) return outlet
-  return Promise.all([place('partials', raw(`<meta name="htsx-partials" content="${PARTIALS_PATH}">`)), outlet])
+  const preload = props.preload ? ' data-preload="true"' : ''
+  return Promise.all([place('partials', raw(`<meta name="htsx-partials" content="${PARTIALS_PATH}"${preload}>`)), outlet])
     .then(([marker, html]) => raw(String(marker) + String(html)))
 }
