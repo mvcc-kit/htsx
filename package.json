@@ -24,7 +24,8 @@
     "build": "bun build.ts",
     "vendor": "bun scripts/vendor.ts",
     "scorecard": "bun scripts/scorecard.ts",
-    "docs": "bun scripts/docs.ts"
+    "docs": "bun scripts/docs.ts",
+    "release": "bun scripts/release.ts"
   },
   "devDependencies": {
     "typescript": "5.9.2",

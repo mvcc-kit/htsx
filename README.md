@@ -39,13 +39,13 @@ E no `tsconfig.json`:
 
 ## Versões
 
-O htsx está em beta e a API ainda pode mudar. Regras em [`CHANGELOG.md`](CHANGELOG.md).
+O htsx está em beta e a API ainda pode mudar. O que mudou em cada versão está em [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Documentação
 
 - [`SKILL.md`](SKILL.md): guia completo da API, com exemplos que compilam e rodam nos testes. É a fonte única; o `llms.txt` é gerado dele.
 - [`AGENTS.md`](AGENTS.md): regras para quem mexe na biblioteca.
-- [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md): revisão de segurança e plano.
+- [`RELEASING.md`](RELEASING.md): regras de versão e como publicar.
 - [`docs/sveltekit-analise.md`](docs/sveltekit-analise.md): o que veio do SvelteKit (modos estático e Cloudflare) e o que falta.
 
 Entradas públicas: `@repo/htsx` (renderização), `@repo/htsx/app` (rotas, load, ações, hooks; sem plataforma), `@repo/htsx/config` (`htsx.config.ts`: modo, pastas e opções; roda os comandos sem CLI), `@repo/htsx/project` (`loadApp`, `build`, `start`, `sync` em código), `@repo/htsx/adapter-static`, `@repo/htsx/adapter-cloudflare` (+ `/build`) e `@repo/htsx/adapter-bun` (os modos de entrega), `@repo/htsx/store` (cliente, `defineStore`), `@repo/htsx/testing` (testes) e `@repo/htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `@repo/htsx-ui` (pasta `ui/`).

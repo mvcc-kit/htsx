@@ -1,6 +1,6 @@
 # Tarefas do htsx
 
-Detalhes de cada falha e de cada etapa: [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md). Marque `[x]` ao terminar, no mesmo commit da mudança.
+Marque `[x]` ao terminar, no mesmo commit da mudança.
 
 ## P0. Segurança (antes de qualquer uso em produção)
 

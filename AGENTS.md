@@ -1,6 +1,6 @@
 # AGENTS.md: guia para agentes que mexem no htsx
 
-`@repo/htsx` transforma JSX em HTML no servidor, para páginas com htmx e Alpine. Não é React: JSX vira string, sem DOM virtual. Roda em Bun e em Cloudflare Workers. Revisão e plano: [`docs/revisao-2026-11-02.md`](docs/revisao-2026-11-02.md).
+`@repo/htsx` transforma JSX em HTML no servidor, para páginas com htmx e Alpine. Não é React: JSX vira string, sem DOM virtual. Roda em Bun e em Cloudflare Workers.
 
 ## Leia primeiro (5 minutos)
 
@@ -12,7 +12,8 @@
 | `src/app/` e `src/adapters/` | Núcleo do app (sem plataforma) e os modos estático, Cloudflare e Bun |
 | `src/config/` e `src/build/commands.ts` | `htsx.config.ts` (sem CLI) e o que `dev`/`build`/`start`/`sync` fazem |
 | `SKILL.md` | Como usar a biblioteca num app |
-| `docs/revisao-2026-11-02.md` | Falhas conhecidas e o plano em ordem |
+| `TAREFAS.md` | O que já foi feito e o que falta |
+| `RELEASING.md` | Como publicar uma versão |
 
 ## Regras fixas
 
@@ -38,3 +39,5 @@ bun run scorecard         # placar: testes, tamanho, o que some sem aviso, pend�
 O tamanho minificado tem teto em `size-limit.json` (testado em `__tests__/size.test.ts`). Se precisar subir, mude `maxBytes` e explique em `motivo`.
 
 Depois teste num projeto que usa a biblioteca, porque o `tsconfig` dele pode ser mais estrito que o daqui. Relate o que verificou e o que não verificou.
+
+Mudança que vai para quem usa a biblioteca: siga [`RELEASING.md`](RELEASING.md). Nunca crie, mova ou apague tag à mão.
