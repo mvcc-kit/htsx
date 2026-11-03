@@ -15,6 +15,9 @@ describe('regras', () => {
     expect(metaKey({ name: 'description' })).toBe('meta:name:description')
     expect(metaKey({ property: 'og:title' })).toBe('meta:property:og:title')
     expect(metaKey({ charset: 'utf-8' })).toBe('meta:charset')
+    expect(metaKey({ name: 'theme-color', media: '(prefers-color-scheme: dark)' })).not.toBe(
+      metaKey({ name: 'theme-color', media: '(prefers-color-scheme: light)' })
+    )
     expect(metaKey({ content: 'x' })).toBeNull()
     expect(linkKey({ rel: 'canonical' })).toBe('link:rel:canonical')
     expect(linkKey({ rel: 'icon' })).toBeNull()

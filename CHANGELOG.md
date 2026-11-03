@@ -2,6 +2,12 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.2-beta (a publicar)
+
+### Corrigido
+
+- `Meta` não junta mais tags de mesmo nome com `media` diferente, como `theme-color` no claro e no escuro.
+
 ## 0.1.1-beta (03/11/2026)
 
 ### Adicionado

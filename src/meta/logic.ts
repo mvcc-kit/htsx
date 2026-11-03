@@ -15,7 +15,9 @@ export function metaKey(attrs: Attrs): string | null {
   if (attrs.charset !== undefined) return 'meta:charset'
   for (const attr of ['name', 'property', 'http-equiv']) {
     const value = text(attrs[attr])
-    if (value) return `meta:${attr}:${value}`
+    // A mesma tag pode valer para media diferente, como theme-color no claro e no escuro.
+    const media = text(attrs.media)
+    if (value) return media ? `meta:${attr}:${value}:${media}` : `meta:${attr}:${value}`
   }
   return null
 }
