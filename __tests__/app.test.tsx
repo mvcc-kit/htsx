@@ -49,7 +49,7 @@ describe('app: páginas, load e layout', () => {
     const res = await req('/')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8')
-    expect(res.headers.get('vary')).toBe('HX-Request')
+    expect(res.headers.get('vary')).toContain('HX-Request')
     expect(await res.text()).toBe('<!DOCTYPE html><html><body><h1>Início</h1></body></html>')
   })
 

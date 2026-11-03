@@ -22,6 +22,9 @@ export interface Cookies {
   readonly headers: string[]
 }
 
+// RFC 6265 §6.1: mínimo que todo navegador aceita.
+const MAX_COOKIE_BYTES = 4096
+
 function parseCookies(header: string): Record<string, string> {
   // Sem protótipo: get('constructor') não pode devolver uma função.
   const out: Record<string, string> = Object.create(null)
@@ -48,15 +51,22 @@ export function createCookies(request: Request, secureByDefault: boolean): Cooki
     for (const [attr, text] of [['path', o.path], ['domain', o.domain]] as const) {
       if (text !== undefined && UNSAFE_COOKIE_ATTR.test(text)) throw new Error(`htsx: ${attr} do cookie "${name}" não pode ter ";" nem quebra de linha`)
     }
+    // O navegador descarta em silêncio o que quebra as regras destes prefixos.
+    if (name.startsWith('__Host-') && (o.domain || (o.path ?? '/') !== '/' || o.secure === false)) {
+      throw new Error(`htsx: cookie "${name}" com prefixo __Host- exige Secure, Path=/ e nenhum Domain`)
+    }
+    if (name.startsWith('__Secure-') && o.secure === false) throw new Error(`htsx: cookie "${name}" com prefixo __Secure- exige Secure`)
     if (o.sameSite === 'None' && o.secure === false) throw new Error(`htsx: cookie "${name}" com SameSite=None precisa de Secure; o navegador o recusaria`)
     const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${o.path ?? '/'}`]
     if (o.domain) parts.push(`Domain=${o.domain}`)
     if (o.maxAge !== undefined) parts.push(`Max-Age=${Math.floor(o.maxAge)}`)
     if (o.expires) parts.push(`Expires=${o.expires.toUTCString()}`)
     if (o.httpOnly ?? true) parts.push('HttpOnly')
-    if (o.secure ?? (secureByDefault || o.sameSite === 'None')) parts.push('Secure')
+    if (o.secure ?? (secureByDefault || o.sameSite === 'None' || name.startsWith('__Host-') || name.startsWith('__Secure-'))) parts.push('Secure')
     parts.push(`SameSite=${o.sameSite ?? 'Lax'}`)
-    return parts.join('; ')
+    const cookie = parts.join('; ')
+    if (cookie.length > MAX_COOKIE_BYTES) throw new Error(`htsx: cookie "${name}" tem ${cookie.length} bytes; o navegador descarta acima de ${MAX_COOKIE_BYTES}`)
+    return cookie
   }
 
   return {

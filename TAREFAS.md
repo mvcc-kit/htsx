@@ -71,6 +71,14 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P14. Segurança, segunda auditoria (03/11/2026)
+
+Base: CVE-2023-29003 e CVE-2023-29008 (SvelteKit), CVE-2025-29927 (Next.js) e a documentação do htmx.
+
+- [x] `Vary` completo; `private, no-store` com cookie; `bodyLimit`; symlink; flash com validade; 404 de ação sem lista.
+- [x] `contentSecurityPolicy()`, `createNonce()`, `localPath()` e `<UserContent>`.
+- [ ] Atualizar o htmx e o Alpine exige `bun run vendor`, com revisão do dono.
+
 ## P13. Qualidade de código (03/11/2026)
 
 - [x] `src/crypto.ts`, `src/patterns.ts`, `src/env.ts` e `HX_REQUEST`: uma definição só.

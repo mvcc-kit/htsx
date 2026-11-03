@@ -7,3 +7,6 @@ export type { PartialComponent, PartialContext, PartialDef, PartialLoadContext }
 export type { PartialRequestAttrs, PartialRequestOpts, StandardSchema } from './src/app/partial-logic'
 export type { HtmxContext } from './src/app/htmx'
 export { VENDOR_PATH } from './src/vendor-path'
+export { contentSecurityPolicy, createNonce } from './src/csp'
+export type { CspOptions } from './src/csp'
+export { UserContent } from './src/user-content'

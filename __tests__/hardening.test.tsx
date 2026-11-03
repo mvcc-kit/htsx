@@ -3,11 +3,13 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createElement as h, csrf, defineEvents, ErrorBoundary, flash, htmxResponse, inspector, OOB, raw, renderToString, resolveSuspense, sseEvent, sseResponse, Suspense, suspenseRegistry, withContext } from '../index'
-import { defineApp, redirect, route } from '../app'
+import { contentSecurityPolicy, createElement as h, createNonce, csrf, defineEvents, ErrorBoundary, renderPage, UserContent, flash, htmxResponse, inspector, OOB, raw, renderToString, resolveSuspense, sseEvent, sseResponse, Suspense, suspenseRegistry, withContext } from '../index'
+import { defineApp, getRequestEvent, localPath, redirect, route } from '../app'
+import { Head } from '../meta'
+import { symlinkSync } from 'node:fs'
 import { createCookies } from '../src/app/cookies'
 import { createHtmxContext } from '../src/app/htmx'
-import { outputPath } from '../src/build/files'
+import { fileServer, outputPath } from '../src/build/files'
 import { cssValue } from '../src/escape'
 import { withoutStrictMode } from './setup'
 
@@ -274,5 +276,173 @@ describe('build e desenvolvimento', () => {
     expect(inspector()).toBe('')
     process.env.NODE_ENV = before
     expect(inspector()).toContain('__htsx')
+  })
+})
+
+describe('auditoria 2: cache e cabeçalhos do cliente', () => {
+  const Layout = ({ children }: { children?: unknown }) => <html><head></head><body>{children as string}</body></html>
+  const layoutApp = defineApp({
+    layout: Layout,
+    routes: [
+      route('/', { page: () => <p>x</p> }),
+      route('/login', { load: ({ cookies }) => { cookies.set('sid', '1') }, page: () => <p>x</p> }),
+      route('/own', { load: ({ cookies, setHeaders }) => { cookies.set('sid', '1'); setHeaders({ 'cache-control': 'private, max-age=5' }) }, page: () => <p>x</p> }),
+    ],
+  })
+  const call = (p: string, headers: Record<string, string> = {}) => layoutApp.respond(new Request(`https://x.dev${p}`, { headers }))
+
+  it('todo cabeçalho que muda a resposta está no Vary, também em erro', async () => {
+    for (const res of [await call('/'), await call('/', { 'hx-request': 'true' }), await call('/nada')]) {
+      const vary = res.headers.get('vary')!
+      for (const name of ['HX-Request', 'HX-Boosted', 'HX-Target', 'HX-History-Restore-Request']) expect(vary).toContain(name)
+    }
+  })
+
+  it('resposta que grava cookie não vai para cache compartilhado; a rota pode escolher', async () => {
+    expect((await call('/login')).headers.get('cache-control')).toBe('private, no-store')
+    expect((await call('/own')).headers.get('cache-control')).toBe('private, max-age=5')
+    expect((await call('/')).headers.get('cache-control')).toBeNull()
+  })
+
+  it('cabeçalho do cliente não liga o prerender nem pula handle', async () => {
+    let handled = 0
+    const guarded = defineApp({
+      handle: ({ event, resolve }) => { handled++; return resolve(event) },
+      routes: [route('/', { page: ({ params }) => { void params; return <p>{String(getRequestEvent().prerendering)}</p> } })],
+    })
+    const headers = { 'x-htsx-prerender': 'true', 'x-middleware-subrequest': 'src/hooks', 'hx-request': 'true', 'hx-boosted': 'true' }
+    expect(await (await guarded.respond(new Request('https://x.dev/', { headers }))).text()).toBe('<p>false</p>')
+    expect(handled).toBe(1)
+  })
+})
+
+describe('auditoria 2: formulário e limites', () => {
+  const app2 = defineApp({
+    bodyLimit: 100,
+    routes: [route('/', {
+      actions: { save: async ({ request }) => ({ size: (await request.formData()).get('a')?.toString().length }) },
+      page: ({ form }) => <p>{`ok ${form?.size ?? ''}`}</p>,
+    })],
+  })
+  const post = (body: BodyInit, headers: Record<string, string> = {}) => app2.respond(new Request('https://x.dev/?/save', {
+    method: 'POST', body, duplex: 'half',
+    headers: { origin: 'https://x.dev', 'content-type': 'application/x-www-form-urlencoded', ...headers },
+  } as RequestInit))
+
+  it('corpo declarado grande demais dá 413 sem ler', async () => {
+    const res = await post('a=' + 'x'.repeat(200))
+    expect(res.status).toBe(413)
+  })
+
+  it('corpo sem tamanho declarado para ao passar do limite', async () => {
+    const stream = (size: number) => new ReadableStream<Uint8Array>({
+      start(c) { c.enqueue(new TextEncoder().encode('a=' + 'x'.repeat(size))); c.close() },
+    })
+    const quiet = console.error
+    console.error = () => {}
+    const res = await post(stream(500))
+    console.error = quiet
+    expect(res.status).toBe(413)
+    expect(await post(stream(10)).then(r => r.text())).toContain('ok 10')
+  })
+
+  it('corpo dentro do limite passa', async () => {
+    expect(await (await post('a=abc')).text()).toContain('ok 3')
+  })
+
+  it('bodyLimit: false desliga', async () => {
+    const open = defineApp({ bodyLimit: false, routes: [route('/', { actions: { default: () => ({}) }, page: () => <p>x</p> })] })
+    const res = await open.respond(new Request('https://x.dev/', { method: 'POST', body: 'a='.padEnd(20_000_000, 'x'), headers: { origin: 'https://x.dev', 'content-type': 'text/plain' } }))
+    expect(res.status).toBe(200)
+  })
+
+  describe('fora do modo estrito', () => {
+    withoutStrictMode()
+    it('404 de ação não lista as ações da rota', async () => {
+      const res = await defineApp({ routes: [route('/', { actions: { secretAdminAction: () => ({}) }, page: () => null })] })
+        .respond(new Request('https://x.dev/?/nada', { method: 'POST', body: 'a=1', headers: { origin: 'https://x.dev', 'content-type': 'text/plain' } }))
+      expect(res.status).toBe(404)
+      expect(await res.text()).not.toContain('secretAdminAction')
+    })
+  })
+})
+
+describe('auditoria 2: utilitários', () => {
+  it('localPath só aceita caminho deste site', () => {
+    for (const ok of ['/', '/a', '/a?b=1#c', '/a//b']) expect(localPath(ok)).toBe(ok)
+    for (const bad of ['//evil.com', '/\\evil.com', '/\t/evil.com', 'https://evil.com', 'javascript:alert(1)', 'a', '', null, undefined, '/a\nb']) expect(localPath(bad, '/home')).toBe('/home')
+  })
+
+  it('CSP: padrão sem unsafe, com o que foi pedido', () => {
+    const base = contentSecurityPolicy()
+    expect(base).toContain("script-src 'self'")
+    expect(base).not.toContain('unsafe')
+    expect(base).toContain("object-src 'none'")
+    expect(base).toContain("base-uri 'none'")
+    expect(contentSecurityPolicy({ alpine: true })).toContain("'unsafe-eval'")
+    const full = contentSecurityPolicy({ nonce: 'abc', connect: ['https://api.x.dev'], scripts: ['https://c.dev'], frames: ['https://c.dev'] })
+    expect(full).toContain("'nonce-abc'")
+    expect(full).toContain("connect-src 'self' https://api.x.dev")
+    expect(full).toContain('frame-src https://c.dev')
+  })
+
+  it('CSP recusa injeção de diretiva', () => {
+    expect(() => contentSecurityPolicy({ connect: ["https://a.dev; script-src 'unsafe-inline'"] })).toThrow(/origem inválida/)
+    expect(() => contentSecurityPolicy({ scripts: ["'unsafe-inline'"] })).toThrow(/origem inválida/)
+    expect(() => contentSecurityPolicy({ nonce: "x'; script-src *" })).toThrow(/nonce inválido/)
+  })
+
+  it('createNonce muda a cada chamada e cabe na CSP', () => {
+    const a = createNonce()
+    expect(a).not.toBe(createNonce())
+    expect(() => contentSecurityPolicy({ nonce: a })).not.toThrow()
+  })
+
+  it('UserContent desliga htmx e Alpine no trecho', async () => {
+    const html = await renderToString(() => UserContent({ html: '<a hx-get="/x">y</a>', class: 'a"b' }))
+    expect(html).toBe('<div class="a&#34;b" hx-disable="true" x-ignore><a hx-get="/x">y</a></div>')
+  })
+
+  it('<Head nonce> entrega o nonce ao htmx', async () => {
+    const html = await renderPage(() => <html><Head nonce="abc" vendor="/v/" /><body></body></html>)
+    expect(html).toContain('inlineScriptNonce')
+    expect(html).toContain('selfRequestsOnly')
+    expect(html).toContain('nonce="abc"')
+  })
+
+  it('flash vence e não é aceito como outro token', async () => {
+    const secret = 'x'.repeat(32)
+    const token = await flash.serialize([{ type: 'info', text: 'oi' }], { secret })
+    expect(await flash.parse(token, { secret })).toHaveLength(1)
+    expect(await flash.parse(token, { secret, maxAge: -1 })).toEqual([])
+    expect(await csrf.verify(token, { secret, sessionId: 's' })).toBe(false)
+  })
+
+  it('cookies com prefixo seguem as regras, em vez de sumir no navegador', () => {
+    const jar = createCookies(new Request('http://localhost'), false)
+    jar.set('__Host-sid', 'v')
+    expect(jar.headers.at(-1)).toContain('Secure')
+    expect(() => jar.set('__Host-sid', 'v', { path: '/a' })).toThrow(/__Host-/)
+    expect(() => jar.set('__Host-sid', 'v', { domain: 'x.dev' })).toThrow(/__Host-/)
+    expect(() => jar.set('__Secure-sid', 'v', { secure: false })).toThrow(/__Secure-/)
+    expect(() => jar.set('big', 'x'.repeat(5000))).toThrow(/bytes/)
+  })
+
+  describe('fileServer', () => {
+    const made: string[] = []
+    afterAll(async () => { await Promise.all(made.map(d => rm(d, { recursive: true, force: true }))) })
+
+    it('link simbólico para fora da pasta e barra invertida não servem o arquivo', async () => {
+      const base = await mkdtemp(path.join(tmpdir(), 'htsx-fs-'))
+      const outside = await mkdtemp(path.join(tmpdir(), 'htsx-secret-'))
+      made.push(base, outside)
+      await Bun.write(path.join(outside, 'secret.txt'), 'segredo')
+      await Bun.write(path.join(base, 'ok.txt'), 'ok')
+      symlinkSync(path.join(outside, 'secret.txt'), path.join(base, 'link.txt'))
+      const files = fileServer(base)
+      expect(files('http://x/ok.txt')?.status).toBe(200)
+      expect(files('http://x/link.txt')).toBeNull()
+      expect(files('http://x/a%5C..%5Cok.txt')).toBeNull()
+    })
   })
 })

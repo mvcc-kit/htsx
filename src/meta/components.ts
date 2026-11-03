@@ -63,7 +63,9 @@ export interface HeadProps {
 export function Head(props: HeadProps = {}): Rendered {
   const vendor = props.vendor ?? VENDOR_PATH
   const { nonce } = props
-  const config = resolveHtmxConfig(props.htmx)
+  const resolved = resolveHtmxConfig(props.htmx)
+  // Com CSP por nonce, o htmx precisa do nonce para o estilo e os scripts que insere.
+  const config = resolved && nonce ? { inlineScriptNonce: nonce, inlineStyleNonce: nonce, ...resolved } : resolved
   const alpine = resolveAlpineOptions(props.alpine)
   return jsx('head', {
     children: [

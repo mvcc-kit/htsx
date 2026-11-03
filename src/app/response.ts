@@ -8,6 +8,12 @@ export const DEFAULT_SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'referrer-policy': 'strict-origin-when-cross-origin',
 }
 
+/**
+ * O htmx muda a resposta por estes cabeçalhos, que o cliente controla. Sem todos no Vary, um CDN
+ * poderia entregar o trecho de uma pessoa como se fosse a página de outra.
+ */
+export const HTMX_VARY = 'HX-Request, HX-Boosted, HX-Target, HX-History-Restore-Request'
+
 /** Resposta criada aqui aceita mudança; a de fetch() é imutável e precisa de cópia. */
 function withHeaders(res: Response, change: (headers: Headers) => void): Response {
   try {
@@ -35,7 +41,11 @@ export function withSecurityHeaders(res: Response, custom: Record<string, string
 
 export function withCookies(res: Response, cookies: readonly string[]): Response {
   if (!cookies.length) return res
-  return withHeaders(res, headers => { for (const c of cookies) headers.append('set-cookie', c) })
+  return withHeaders(res, headers => {
+    for (const c of cookies) headers.append('set-cookie', c)
+    // Resposta que grava sessão nunca vai para cache compartilhado.
+    if (!headers.has('cache-control')) headers.set('cache-control', 'private, no-store')
+  })
 }
 
 /** Cabeçalhos de setHeaders entram também na resposta de um endpoint; os da rota vencem. */

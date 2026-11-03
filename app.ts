@@ -5,6 +5,7 @@ export type { App, AppOptions, Route, RouteDef, RequestEvent, PageProps, Platfor
 export { error, redirect, fail, HttpError, Redirect, ActionFailure } from './src/app/errors'
 export type { Cookies, CookieOptions } from './src/app/cookies'
 export type { ParamsOf, ParamMatcher } from './src/app/routing'
+export { localPath } from './src/app/request'
 export { fileRoutes } from './src/app/file-routes'
 export type { FileRoutes, FileRoutesInput, RouteFiles, RouteLevel, ServerLoadEvent, LoadData, MergeData, ActionDataOf, MaybePromise } from './src/app/file-routes'
 export type { Children } from './src/jsx-types'

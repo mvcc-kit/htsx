@@ -5,11 +5,12 @@ import { Fragment, raw, toHtml } from '../jsx-runtime'
 import { withContext, maybeContext } from '../context'
 import { cacheContext } from '../cache'
 import { withMeta } from '../meta/collector'
+import { isStrict } from '../strict'
 import { OUTLET_ID, wantsOutlet } from '../outlet'
 import { createHtmxContext, type HtmxContext } from './htmx'
 import { HX_REQUEST } from '../htmx-headers'
 import { canonicalPath, isCrossSiteForm, routePath, secureCookiesByDefault, wantsHtml, wantsJsonOnly } from './request'
-import { htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
+import { HTMX_VARY, htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
 import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
@@ -142,6 +143,8 @@ export interface AppOptions {
   csrf?: { checkOrigin?: boolean; trustedOrigins?: string[] }
   /** Cabeçalhos de segurança: objeto soma ao padrão; `false` desliga. Não valem para arquivos estáticos. */
   securityHeaders?: Record<string, string> | false
+  /** Tamanho máximo do corpo da requisição, em bytes. Padrão 10 MB; `false` desliga. */
+  bodyLimit?: number | false
   /** Contexto extra para `useContext()` nos componentes. */
   context?: (event: RequestEvent) => Record<string | symbol, unknown>
 }
@@ -221,6 +224,7 @@ export function defineApp(options: AppOptions): App {
       page = await plain()
     }
     headers.set('content-type', 'text/html; charset=utf-8')
+    headers.append('vary', HTMX_VARY)
     return new Response(event.isFragment ? page : `<!DOCTYPE html>${page}`, { status, headers })
   }
 
@@ -237,7 +241,7 @@ export function defineApp(options: AppOptions): App {
       return `<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`
     })
     headers.set('content-type', 'text/html; charset=utf-8')
-    if (layout) headers.append('vary', partial ? 'HX-Request, HX-Target' : 'HX-Request')
+    if (layout) headers.append('vary', HTMX_VARY)
     return htmlResponse(event.request, html, status, headers)
   }
 
@@ -247,8 +251,12 @@ export function defineApp(options: AppOptions): App {
     const name = key ? key.slice(1) : 'default'
     const action = actions[name]
     if (!action) {
-      const known = Object.keys(actions).map(n => n === 'default' ? 'action=""' : `action="?/${n}"`).join(', ')
-      return errorResponse(event, 404, `Ação "${name}" não existe nesta rota (use ${known})`, headers)
+      // A lista de ações ajuda quem programa, mas não deve ir para qualquer visitante.
+      if (isStrict()) {
+        const known = Object.keys(actions).map(n => n === 'default' ? 'action=""' : `action="?/${n}"`).join(', ')
+        return errorResponse(event, 404, `Ação "${name}" não existe nesta rota (use ${known})`, headers)
+      }
+      return errorResponse(event, 404, 'Não encontrado', headers)
     }
     const result = await action(event)
     if (result instanceof Response) return mergeHeaders(result, headers)
@@ -289,7 +297,10 @@ export function defineApp(options: AppOptions): App {
     return errorResponse(event, 405, `Método ${method} não permitido`, headers)
   }
 
-  async function respond(request: Request, opts: RespondOptions = {}): Promise<Response> {
+  async function respond(incoming: Request, opts: RespondOptions = {}): Promise<Response> {
+    const limited = limitRequestBody(incoming, options.bodyLimit ?? DEFAULT_BODY_LIMIT)
+    if (limited === null) return new Response('Corpo da requisição grande demais', { status: 413 })
+    const request = limited
     const url = new URL(request.url)
     const slash = options.trailingSlash ?? 'never'
     if (request.method === 'GET' || request.method === 'HEAD') {
@@ -376,4 +387,23 @@ export function defineApp(options: AppOptions): App {
   }
 }
 
+const DEFAULT_BODY_LIMIT = 10 * 1024 * 1024
 
+/**
+ * Recusa corpo grande demais antes de ler (`null`). Sem Content-Length, conta os bytes enquanto
+ * chegam: ler `formData()` depois de passar do limite falha com 413.
+ */
+function limitRequestBody(request: Request, limit: number | false): Request | null {
+  if (limit === false || !request.body) return request
+  const declared = Number(request.headers.get('content-length') ?? Number.NaN)
+  if (Number.isFinite(declared)) return declared > limit ? null : request
+  let received = 0
+  const counted = request.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      received += chunk.byteLength
+      if (received > limit) controller.error(new HttpError(413, 'Corpo da requisição grande demais'))
+      else controller.enqueue(chunk)
+    },
+  }))
+  return new Request(request, { body: counted, duplex: 'half' } as RequestInit)
+}

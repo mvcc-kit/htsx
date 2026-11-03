@@ -60,21 +60,24 @@ export interface CookieOpts {
   sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
+const DEFAULT_MAX_AGE = 300
+
+/** Prefixo separa do CSRF, caso usem o mesmo segredo. */
+const signed = (payload: string) => `flash:${payload}`
+
 export const flash = {
-  /** Serializa mensagens em token assinado. */
+  /** Serializa mensagens em token assinado, com a hora em que foi criado. */
   async serialize(messages: FlashMessage[], opts: FlashSecret): Promise<string> {
     if (!isStrongSecret(opts.secret)) {
       throw new Error(`flash: secret mínimo ${MIN_SECRET_LENGTH} chars`)
     }
     if (!Array.isArray(messages)) throw new Error('flash: messages deve ser array')
-    const sanitized = messages.filter(isValidMessage)
-    const payload = textToB64Url(JSON.stringify(sanitized))
-    const sig = await hmacSha256(opts.secret, payload)
-    return `${payload}.${sig}`
+    const payload = textToB64Url(JSON.stringify({ t: Math.floor(Date.now() / 1000), m: messages.filter(isValidMessage) }))
+    return `${payload}.${await hmacSha256(opts.secret, signed(payload))}`
   },
 
-  /** Parse + valida + filtra. Retorna [] em qualquer erro (não throw). */
-  async parse(token: unknown, opts: FlashSecret): Promise<FlashMessage[]> {
+  /** Parse + valida + filtra. Retorna [] em qualquer erro (não throw), inclusive token vencido. */
+  async parse(token: unknown, opts: FlashSecret & { maxAge?: number }): Promise<FlashMessage[]> {
     if (typeof token !== 'string' || !token) return []
     if (!isStrongSecret(opts.secret)) return []
 
@@ -82,14 +85,14 @@ export const flash = {
     if (parts.length !== 2) return []
     const [payload, sig] = parts as [string, string]
 
-    const expected = await hmacSha256(opts.secret, payload)
-    if (!timingSafeEqual(sig, expected)) return []
+    if (!timingSafeEqual(sig, await hmacSha256(opts.secret, signed(payload)))) return []
 
     try {
-      const json = b64UrlToText(payload)
-      const parsed = JSON.parse(json)
-      if (!Array.isArray(parsed)) return []
-      return parsed.filter(isValidMessage)
+      const { t, m } = JSON.parse(b64UrlToText(payload)) as { t?: unknown; m?: unknown }
+      if (typeof t !== 'number' || !Array.isArray(m)) return []
+      // O cookie vence no navegador, mas o token copiado continuaria válido sem esta conta.
+      if (Math.floor(Date.now() / 1000) - t > (opts.maxAge ?? DEFAULT_MAX_AGE)) return []
+      return m.filter(isValidMessage)
     } catch {
       return []
     }

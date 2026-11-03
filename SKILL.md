@@ -719,13 +719,29 @@ export const html = await renderPage(() => (
 
 O htsx escapa texto, recusa `javascript:` em atributos de URL e em `redirect()`, valida nomes de elemento e confere a origem de formulários. `defineApp` envia `X-Content-Type-Options`, `X-Frame-Options` e `Referrer-Policy`, que `securityHeaders` ajusta ou desliga. Eles não valem para arquivos estáticos: use `_headers` ou o servidor.
 
+Respostas de página levam `Vary` com os cabeçalhos do htmx, e as que gravam cookie, `private, no-store`. O corpo da requisição tem limite de 10 MB (`bodyLimit`).
+
+```tsx
+import { contentSecurityPolicy, defineApp, localPath, redirect, route, UserContent } from '{{PKG}}/kit'
+
+export const app = defineApp({
+  // CSP pronta: `alpine: true` só se a página usar o Alpine padrão, que exige unsafe-eval
+  securityHeaders: { 'content-security-policy': contentSecurityPolicy({ alpine: false }) },
+  routes: [
+    route('/entrar', { actions: { default: ({ url }) => redirect(303, localPath(url.searchParams.get('next'))) } }),
+    // HTML de usuário depois do sanitizador: sanitizador comum não remove hx-* nem x-*
+    route('/post', { page: () => <UserContent html="<p>texto já sanitizado</p>" /> }),
+  ],
+})
+```
+
 Continua sendo responsabilidade do app:
 
 - **Permissão de cada dado:** `handle`, `guard` e `load` decidem quem pode ver o quê.
-- **Redirecionar para URL vinda do usuário:** `redirect()` barra `javascript:`, mas aceita outro site. Confira o destino.
+- **Redirecionar para URL vinda do usuário:** `redirect()` barra `javascript:`, mas aceita outro site. Passe por `localPath()`.
 - **Valor de usuário em diretiva:** `$click`, `x-data`, `x-html`, `x-bind-*` e `hx-on` executam código, e o escape não impede isso.
-- **`raw()` e `srcdoc`:** só com HTML gerado pelo servidor.
-- **CSP:** defina em `securityHeaders`. O Alpine padrão exige `unsafe-eval`.
+- **`raw()` e `srcdoc`:** só com HTML gerado pelo servidor. HTML de usuário sanitizado vai em `<UserContent>`.
+- **CSP e HSTS:** defina em `securityHeaders`, com `contentSecurityPolicy()`. Com nonce, use `createNonce()` na resposta e `<Head nonce>`.
 
 ---
 

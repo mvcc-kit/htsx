@@ -1,6 +1,6 @@
 // Utilidades de build (só Bun/Node, nunca no Worker): listar, copiar e gravar arquivos.
 import { mkdir, readdir, rm, stat } from 'node:fs/promises'
-import { statSync } from 'node:fs'
+import { realpathSync, statSync } from 'node:fs'
 import path from 'node:path'
 import pins from '../../vendor/pins.json'
 import type { PrerenderedFile } from './prerender'
@@ -134,10 +134,16 @@ function fileResponse(req: Request, abs: string): Response {
 export function fileServer(dir: string, opts: FileServerOptions = {}): (request: Request | string) => Response | null {
   const base = path.resolve(dir)
   const memo = new Map<string, string | null>()
+  let resolvedBase: string | undefined
+  const realBase = () => (resolvedBase ??= realpathSync(base))
   const lookup = (rel: string): string | null => {
     const abs = path.join(base, rel)
     if (!inside(abs, base)) return null
-    try { return statSync(abs).isFile() ? abs : null } catch { return null }
+    try {
+      if (!statSync(abs).isFile()) return null
+      // Link simbólico pode apontar para fora da pasta.
+      return inside(realpathSync(abs), realBase()) ? abs : null
+    } catch { return null }
   }
   const file = (rel: string): string | null => {
     if (!opts.cache) return lookup(rel)
@@ -152,7 +158,7 @@ export function fileServer(dir: string, opts: FileServerOptions = {}): (request:
     if (req.method !== 'GET' && req.method !== 'HEAD') return null
     let p: string
     try { p = decodeURIComponent(new URL(req.url).pathname) } catch { return null }
-    if (p.includes('\0') || p.split('/').some(s => s === '..' || (s.startsWith('.') && s !== '.well-known'))) return null
+    if (p.includes('\0') || p.includes('\\') || p.split('/').some(s => s === '..' || (s.startsWith('.') && s !== '.well-known'))) return null
     if (opts.vendor) {
       const v = VENDOR_FILES.get(p)
       if (v) return new Response(Bun.file(path.join(VENDOR_DIR, v)), { headers: { 'cache-control': IMMUTABLE } })

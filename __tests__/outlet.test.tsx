@@ -11,6 +11,7 @@ import { fileServer } from '../src/build/files'
 import { DEFAULT_HTMX_CONFIG, resolveAlpineOptions, resolveHtmxConfig } from '../src/meta/logic'
 import { navigationJs } from '../src/navigation'
 import { OUTLET_ID, PARTIALS_PATH, wantsOutlet } from '../src/outlet'
+import { HTMX_VARY } from '../src/app/response'
 import { findChrome, open, type App } from '../testing'
 
 describe('regras do <Head>', () => {
@@ -77,7 +78,7 @@ describe('partial no servidor', () => {
   it('navegação recebe só o conteúdo e o título, com Vary', async () => {
     const res = await get('/', boost)
     expect(await res.text()).toBe(`<title>Início</title><div id="${OUTLET_ID}" hx-history-elt="true"><main>oi</main></div>`)
-    expect(res.headers.get('vary')).toBe('HX-Request, HX-Target')
+    expect(res.headers.get('vary')).toBe(HTMX_VARY)
   })
 
   it('primeira visita e boost sem Outlet recebem a página inteira', async () => {

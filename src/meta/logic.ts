@@ -97,6 +97,7 @@ export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
 export const DEFAULT_HTMX_CONFIG = {
   historyCacheSize: 0,
   allowEval: false,
+  selfRequestsOnly: true,
   responseHandling: [
     { code: '204', swap: false },
     { code: '[23]..', swap: true },

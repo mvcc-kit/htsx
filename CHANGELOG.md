@@ -2,6 +2,23 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.7-beta.1 (03/11/2026)
+
+Segurança:
+
+- **Envenenamento de cache:** `Vary` agora cobre todos os cabeçalhos do htmx que mudam a resposta, inclusive em erro. O cliente controla esses cabeçalhos, e um CDN podia entregar um trecho como se fosse a página.
+- **Sessão em cache:** resposta que grava cookie leva `private, no-store`, a menos que a rota defina outro `Cache-Control`.
+- **Limite de corpo:** `bodyLimit`, padrão 10 MB, vale também sem `Content-Length`.
+- **Link simbólico:** `fileServer` não serve arquivo fora da pasta.
+- **Flash:** token vence em 5 minutos (`maxAge`) e não vale como token de outro tipo.
+- **404 de ação** não lista mais as ações da rota para qualquer visitante.
+- **Cookies:** erro em vez de descarte silencioso para `__Host-`, `__Secure-` fora das regras e acima de 4096 bytes.
+- `<Head>` fixa `selfRequestsOnly` e entrega o nonce ao htmx; `filesystem:` é recusado em URLs.
+
+Novos: `contentSecurityPolicy()`, `createNonce()`, `localPath()` para `?next=` e `<UserContent>`, que desliga htmx e Alpine em HTML de usuário já sanitizado.
+
+**Mudanças incompatíveis:** o token de flash muda de formato, e tokens antigos deixam de valer. Corpo acima de 10 MB passa a dar 413.
+
 ## 0.4.6-beta.1 (03/11/2026)
 
 Qualidade de código:

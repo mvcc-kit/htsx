@@ -48,3 +48,13 @@ const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 export function secureCookiesByDefault(url: URL): boolean {
   return !(url.protocol === 'http:' && LOCAL_HOSTS.includes(url.hostname))
 }
+
+/**
+ * Destino de redirecionamento vindo do usuário (ex.: `?next=`): só caminho deste site.
+ * `//site`, `/\\site` e `/\tsite` são lidos pelo navegador como outro site.
+ */
+export function localPath(target: string | null | undefined, fallback = '/'): string {
+  if (!target || !target.startsWith('/')) return fallback
+  if (target.startsWith('//') || target.includes('\\') || /[\u0000-\u001f\u007f]/.test(target)) return fallback
+  return target
+}

@@ -85,17 +85,17 @@ describe('flash: validação', () => {
 
   it('filtra na parse (defesa adicional)', async () => {
     // payload manual com type inválido — assinatura correta
-    const payload = btoa(JSON.stringify([
+    const payload = btoa(JSON.stringify({ t: Math.floor(Date.now() / 1000), m: [
       { type: 'success', text: 'ok' },
       { type: 'INVALID', text: 'x' },
       { text: 'sem type' },
-    ])).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    ] })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     const enc = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw', enc.encode(SECRET),
       { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
     )
-    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload))
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`flash:${payload}`))
     const bytes = new Uint8Array(sig)
     let s = ''
     for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!)
