@@ -1,15 +1,15 @@
 {
   "index.ts": {
-    "maxBytes": 28000,
-    "motivo": "02/11/2026: núcleo + Navigation (CSS e JS de transição e pré-carregamento embutíveis) = 26.857 bytes; folga de ~4%"
+    "maxBytes": 30000,
+    "motivo": "02/11/2026: núcleo + Navigation + coletor de /meta = cerca de 28.700 bytes; folga de ~4%"
   },
   "store.ts": {
     "maxBytes": 1500,
     "motivo": "02/11/2026: entrada do cliente (defineStore) = 1.043 bytes; vai para o navegador, então teto apertado"
   },
   "app.ts": {
-    "maxBytes": 21000,
-    "motivo": "02/11/2026: núcleo do app + rotas por arquivos (fileRoutes: layouts aninhados, parent(), +error) = 19.284 bytes; vai para o Worker"
+    "maxBytes": 23000,
+    "motivo": "02/11/2026: núcleo do app + coletor de /meta = cerca de 21.600 bytes; vai para o Worker"
   },
   "adapter-cloudflare.ts": {
     "maxBytes": 4000,

@@ -51,6 +51,7 @@ type AnyNode = unknown
 
 import { withContext as _withContext } from './src/context'
 import { toHtml as _toHtml } from './src/jsx-runtime'
+import { withMeta as _withMeta } from './src/meta/collector'
 
 export interface RenderOptions<Ctx = unknown> {
   context?: Ctx
@@ -61,7 +62,7 @@ export function renderPage<Ctx = unknown>(
   opts?: RenderOptions<Ctx>,
 ): Promise<string> {
   const run = async () => {
-    return `<!DOCTYPE html>${await _toHtml(factory())}`
+    return _withMeta(async () => `<!DOCTYPE html>${await _toHtml(factory())}`)
   }
   return opts && 'context' in opts
     ? _withContext(opts.context, run)

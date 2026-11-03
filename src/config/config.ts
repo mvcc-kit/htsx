@@ -60,7 +60,7 @@ export interface HtsxConfig {
   assets?: string
   /** Pasta gerada (manifesto e tipos `./$types`). Padrão `.htsx`. */
   out?: string
-  /** Nome do pacote nos arquivos gerados. Padrão `@repo/htsx`. */
+  /** Nome do pacote nos arquivos gerados. Padrão `@mvcc-kit/htsx`. */
   pkg?: string
   /** Opções do app (`app` não serve como nome: o Bun trata `default.app` como servidor e sobe um sozinho). */
   options?: ConfigAppOptions

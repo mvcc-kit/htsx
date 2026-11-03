@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { renderToString } from '@repo/htsx'
-import { page } from '@repo/htsx/testing'
+import { renderToString } from '@mvcc-kit/htsx'
+import { page } from '@mvcc-kit/htsx/testing'
 import { Badge, Button, Field, Panel, tokens, uiCss } from '../index'
 
-describe('@repo/htsx-ui', () => {
+describe('@mvcc-kit/htsx-ui', () => {
   it('uiCss define todos os tokens no :root', () => {
     for (const [k, v] of Object.entries(tokens)) expect(uiCss).toContain(`${k}:${v}`)
   })

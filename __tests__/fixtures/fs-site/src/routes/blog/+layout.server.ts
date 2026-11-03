@@ -1,4 +1,4 @@
-import { error } from '@repo/htsx/app'
+import { error } from '@mvcc-kit/htsx/app'
 import type { LayoutServerLoad } from './$types'
 
 export const load = (async ({ parent, url }) => {

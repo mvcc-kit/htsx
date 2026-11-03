@@ -1,12 +1,12 @@
 {
-  // Fora do workspace do monorepo, @repo/htsx aponta para a pasta acima.
+  // Fora do workspace do monorepo, @mvcc-kit/htsx aponta para a pasta acima.
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@repo/htsx": ["../index.ts"],
-      "@repo/htsx/*": ["../*"],
-      "@repo/htsx/jsx-runtime": ["../src/jsx-runtime.ts"],
-      "@repo/htsx/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+      "@mvcc-kit/htsx": ["../index.ts"],
+      "@mvcc-kit/htsx/*": ["../*"],
+      "@mvcc-kit/htsx/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "@mvcc-kit/htsx/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "../jsx.d.ts"]

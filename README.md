@@ -3,15 +3,19 @@
 JSX no servidor para [HTMX](https://htmx.org) e [Alpine.js](https://alpinejs.dev), sem dependências. JSX vira string HTML: sem React, sem DOM virtual, sem hidratação. Roda em Bun, Cloudflare Workers e Node 18+.
 
 ```tsx
-import { head, raw, renderPage } from '@repo/htsx'
-
-const HEAD = head({ title: 'Meu App', htmx: true, alpine: true, vendor: '/static/vendor/' })
+import { renderPage, VENDOR_PATH } from '@mvcc-kit/htsx'
+import { Alpine, Htmx, Meta, Title } from '@mvcc-kit/htsx/meta'
 
 export default {
   async fetch(req: Request): Promise<Response> {
     const html = await renderPage(() => (
       <html lang="pt-br">
-        <head>{raw(HEAD)}</head>
+        <head>
+          <Title>Meu App</Title>
+          <Meta name="description" content="Exemplo" />
+          <Htmx vendor={VENDOR_PATH} />
+          <Alpine vendor={VENDOR_PATH} />
+        </head>
         <body>
           <h1 hx-get="/saudacao" hx-trigger="load">...</h1>
           <div x-data="{ n: 0 }"><button $click="n++" x-text="n"></button></div>
@@ -28,13 +32,13 @@ export default {
 Sem npm: a instalação vem direto do GitHub, por tag imutável. Só para Bun, porque `exports` aponta para os `.ts`.
 
 ```json
-{ "dependencies": { "@repo/htsx": "github:mvcc-kit/htsx#v0.1.0-beta.1" } }
+{ "dependencies": { "@mvcc-kit/htsx": "github:mvcc-kit/htsx#v0.2.0-beta.1" } }
 ```
 
 E no `tsconfig.json`:
 
 ```json
-{ "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "@repo/htsx" } }
+{ "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "@mvcc-kit/htsx" } }
 ```
 
 ## Versões
@@ -48,7 +52,7 @@ O htsx está em beta e a API ainda pode mudar. O que mudou em cada versão está
 - [`RELEASING.md`](RELEASING.md): regras de versão e como publicar.
 - [`docs/sveltekit-analise.md`](docs/sveltekit-analise.md): o que veio do SvelteKit (modos estático e Cloudflare) e o que falta.
 
-Entradas públicas: `@repo/htsx` (renderização), `@repo/htsx/app` (rotas, load, ações, hooks; sem plataforma), `@repo/htsx/config` (`htsx.config.ts`: modo, pastas e opções; roda os comandos sem CLI), `@repo/htsx/project` (`loadApp`, `build`, `start`, `sync` em código), `@repo/htsx/adapter-static`, `@repo/htsx/adapter-cloudflare` (+ `/build`) e `@repo/htsx/adapter-bun` (os modos de entrega), `@repo/htsx/store` (cliente, `defineStore`), `@repo/htsx/testing` (testes) e `@repo/htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `@repo/htsx-ui` (pasta `ui/`).
+Entradas públicas: `@mvcc-kit/htsx` (renderização), `@mvcc-kit/htsx/meta` (`<Title>`, `<Meta>`, `<Link>`, `<Htmx>`, `<Alpine>`), `@mvcc-kit/htsx/app` (rotas, load, ações, hooks; sem plataforma), `@mvcc-kit/htsx/config` (`htsx.config.ts`: modo, pastas e opções; roda os comandos sem CLI), `@mvcc-kit/htsx/project` (`loadApp`, `build`, `start`, `sync` em código), `@mvcc-kit/htsx/adapter-static`, `@mvcc-kit/htsx/adapter-cloudflare` (+ `/build`) e `@mvcc-kit/htsx/adapter-bun` (os modos de entrega), `@mvcc-kit/htsx/store` (cliente, `defineStore`), `@mvcc-kit/htsx/testing` (testes) e `@mvcc-kit/htsx/vendor/*` (Alpine e htmx fixados). Componentes prontos: `@mvcc-kit/htsx-ui` (pasta `ui/`).
 
 ## Num app
 

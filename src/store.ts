@@ -7,7 +7,7 @@
  *
  * O mesmo módulo serve o servidor (`html()` emite só o estado inicial com safeJson) e o
  * cliente (`register()` cria o `Alpine.store` no `alpine:init`). Empacote o cliente com
- * `Bun.build`, importando de `@repo/htsx/store` (não puxa código do servidor).
+ * `Bun.build`, importando de `@mvcc-kit/htsx/store` (não puxa código do servidor).
  * `create()` roda sem navegador: derivados e ações são testáveis como funções puras.
  */
 import { safeJson } from './escape'

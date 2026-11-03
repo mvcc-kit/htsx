@@ -1,5 +1,5 @@
 {
-  "name": "@repo/htsx-ui",
+  "name": "@mvcc-kit/htsx-ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,6 @@
     ".": "./index.tsx"
   },
   "dependencies": {
-    "@repo/htsx": "workspace:*"
+    "@mvcc-kit/htsx": "workspace:*"
   }
 }

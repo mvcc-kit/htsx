@@ -1,5 +1,5 @@
 // D1, R2 e KV pelo env do Worker (tipos mínimos aqui; num app use `wrangler types`)
-import { cloudflarePlatform } from '@repo/htsx/adapter-cloudflare'
+import { cloudflarePlatform } from '@mvcc-kit/htsx/adapter-cloudflare'
 import type { RequestHandler } from './$types'
 
 interface Env {

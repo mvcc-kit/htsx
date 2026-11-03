@@ -1,0 +1,90 @@
+// Regras de <Title>, <Meta> e <Link>, sem renderizar nada e sem imports: só texto entra e sai.
+export interface MetaTag {
+  /** Duas tags com a mesma chave são a mesma informação. `null`: pode repetir. */
+  key: string | null
+  html: string
+}
+
+export type Attrs = Record<string, unknown>
+
+const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null)
+
+export const TITLE_KEY = 'title'
+
+export function metaKey(attrs: Attrs): string | null {
+  if (attrs.charset !== undefined) return 'meta:charset'
+  for (const attr of ['name', 'property', 'http-equiv']) {
+    const value = text(attrs[attr])
+    if (value) return `meta:${attr}:${value}`
+  }
+  return null
+}
+
+/** Só `canonical` é único por página; `icon` e `preload` podem repetir. */
+export function linkKey(attrs: Attrs): string | null {
+  return attrs.rel === 'canonical' ? 'link:rel:canonical' : null
+}
+
+/** A última vence: tags chegam na ordem do documento, e o conteúdo vem depois do <head> do layout. */
+export function dedupeTags(tags: readonly MetaTag[]): MetaTag[] {
+  const last = new Map(tags.map((tag, index) => [tag.key, index]))
+  return tags.filter((tag, index) => tag.key === null || last.get(tag.key) === index)
+}
+
+/** Marca o lugar onde a tag foi escrita. A ordem de renderização não é a ordem do documento. */
+export function metaMarker(index: number): string {
+  return `<!--htsx-meta:${index}-->`
+}
+
+const MARKER = /<!--htsx-meta:(\d+)-->/g
+
+/** Tira as marcas do HTML e põe as tags na ordem em que aparecem nele. Tag sem marca vem antes. */
+export function resolveMarkers(html: string, tags: readonly MetaTag[]): { html: string; tags: MetaTag[] } {
+  const order = new Map<number, number>()
+  for (const match of html.matchAll(MARKER)) order.set(Number(match[1]), match.index)
+  const position = (index: number) => order.get(index) ?? -1
+  return {
+    html: html.replace(MARKER, ''),
+    tags: tags.map((tag, index) => ({ tag, index })).sort((a, b) => position(a.index) - position(b.index)).map(({ tag }) => tag),
+  }
+}
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** O que já está escrito no <head> com a mesma chave, para a tag da página substituir. */
+export function existingTagPattern(key: string): RegExp | null {
+  if (key === TITLE_KEY) return /<title(\s[^>]*)?>[\s\S]*?<\/title\s*>\s*/i
+  if (key === 'meta:charset') return /<meta\b[^>]*\bcharset=[^>]*>\s*/i
+  const [tag, attr, value] = key.split(/:(.*?):(.*)/s).filter(Boolean)
+  if (!tag || !attr || !value) return null
+  return new RegExp(`<${tag}\\b[^>]*\\b${escapeRegExp(attr)}="${escapeRegExp(value)}"[^>]*>\\s*`, 'i')
+}
+
+export interface AppliedMeta {
+  html: string
+  /** Tags que não tinham onde entrar: a página tem <html>, mas não tem <head>. */
+  dropped: MetaTag[]
+}
+
+/**
+ * Põe as tags antes de `</head>`, trocando as que já existem com a mesma chave.
+ * Sem <head> (resposta parcial do htmx), só o título entra: o htmx o aplica sozinho.
+ */
+export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
+  const unique = dedupeTags(tags)
+  if (unique.length === 0) return { html, dropped: [] }
+  const end = html.search(/<\/head\s*>/i)
+  if (end < 0) {
+    const title = unique.find(tag => tag.key === TITLE_KEY)
+    return {
+      html: title ? title.html + html : html,
+      dropped: /<html[\s>]/i.test(html) ? unique.filter(tag => tag.key !== TITLE_KEY) : [],
+    }
+  }
+  let head = html.slice(0, end)
+  for (const { key } of unique) {
+    const pattern = key === null ? null : existingTagPattern(key)
+    if (pattern) head = head.replace(pattern, '')
+  }
+  return { html: head + unique.map(tag => tag.html).join('') + html.slice(end), dropped: [] }
+}

@@ -3,7 +3,7 @@
 Uma versão é uma tag imutável no GitHub. Quem usa instala assim, sem npm:
 
 ```json
-{ "dependencies": { "@repo/htsx": "github:mvcc-kit/htsx#v0.1.0-beta.2" } }
+{ "dependencies": { "@mvcc-kit/htsx": "github:mvcc-kit/htsx#v0.2.0-beta.2" } }
 ```
 
 ## O fluxo
@@ -12,9 +12,9 @@ Sempre nesta ordem:
 
 1. **Mude** o código, com teste, e leve para `main`.
 2. **Escolha o número** pela tabela abaixo.
-3. **Descreva** em `CHANGELOG.md`: `## 0.1.0-beta.2 (DD/MM/AAAA)`, no topo. Mudança incompatível vem com o que fazer. Faça commit.
-4. **Ensaie:** `bun run release 0.1.0-beta.2 --dry-run`.
-5. **Publique:** `bun run release 0.1.0-beta.2`.
+3. **Descreva** em `CHANGELOG.md`: `## 0.2.0-beta.2 (DD/MM/AAAA)`, no topo. Mudança incompatível vem com o que fazer. Faça commit.
+4. **Ensaie:** `bun run release 0.2.0-beta.2 --dry-run`.
+5. **Publique:** `bun run release 0.2.0-beta.2`.
 6. **Atualize quem usa:** troque a tag no `package.json` do projeto, rode `bun install` e os testes dele. Só use a versão nova depois disso.
 
 O comando do passo 5 faz o resto, nesta ordem, e para no primeiro erro:

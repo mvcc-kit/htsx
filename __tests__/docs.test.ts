@@ -26,7 +26,7 @@ describe('docs: exemplos compilam e rodam', async () => {
         name: `${doc}:${b.line}`,
         file: path.join(OUT, `${doc.replace('.md', '')}-${b.line}.${b.lang}`),
         // `export {}` garante que cada bloco é um módulo isolado
-        code: `${b.code.replaceAll('{{PKG}}', '@repo/htsx')}\nexport {}\n`,
+        code: `${b.code.replaceAll('{{PKG}}', '@mvcc-kit/htsx')}\nexport {}\n`,
       })
     }
   }
@@ -39,15 +39,16 @@ describe('docs: exemplos compilam e rodam', async () => {
       extends: '../../tsconfig.json',
       compilerOptions: {
         paths: {
-          '@repo/htsx': ['../../index.ts'],
-          '@repo/htsx/store': ['../../store.ts'],
-          '@repo/htsx/testing': ['../../testing.ts'],
-          '@repo/htsx/app': ['../../app.ts'],
-          '@repo/htsx/adapter-static': ['../../adapter-static.ts'],
-          '@repo/htsx/adapter-cloudflare': ['../../adapter-cloudflare.ts'],
-          '@repo/htsx/adapter-cloudflare/build': ['../../adapter-cloudflare-build.ts'],
-          '@repo/htsx/jsx-runtime': ['../../src/jsx-runtime.ts'],
-          '@repo/htsx/jsx-dev-runtime': ['../../src/jsx-runtime.ts'],
+          '@mvcc-kit/htsx': ['../../index.ts'],
+          '@mvcc-kit/htsx/meta': ['../../meta.ts'],
+          '@mvcc-kit/htsx/store': ['../../store.ts'],
+          '@mvcc-kit/htsx/testing': ['../../testing.ts'],
+          '@mvcc-kit/htsx/app': ['../../app.ts'],
+          '@mvcc-kit/htsx/adapter-static': ['../../adapter-static.ts'],
+          '@mvcc-kit/htsx/adapter-cloudflare': ['../../adapter-cloudflare.ts'],
+          '@mvcc-kit/htsx/adapter-cloudflare/build': ['../../adapter-cloudflare-build.ts'],
+          '@mvcc-kit/htsx/jsx-runtime': ['../../src/jsx-runtime.ts'],
+          '@mvcc-kit/htsx/jsx-dev-runtime': ['../../src/jsx-runtime.ts'],
         },
       },
       include: ['*.ts', '*.tsx', '../../jsx.d.ts'],

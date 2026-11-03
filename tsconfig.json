@@ -7,7 +7,7 @@
     "strict": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@repo/htsx",
+    "jsxImportSource": "@mvcc-kit/htsx",
     "types": ["bun"],
     "resolveJsonModule": true
   },

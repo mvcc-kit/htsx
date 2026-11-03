@@ -50,6 +50,24 @@ export interface HeadOpts {
   navigation?:  boolean
 }
 
+export interface AlpineOpts { version?: string; plugins?: AlpinePluginName[]; vendor?: string; nonce?: string }
+export interface HtmxOpts { version?: string; vendor?: string; nonce?: string }
+
+const nonceOf = (nonce: string | undefined) => (nonce ? ` nonce="${escapeAttr(nonce)}"` : '')
+
+/** Plugins antes do núcleo, como o Alpine exige. */
+export function alpineTags(opts: AlpineOpts = {}): string[] {
+  const nonce = nonceOf(opts.nonce)
+  return [
+    ...(opts.plugins ?? []).map(p => `<script defer ${vendorSrc(`alpine-${p}`, opts.vendor, opts.version)}${nonce}></script>`),
+    `<script defer ${vendorSrc('alpine', opts.vendor, opts.version)}${nonce}></script>`,
+  ]
+}
+
+export function htmxTags(opts: HtmxOpts = {}): string {
+  return `<script ${vendorSrc('htmx', opts.vendor, opts.version)}${nonceOf(opts.nonce)}></script>`
+}
+
 export function head(opts: HeadOpts = {}): string {
   const parts: string[] = []
   const nonceAttr = opts.nonce ? ` nonce="${escapeAttr(opts.nonce)}"` : ''
@@ -69,16 +87,11 @@ export function head(opts: HeadOpts = {}): string {
   }
 
   if (opts.alpine) {
-    const cfg     = typeof opts.alpine === 'object' ? opts.alpine : {}
-    for (const p of cfg.plugins ?? []) {
-      parts.push(`<script defer ${vendorSrc(`alpine-${p}`, opts.vendor, cfg.version)}${nonceAttr}></script>`)
-    }
-    parts.push(`<script defer ${vendorSrc('alpine', opts.vendor, cfg.version)}${nonceAttr}></script>`)
+    parts.push(...alpineTags({ ...(typeof opts.alpine === 'object' ? opts.alpine : {}), vendor: opts.vendor, nonce: opts.nonce }))
   }
 
   if (opts.htmx) {
-    const cfg = typeof opts.htmx === 'object' ? opts.htmx : {}
-    parts.push(`<script ${vendorSrc('htmx', opts.vendor, cfg.version)}${nonceAttr}></script>`)
+    parts.push(htmxTags({ ...(typeof opts.htmx === 'object' ? opts.htmx : {}), vendor: opts.vendor, nonce: opts.nonce }))
   }
 
   for (const s of opts.scripts ?? []) {

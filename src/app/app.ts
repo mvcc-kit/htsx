@@ -4,6 +4,7 @@
 import { Fragment, raw, toHtml } from '../jsx-runtime'
 import { withContext, maybeContext } from '../context'
 import { cacheContext } from '../cache'
+import { withMeta } from '../meta/collector'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
 import { compareRoutes, matchRoute, parseRouteId, type ParamMatcher, type ParamsOf, type ParsedRoute } from './routing'
@@ -193,7 +194,7 @@ export function defineApp(options: AppOptions): App {
     const plain = async () => `<h1>${status}</h1><p>${String(await Fragment({ children: message }))}</p>`
     let page: string
     try {
-      page = errorPage ? await renderNode(errorPage({ status, message, event })) : await plain()
+      page = errorPage ? await withMeta(() => renderNode(errorPage({ status, message, event }))) : await plain()
     } catch (err) {
       // a própria página de erro falhou (ex.: um layout): responde a versão simples, sem quebrar a resposta
       console.error('htsx: a página de erro falhou ao renderizar', err)
@@ -205,13 +206,16 @@ export function defineApp(options: AppOptions): App {
 
   async function renderPage(route: Route, event: RequestEvent, form: unknown, status: number, headers: Headers): Promise<Response> {
     const data = route.def.load ? await route.def.load(event) : undefined
-    const body = await renderNode(route.def.page!({ params: event.params, data, form, event }))
     const layout = route.def.layout === false ? undefined : route.def.layout ?? options.layout
+    const html = await withMeta(async () => {
+      const body = await renderNode(route.def.page!({ params: event.params, data, form, event }))
+      if (event.isFragment) return body
+      if (!layout) return /^\s*<html[\s>]/i.test(body) ? `<!DOCTYPE html>${body}` : body
+      return `<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`
+    })
     headers.set('content-type', 'text/html; charset=utf-8')
     if (layout) headers.append('vary', 'HX-Request')
-    if (event.isFragment) return new Response(body, { status, headers })
-    if (!layout) return new Response(/^\s*<html[\s>]/i.test(body) ? `<!DOCTYPE html>${body}` : body, { status, headers })
-    return new Response(`<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`, { status, headers })
+    return new Response(html, { status, headers })
   }
 
   async function runAction(route: Route, event: RequestEvent, headers: Headers): Promise<Response> {

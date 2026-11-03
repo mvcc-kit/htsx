@@ -38,7 +38,7 @@ Marque `[x]` ao terminar, no mesmo commit da mudança.
 
 ## P5. Design system separado do núcleo
 
-- [x] Tokens e componentes base (Button, Field, Panel, Badge) num pacote à parte, por exemplo `@repo/htsx-ui`.
+- [x] Tokens e componentes base (Button, Field, Panel, Badge) num pacote à parte, por exemplo `@mvcc-kit/htsx-ui`.
 - [x] Checagem que impede `src/` de importar desse pacote.
 
 ## P6. Placar
@@ -59,7 +59,7 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Rotas por arquivos (opcional): `+page.tsx`, `+page.server.ts`, `+layout.tsx`, `+layout.server.ts` com `parent()`, `+server.ts`, `+error.tsx`, grupos, `src/params`; o sync do `htsx.config.ts` gera o manifesto e os tipos `./$types`.
 - [ ] Testar o Worker no `workerd` de verdade. Hoje é testado com `assetsFromDir` e `env` simulado; o `wrangler` entraria como dependência de desenvolvimento, que precisa do pedido do dono.
 - [ ] Streaming de `load` (promessas resolvidas depois do primeiro byte).
-- [x] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker (`modes(app)` em `@repo/htsx/testing`).
+- [x] Mesma suíte de testes de rota contra `app.respond`, contra o build estático e contra o Worker (`modes(app)` em `@mvcc-kit/htsx/testing`).
 
 ## P8. Sem CLI: configuração como no SvelteKit
 
@@ -73,5 +73,6 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 
 ## P9. Navegação fluida na raiz
 
+- [x] Entrada `/meta`: `Title`, `Meta`, `Link`, `Htmx`, `Alpine` e `Navigation` de qualquer componente para o `<head>`, com as regras em `src/meta/logic.ts`.
 - [x] `Navigation` e `head({ navigation })`: transição nativa entre páginas, pré-carregamento de links e htmx com a mesma transição, com ou sem `defineApp`, testado no Chrome real com CSP estrita.
 - [x] Página sem `layout` que devolve `<html>` completo sai com `<!DOCTYPE html>` (saía em modo de compatibilidade).

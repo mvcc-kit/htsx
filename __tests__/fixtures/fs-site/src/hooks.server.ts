@@ -1,4 +1,4 @@
-import { sequence, type Handle } from '@repo/htsx/app'
+import { sequence, type Handle } from '@mvcc-kit/htsx/app'
 
 export const handle: Handle = sequence(async ({ event, resolve }) => {
   const user = event.cookies.get('user')

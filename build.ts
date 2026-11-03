@@ -30,6 +30,7 @@ const ENTRYPOINTS: Record<string, string> = {
   'index.ts': '.',
   'src/jsx-runtime.ts': './jsx-runtime',
   'app.ts': './app',
+  'meta.ts': './meta',
   'store.ts': './store',
   'testing.ts': './testing',
   'adapter-static.ts': './adapter-static',
@@ -224,7 +225,7 @@ async function generateSkill() {
   // .claude/skills/htsx/SKILL.md → nome workspace (para dev local)
   await Bun.write(
     path.join('..', '..', '.claude', 'skills', 'htsx', 'SKILL.md'),
-    template.replaceAll('{{PKG}}', '@repo/htsx'),
+    template.replaceAll('{{PKG}}', '@mvcc-kit/htsx'),
   )
 
   console.log('✅ skill gerada (dist/ + .claude/skills/htsx/)')

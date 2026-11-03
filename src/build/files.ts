@@ -7,11 +7,11 @@ import type { PrerenderedFile } from './prerender'
 import { VENDOR_PATH } from '../vendor-path'
 import { NAVIGATION_FILES } from '../navigation'
 
-// Resolvido pelo pacote (exports './vendor/*'): funciona no workspace (@repo/htsx) e no dist/ (htsx)
+// Resolvido pelo pacote (exports './vendor/*'): funciona no workspace (@mvcc-kit/htsx) e no dist/ (htsx)
 export const VENDOR_DIR = path.dirname(new URL(resolveVendor()).pathname)
 
 function resolveVendor(): string {
-  try { return import.meta.resolve('@repo/htsx/vendor/pins.json') } catch { return import.meta.resolve('htsx/vendor/pins.json') }
+  try { return import.meta.resolve('@mvcc-kit/htsx/vendor/pins.json') } catch { return import.meta.resolve('htsx/vendor/pins.json') }
 }
 
 /** Lista os arquivos de `dir`, como caminhos de URL (`/img/logo.png`). Pasta inexistente → vazio. */

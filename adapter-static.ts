@@ -1,4 +1,4 @@
-// Modo estático (build): `import { buildStatic } from '@repo/htsx/adapter-static'`.
+// Modo estático (build): `import { buildStatic } from '@mvcc-kit/htsx/adapter-static'`.
 export { buildStatic } from './src/adapters/static'
 export type { StaticOptions, BuildResult } from './src/adapters/static'
 export { VENDOR_PATH } from './src/vendor-path'
