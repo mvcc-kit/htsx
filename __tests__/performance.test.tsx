@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { renderPage, sseEvent, sseResponse, VENDOR_PATH } from '../index'
+import { navigationJs, renderPage, sseEvent, sseResponse, VENDOR_PATH } from '../index'
 import { Head, Outlet, Title } from '../meta'
 import { defineApp, partial, route } from '../kit'
 import { buildStatic } from '../adapter-static'
@@ -248,4 +248,95 @@ describe('modo Bun: compressão', () => {
       expect((await again.arrayBuffer()).byteLength).toBe(0)
     })
   })
+})
+
+describe('performance com segurança', () => {
+  it('SSE parado continua aberto, mesmo com limite curto; o resto segue o limite', async () => {
+    let received = ''
+    const app = defineApp({
+      routes: [route('/events', { GET: () => sseResponse(async function* () {
+        yield sseEvent('um')
+        await Bun.sleep(2500)
+        yield sseEvent('dois')
+      }) })],
+    })
+    const server = serve(app, { port: 0, hostname: '127.0.0.1', assets: '/nao-existe', idleTimeout: 1 })
+    try {
+      received = await (await fetch(`http://127.0.0.1:${server.port}/events`)).text()
+    } finally {
+      server.stop(true)
+    }
+    expect(received).toContain('data: um')
+    expect(received).toContain('data: dois')
+  }, 8000)
+
+  it('etag: false não calcula nem responde 304', async () => {
+    const app = defineApp({ etag: false, routes: [route('/', { page: () => <p>x</p> })] })
+    const res = await app.respond(new Request('http://x/', { headers: { 'if-none-match': '*' } }))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('etag')).toBeNull()
+  })
+
+  it('prerender recusa cookie e redirecionamento que criaria outra regra', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'htsx-pre-'))
+    try {
+      const cookie = defineApp({ prerender: true, routes: [route('/', { load: ({ cookies }) => { cookies.set('a', '1') }, page: () => <p>x</p> })] })
+      await expect(buildStatic(cookie, { root: dir, outDir: 'a', vendor: false, fallback: false })).rejects.toThrow(/grava cookie/)
+      const evil = defineApp({ prerender: true, routes: [route('/', { GET: () => new Response(null, { status: 301, headers: { location: '/a /b 301' } }) })] })
+      await expect(buildStatic(evil, { root: dir, outDir: 'b', vendor: false, fallback: false })).rejects.toThrow(/espaço ou quebra/)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('gzip: resposta com cookie não entra no cache, e o conteúdo de cada pessoa continua dela', async () => {
+    let user = 'ana'
+    const app = defineApp({
+      routes: [route('/me', { load: ({ cookies }) => { cookies.set('seen', '1') }, page: () => <p>{`${user} ${'x'.repeat(3000)}`}</p> })],
+    })
+    const server = serve(app, { port: 0, hostname: '127.0.0.1', assets: '/nao-existe' })
+    const read = async () => {
+      const res = await fetch(`http://127.0.0.1:${server.port}/me`, { headers: { 'accept-encoding': 'gzip' }, decompress: false } as RequestInit)
+      return new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(await res.arrayBuffer())))
+    }
+    try {
+      expect(await read()).toContain('ana')
+      user = 'bia'
+      expect(await read()).toContain('bia')
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  describe.skipIf(!findChrome())('pré-carregamento no Chrome real', () => {
+    it('não pede link de saída', async () => {
+      const requests: string[] = []
+      const app = defineApp({
+        routes: [
+          route('/', { page: () => <html><Head alpine={false} htmx={false} /><body><a id="out" href="/logout">Sair</a><a id="ok" href="/next">Seguir</a></body></html> }),
+          route('/logout', { page: () => <p>saiu</p> }),
+          route('/next', { page: () => <p>seguiu</p> }),
+        ],
+      })
+      const assets = fileServer(path.join(import.meta.dir, 'nao-existe'), { vendor: true })
+      const chrome = await open(async req => {
+        requests.push(new URL(req.url).pathname)
+        return assets(req) ?? app.respond(req)
+      }, '/')
+      try {
+        await chrome.evaluate(`document.getElementById('out').focus()`)
+        await chrome.evaluate(`document.getElementById('ok').focus()`)
+        for (let i = 0; i < 200 && !requests.includes('/next'); i++) await Bun.sleep(5)
+        expect(requests).toContain('/next')
+        expect(requests).not.toContain('/logout')
+      } finally {
+        await chrome.close()
+      }
+    })
+  })
+})
+
+it('o script de navegação é JavaScript válido', () => {
+  // Template string engole barra invertida: um erro aqui quebra a navegação de todo site.
+  expect(() => new Function(navigationJs)).not.toThrow()
 })

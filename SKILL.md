@@ -663,7 +663,7 @@ Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteú
 - **Em site estático:** o build gera cada parcial em `/_htsx/partial/...`, e o navegador baixa só ele, sem mudar a URL. Se o arquivo faltar, cai para a navegação completa. O hospedeiro precisa servir `/x` a partir de `x.html`. Não ponha cache permanente nessa pasta.
 - **Pré-carregar:** `<Outlet preload>` baixa o parcial ao passar o mouse. Só ligue se o host der cache a `/_htsx/partial/`, como `max-age=300`; o adaptador Cloudflare já configura.
 - **Só o que a página usa:** o `<Head>` baixa o Alpine só quando a página tem `x-data` ou `x-init`, inclusive depois de uma troca. Com `navigation={false}`, ele carrega sempre. Em site estático, `buildStatic(app, { vendor: 'auto' })` publica só os arquivos citados pelas páginas.
-- **Com servidor:** as páginas levam `ETag`, e o que não mudou volta como 304. O modo Bun comprime HTML, CSS, JS e JSON com gzip e guarda o resultado; use `compress: false` atrás de um proxy que já comprime, ou se a rota faz streaming de HTML.
+- **Com servidor:** as páginas levam `ETag`, e o que não mudou volta como 304; `defineApp({ etag: false })` poupa o hash quando um CDN já cuida disso. O modo Bun comprime HTML, CSS, JS e JSON com gzip e guarda o resultado; use `compress: false` atrás de um proxy que já comprime, ou se a rota faz streaming de HTML.
 - **Quem usa leitor de tela:** cada navegação anuncia o novo título e leva o foco ao conteúdo, ou ao elemento com `autofocus`.
 - **Navegação lenta:** a classe `htsx-navigating` no `<html>` mostra uma barra fina depois de 200 ms (cor em `--htsx-progress`), e o `Outlet` fica com `aria-busy`.
 - **Formulário:** o botão fica desligado até a resposta, o que evita envio duplo. Com erro 400 ou 422, o foco vai para o primeiro campo com `aria-invalid`.
@@ -780,7 +780,7 @@ Continua sendo responsabilidade do app:
 
 Continua sendo navegação real: scripts, Alpine, voltar e histórico não mudam. Em navegador sem suporte, a página só abre sem animação; o Chrome e o Safari 18.2+ animam.
 
-- **Link GET com efeito colateral (ex.: `/logout`) precisa de `data-no-prefetch`.** O pré-carregamento faz o GET antes do clique. Links com `hx-get`, dentro de `hx-boost`, de outra origem, com `target` ou `download` já ficam de fora.
+- **Link GET com efeito colateral precisa de `data-no-prefetch`.** `/logout`, `/signout` e `/sair` já ficam de fora. O pré-carregamento faz o GET antes do clique. Links com `hx-get`, dentro de `hx-boost`, de outra origem, com `target` ou `download` já ficam de fora.
 - Com `base` (ou `vendor` em `head()`), o CSS e o JS vêm de arquivos, para CSP sem `unsafe-inline`. Os adaptadores servem `VENDOR_PATH`; pasta própria serve `NAVIGATION_FILES`. Sem `base`, saem embutidos, com o `nonce` informado.
 - Site sem Alpine nem htmx: `buildStatic(app, { vendor: 'navigation' })` copia só esses dois arquivos.
 

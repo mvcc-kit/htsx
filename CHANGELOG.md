@@ -2,6 +2,16 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.10-beta.1 (03/11/2026)
+
+Performance com segurança:
+
+- **SSE no modo Bun:** o Bun fechava a conexão parada em cerca de 12 s. Agora ela fica aberta, e a recarga do `dev` não recarrega a página sozinha. O resto continua com limite, ajustável em `idleTimeout`.
+- **gzip:** acima de 10 MB não comprime, para não travar o processo; resposta que grava cookie não fica guardada na memória.
+- **Prerender:** falha se a página grava cookie ou redireciona para URL com espaço ou quebra de linha, que criaria outra regra em `_redirects`.
+- **Pré-carregamento:** `/logout`, `/signout` e `/sair` ficam de fora.
+- `defineApp({ etag: false })` poupa o hash quando um CDN já cuida disso.
+
 ## 0.4.9-beta.1 (03/11/2026)
 
 Qualidade:

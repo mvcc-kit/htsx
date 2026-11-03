@@ -90,8 +90,18 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
 
     const requestPath = slash === 'always' && path !== '/' && !/\.[a-z0-9]+$/i.test(path) ? path + '/' : path
     const res = await app.respond(new Request(origin + requestPath, { headers: { accept: 'text/html,*/*' } }), { prerendering: true })
+    // Arquivo estático não grava cookie: ele sumiria sem aviso, e a sessão de quem gerou iria junto.
+    if (res.headers.has('set-cookie')) {
+      problems.push(`${path} grava cookie, mas vira arquivo estático; tire prerender da rota`)
+      continue
+    }
     if (res.status >= 300 && res.status < 400) {
       const to = res.headers.get('location') ?? '/'
+      // Vai para _redirects, uma regra por linha: espaço ou quebra criaria outra regra.
+      if (/\s/.test(to)) {
+        problems.push(`${path} redireciona para ${JSON.stringify(to)}, com espaço ou quebra de linha; codifique a URL`)
+        continue
+      }
       redirects.push({ from: path, to, status: res.status })
       if (to.startsWith('/')) enqueue(to.split(/[?#]/)[0]!, path)
       continue

@@ -3,6 +3,9 @@
 /** Abaixo disso, o gzip quase não ganha e o cabeçalho pesa. */
 export const MIN_COMPRESS_BYTES = 1024
 
+/** Acima disso, o gzip síncrono prenderia o processo. */
+export const MAX_COMPRESS_BYTES = 10 * 1024 * 1024
+
 // Sem `text/event-stream`: comprimir um fluxo contínuo prenderia os eventos no buffer.
 const COMPRESSIBLE = /^(?:text\/(?:html|css|plain|xml|javascript)|application\/(?:javascript|json|xml|manifest\+json)|image\/svg\+xml)\b/i
 

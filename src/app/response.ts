@@ -57,8 +57,8 @@ export function mergeHeaders(res: Response, extra: Headers): Response {
 }
 
 /** Página que não mudou vira 304: o `load` já rodou, mas o HTML não trafega de novo. */
-export async function htmlResponse(request: Request, html: string, status: number, headers: Headers): Promise<Response> {
-  if (status !== 200 || (request.method !== 'GET' && request.method !== 'HEAD') || headers.has('etag')) return new Response(html, { status, headers })
+export async function htmlResponse(request: Request, html: string, status: number, headers: Headers, useEtag = true): Promise<Response> {
+  if (!useEtag || status !== 200 || (request.method !== 'GET' && request.method !== 'HEAD') || headers.has('etag')) return new Response(html, { status, headers })
   const etag = await weakEtag(html)
   headers.set('etag', etag)
   if (etagMatches(request.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers })

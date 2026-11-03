@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { App, Platform } from '../app/app'
 import { fileServer } from '../build/files'
 import { injectLiveReload, LIVE_RELOAD_PATH, type LiveReload } from '../build/live-reload'
-import { acceptsGzip, isCompressible, MIN_COMPRESS_BYTES } from './compression'
+import { acceptsGzip, isCompressible, MAX_COMPRESS_BYTES, MIN_COMPRESS_BYTES } from './compression'
 
 export interface BunServeOptions {
   port?: number
@@ -18,6 +18,8 @@ export interface BunServeOptions {
   maxBodySize?: number
   /** Lembra a busca de arquivos estáticos (produção). Padrão `true`. */
   cacheFiles?: boolean
+  /** Segundos até fechar conexão parada, contra quem abre e não usa. Padrão do Bun: 10. SSE não conta. */
+  idleTimeout?: number
   /** Só o `dev`: recarrega o navegador e mostra a pilha do erro. */
   dev?: LiveReload
   /** Comprime HTML, CSS, JS e JSON com gzip. Padrão `true`; `false` se um proxy já comprime. */
@@ -38,13 +40,19 @@ export function serve(app: App | (() => App), opts: BunServeOptions = {}) {
     port: opts.port ?? 3000,
     hostname: opts.hostname,
     maxRequestBodySize: opts.maxBodySize ?? 10 * 1024 * 1024,
+    idleTimeout: opts.idleTimeout,
     async fetch(req, server) {
-      if (opts.dev && new URL(req.url).pathname === LIVE_RELOAD_PATH) return opts.dev.response()
+      if (opts.dev && new URL(req.url).pathname === LIVE_RELOAD_PATH) {
+        server.timeout(req, 0)
+        return opts.dev.response()
+      }
       const answered = await (files(req) ?? getApp().respond(req, {
         platform: { ...opts.platform, server },
         getClientAddress: () => server.requestIP(req)?.address ?? '',
         dev: !!opts.dev,
       }))
+      // SSE fica parado entre eventos: sem isto, o Bun fecharia a conexão.
+      if (answered.headers.get('content-type')?.startsWith('text/event-stream')) server.timeout(req, 0)
       const res = opts.dev ? await withLiveReload(answered, req) : answered
       return opts.compress === false ? res : compressed(req, res)
     },
@@ -81,10 +89,12 @@ async function compressed(req: Request, res: Response): Promise<Response> {
   const body = new Uint8Array(await res.arrayBuffer())
   const headers = new Headers(res.headers)
   headers.append('vary', 'Accept-Encoding')
-  if (body.byteLength < MIN_COMPRESS_BYTES) return new Response(body, { status: res.status, statusText: res.statusText, headers })
+  // Muito grande: comprimir aqui travaria as outras requisições enquanto dura.
+  if (body.byteLength < MIN_COMPRESS_BYTES || body.byteLength > MAX_COMPRESS_BYTES) return new Response(body, { status: res.status, statusText: res.statusText, headers })
   headers.set('content-encoding', 'gzip')
   const etag = res.headers.get('etag')
   const version = etag ?? (res.headers.get('cache-control')?.includes('immutable') ? 'immutable' : null)
-  const key = version && res.status === 200 ? `${new URL(req.url).pathname}|${version}` : null
+  // Resposta que grava cookie é de uma pessoa: não fica guardada na memória.
+  const key = version && res.status === 200 && !res.headers.has('set-cookie') ? `${new URL(req.url).pathname}|${version}` : null
   return new Response(gzipOnce(key, body), { status: res.status, statusText: res.statusText, headers })
 }

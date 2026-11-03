@@ -32,7 +32,7 @@ export default {
 Sem npm: a instalação vem direto do GitHub, por tag imutável. Só para Bun, porque `exports` aponta para os `.ts`. O pacote `htsx` do npm é outro projeto: use sempre `github:`.
 
 ```json
-{ "dependencies": { "htsx": "github:mvcc-kit/htsx#v0.4.9-beta.1" } }
+{ "dependencies": { "htsx": "github:mvcc-kit/htsx#v0.4.10-beta.1" } }
 ```
 
 E no `tsconfig.json`:

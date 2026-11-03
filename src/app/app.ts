@@ -145,6 +145,8 @@ export interface AppOptions {
   csrf?: { checkOrigin?: boolean; trustedOrigins?: string[] }
   /** Cabeçalhos de segurança: objeto soma ao padrão; `false` desliga. Não valem para arquivos estáticos. */
   securityHeaders?: Record<string, string> | false
+  /** `ETag` e 304 nas páginas. Padrão `true`; `false` poupa o hash quando um CDN já cuida disso. */
+  etag?: boolean
   /** Tamanho máximo do corpo da requisição, em bytes. Padrão 10 MB; `false` desliga. */
   bodyLimit?: number | false
   /** Contexto extra para `useContext()` nos componentes. */
@@ -246,7 +248,7 @@ export function defineApp(options: AppOptions): App {
     })
     headers.set('content-type', 'text/html; charset=utf-8')
     if (layout) headers.append('vary', HTMX_VARY)
-    return htmlResponse(event.request, html, status, headers)
+    return htmlResponse(event.request, html, status, headers, options.etag)
   }
 
   async function runAction(route: Route, event: RequestEvent, headers: Headers): Promise<Response> {
@@ -282,7 +284,7 @@ export function defineApp(options: AppOptions): App {
         headers.set('content-type', 'text/html; charset=utf-8')
         // pedaço de página: não deve aparecer em buscadores
         headers.set('x-robots-tag', 'noindex')
-        const res = await htmlResponse(event.request, html, 200, headers)
+        const res = await htmlResponse(event.request, html, 200, headers, options.etag)
         return method === 'HEAD' ? new Response(null, res) : res
       }
     }

@@ -71,6 +71,13 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P17. Performance com segurança (03/11/2026)
+
+- [x] SSE sem corte por ociosidade no modo Bun; `idleTimeout`.
+- [x] gzip com teto e sem guardar resposta com cookie; `etag: false`.
+- [x] Prerender recusa cookie e redirecionamento com quebra de linha; `/logout` fora do pré-carregamento.
+- [ ] SSE atrás de proxy: mandar comentário periódico, porque CDN e Nginx também fecham conexão parada.
+
 ## P16. Qualidade, segunda rodada (03/11/2026)
 
 - [x] Sem `Suspense`; mensagens de erro todas com o prefixo `htsx:`; fixtures em inglês.

@@ -94,7 +94,7 @@ if(!probe.relList||!probe.relList.supports||!probe.relList.supports('prefetch'))
 function anchor(e){var t=e.target;return t&&t.closest?t.closest('a[href]'):null}
 function fetchLink(a){
 if(!a||typeof a.href!=='string'||(a.target&&a.target!=='_self')||a.hasAttribute('download')||a.hasAttribute('hx-get')||a.closest('[data-no-prefetch]'))return;
-var u=new URL(a.href);if(u.origin!==location.origin)return;
+var u=new URL(a.href);if(u.origin!==location.origin||/\\/(?:log-?out|sign-?out|sair)(?:\\/|$)/i.test(u.pathname))return;
 u.hash='';if(u.href===location.href.split('#')[0])return;
 var b=a.closest('[hx-boost]'),href=u.href;
 if(b&&b.getAttribute('hx-boost')!=='false'){var m=partialsMeta();if(!m||!m.dataset.preload)return;href=u.origin+m.content+u.pathname+u.search}
