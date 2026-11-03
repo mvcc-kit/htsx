@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
-// Publica uma versão: bun run release <versão> [--dry-run]. O fluxo está em RELEASING.md.
+// Publica uma versão: bun run release <versão> [--dry-run] [--security]. O fluxo está em RELEASING.md.
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { changelogSection, importableEntries, parseVersion, versionProblem } from './release.logic'
+import { cadenceProblem, changelogSection, importableEntries, latestVersion, parseVersion, versionProblem } from './release.logic'
 
 const ROOT = path.join(import.meta.dir, '..')
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
+const security = args.includes('--security')
 const version = args.find(a => !a.startsWith('--'))
 
 function fail(message: string): never {
@@ -25,7 +26,7 @@ function step(title: string): void {
   console.log(`\n→ ${title}`)
 }
 
-if (!version) fail('informe a versão, por exemplo: bun run release 0.1.0-beta.2 --dry-run')
+if (!version) fail('informe a versão, por exemplo: bun run release 0.1.1-beta --dry-run')
 
 step('Conferindo o repositório')
 if (run(['git', 'branch', '--show-current']) !== 'main') fail('publique a partir de main')
@@ -36,6 +37,10 @@ const tags = run(['git', 'tag', '--list']).split('\n').filter(Boolean)
 const changelog = await Bun.file(path.join(ROOT, 'CHANGELOG.md')).text()
 const problem = versionProblem(version, tags, changelog)
 if (problem) fail(problem)
+const latest = latestVersion(tags)
+const lastReleaseMs = latest ? Number(run(['git', 'log', '-1', '--format=%ct', `v${latest}`])) * 1000 : null
+const tooSoon = cadenceProblem(lastReleaseMs, Date.now(), security)
+if (tooSoon) fail(tooSoon)
 
 step('Rodando testes e tipos')
 run(['bun', 'test'])
@@ -78,7 +83,7 @@ run(['git', 'push', '--atomic', 'origin', 'main', tag])
 
 step('Criando a release')
 const notes = changelogSection(changelog, version)!
-const beta = parseVersion(version)!.beta !== null
+const beta = parseVersion(version)!.beta
 console.log(run(['gh', 'release', 'create', tag, '--verify-tag', '--title', tag, '--notes', notes, ...(beta ? ['--prerelease'] : [])]))
 
 console.log(`\nPublicada. Quem usa instala com "${pkg.name}": "github:mvcc-kit/htsx#${tag}"`)
