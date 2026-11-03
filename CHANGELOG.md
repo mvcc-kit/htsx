@@ -2,6 +2,15 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.9-beta.1 (03/11/2026)
+
+Qualidade:
+
+- **Mudança incompatível:** sai `Suspense`, `suspenseRegistry` e `resolveSuspense`. O registro vivia em uma requisição e o pedido do cliente era outra, então o fluxo não funcionava num app real. Use `partial.lazy`.
+- Toda mensagem de erro começa com `htsx:`.
+- TypeScript mais rígido no próprio código: `noUncheckedIndexedAccess`, `noImplicitOverride` e `noFallthroughCasesInSwitch`.
+- Rotas das fixtures em inglês.
+
 ## 0.4.8-beta.1 (03/11/2026)
 
 Experiência de quem usa o site:

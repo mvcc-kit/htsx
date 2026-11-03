@@ -21,7 +21,7 @@ afterAll(() => app.close())
 
 describe('rotas por arquivos: htsx.config.ts', () => {
   it('monta o app com grupos, endpoints e matchers', async () => {
-    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/partials', '/saudacao', '/sobre'])
+    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/about', '/api/notes', '/api/posts.json', '/blog', '/blog/[slug]', '/greeting', '/item/[id=int]', '/partials'])
   })
 
   it('+name.partial.tsx: componente na página, trecho pela URL e entrada validada', async () => {
@@ -77,17 +77,17 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     const p = await page(await req('/blog/ola'))
     expect(await p.text('[data-testid=blog] h2')).toBe('Meu site / Blog')
     expect(await p.text('article h1')).toBe('Olá, mundo')
-    expect(await p.text('small')).toBe('notas · visitante')
+    expect(await p.text('small')).toBe('notes · visitante')
   })
 
   it('grupo (marketing) não entra na URL e usa o layout raiz', async () => {
-    const p = await page(await req('/sobre'))
+    const p = await page(await req('/about'))
     expect(await p.text('h1')).toBe('Sobre')
     expect(await p.text('header b')).toBe('Meu site')
   })
 
   it('htmx parcial: só a página, sem layouts', async () => {
-    expect(await (await req('/sobre', { headers: { 'hx-request': 'true' } })).text()).toBe('<h1>Sobre</h1>')
+    expect(await (await req('/about', { headers: { 'hx-request': 'true' } })).text()).toBe('<h1>Sobre</h1>')
   })
 
   it('+error.tsx mais próximo, dentro dos layouts que carregaram', async () => {
@@ -152,10 +152,10 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
   it('modo estático pela configuração: só as rotas com prerender', async () => {
     const out = path.join(import.meta.dir, '..', '.cache', 'fs-static')
     const r = await build({ ...config, adapter: staticAdapter({ outDir: path.relative(ROOT, out), strict: false }) }, ROOT)
-    expect(r.files).toContain('/sobre')
+    expect(r.files).toContain('/about')
     expect(r.files).toContain('/blog')
     expect(r.files).not.toContain('/blog/ola')
-    expect(await (await page(await Bun.file(path.join(out, 'sobre.html')).text())).text('header b')).toBe('Meu site')
+    expect(await (await page(await Bun.file(path.join(out, 'about.html')).text())).text('header b')).toBe('Meu site')
   })
 
 
@@ -194,23 +194,23 @@ describe('rotas por arquivos no modo Cloudflare Workers (Worker empacotado de ve
   })
 
   it('página pré-renderizada (layout do grupo) vem do binding de assets', async () => {
-    const p = await page(await call('/sobre'))
-    expect(fromAssets).toEqual(['/sobre'])
+    const p = await page(await call('/about'))
+    expect(fromAssets).toEqual(['/about'])
     expect(await p.text('h1')).toBe('Sobre')
   })
 
   it('rota dinâmica no Worker: layouts, parent(), locals do cookie (hooks.server.ts)', async () => {
     const p = await page(await call('/blog/ola', { headers: { cookie: 'user=Bia' } }))
-    expect(await p.text('small')).toBe('notas · Bia')
+    expect(await p.text('small')).toBe('notes · Bia')
     expect(await p.text('[data-testid=blog] h2')).toBe('Meu site / Blog')
   })
 
   it('D1, R2 e KV pelo env; ctx.waitUntil', async () => {
-    const res = await call('/api/notas', { method: 'POST', body: JSON.stringify({ texto: 'nova' }), headers: { 'content-type': 'application/json' } })
+    const res = await call('/api/notes', { method: 'POST', body: JSON.stringify({ texto: 'nova' }), headers: { 'content-type': 'application/json' } })
     expect(res.status).toBe(201)
     await Promise.all(waited)
     expect(r2.get('ultima.txt')).toBe('nova')
-    expect(await (await call('/api/notas')).json()).toEqual({ notas: ['primeira', 'nova'], anexo: 'conteúdo do R2', flag: 'ligada' })
+    expect(await (await call('/api/notes')).json()).toEqual({ notas: ['primeira', 'nova'], anexo: 'conteúdo do R2', flag: 'ligada' })
   })
 
   it('src/worker.ts: Durable Object exportado e scheduled junto do fetch', async () => {
@@ -245,7 +245,7 @@ describe('event.platform igual em todo lugar (sem env de dev separado)', () => {
     const loaded = await loadApp(undefined, ROOT)
     try {
       expect(loaded.platformSource).toBe('vars')   // sem wrangler instalado neste repo
-      const res = await loaded.respond(new Request('https://site.dev/saudacao'))
+      const res = await loaded.respond(new Request('https://site.dev/greeting'))
       expect(await (await page(res)).text('p')).toBe('Olá do wrangler.jsonc')
     } finally {
       await loaded.close()

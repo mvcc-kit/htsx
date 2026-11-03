@@ -69,7 +69,7 @@ export function transitionAttrs(
  */
 export function transitionName(name: string): { style: string } {
   if (!/^[a-zA-Z][\w-]*$/.test(name)) {
-    throw new Error(`transitionName: nome inválido "${name}"`)
+    throw new Error(`htsx: transitionName: nome inválido "${name}"`)
   }
   return { style: `view-transition-name: ${escapeAttr(name)}` }
 }

@@ -6,11 +6,11 @@ const m = (id: string, path: string, matchers = {}) => matchRoute(parseRouteId(i
 describe('rotas no formato do SvelteKit', () => {
   it('fixa, parâmetro, opcional, rest e matcher', () => {
     expect(m('/', '/')).toEqual({})
-    expect(m('/sobre', '/sobre')).toEqual({})
-    expect(m('/sobre', '/sobre/x')).toBeNull()
+    expect(m('/about', '/about')).toEqual({})
+    expect(m('/about', '/about/x')).toBeNull()
     expect(m('/blog/[slug]', '/blog/ola%20mundo')).toEqual({ slug: 'ola mundo' })
-    expect(m('/[[lang]]/sobre', '/sobre')).toEqual({})
-    expect(m('/[[lang]]/sobre', '/pt/sobre')).toEqual({ lang: 'pt' })
+    expect(m('/[[lang]]/about', '/about')).toEqual({})
+    expect(m('/[[lang]]/about', '/pt/about')).toEqual({ lang: 'pt' })
     expect(m('/docs/[...path]', '/docs')).toEqual({ path: '' })
     expect(m('/docs/[...path]', '/docs/a/b')).toEqual({ path: 'a/b' })
     const int = { int: (v: string) => /^\d+$/.test(v) }
@@ -27,20 +27,20 @@ describe('rotas no formato do SvelteKit', () => {
 
   it('id inválido dá erro com a correção', () => {
     expect(() => parseRouteId('sobre')).toThrow(/precisa começar com "\/"/)
-    expect(() => parseRouteId('/sobre/')).toThrow(/não pode terminar com "\/"; use "\/sobre"/)
+    expect(() => parseRouteId('/about/')).toThrow(/não pode terminar com "\/"; use "\/about"/)
     expect(() => parseRouteId('/a-[x]')).toThrow(/mistura texto e parâmetro/)
     expect(() => parseRouteId('/[a]/[a]')).toThrow(/"a" repetido/)
     expect(() => parseRouteId('/[[...a]]')).toThrow(/opcional e rest/)
   })
 
   it('ordem: fixa > matcher > parâmetro > opcional > rest', () => {
-    const ids = ['/[...rest]', '/[slug]', '/sobre', '/[id=int]', '/[[x]]']
-    expect(ids.map(parseRouteId).sort(compareRoutes).map(r => r.id)).toEqual(['/sobre', '/[id=int]', '/[slug]', '/[[x]]', '/[...rest]'])
+    const ids = ['/[...rest]', '/[slug]', '/about', '/[id=int]', '/[[x]]']
+    expect(ids.map(parseRouteId).sort(compareRoutes).map(r => r.id)).toEqual(['/about', '/[id=int]', '/[slug]', '/[[x]]', '/[...rest]'])
   })
 
   it('resolveRoute monta a URL a partir dos parâmetros', () => {
     expect(resolveRoute(parseRouteId('/blog/[slug]'), { slug: 'a b' })).toBe('/blog/a%20b')
-    expect(resolveRoute(parseRouteId('/[[lang]]/sobre'), {})).toBe('/sobre')
+    expect(resolveRoute(parseRouteId('/[[lang]]/about'), {})).toBe('/about')
     expect(resolveRoute(parseRouteId('/docs/[...p]'), { p: 'a/b c' })).toBe('/docs/a/b%20c')
     expect(() => resolveRoute(parseRouteId('/blog/[slug]'), {})).toThrow(/falta o parâmetro "slug"/)
   })

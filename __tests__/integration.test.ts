@@ -1,13 +1,13 @@
 /**
  * Integration tests — combinam múltiplos módulos em cenários realistas
- * (CRUD de items, HTMX partial flow, Suspense + ErrorBoundary, etc.)
+ * (CRUD de items, HTMX partial flow, etc.)
  */
 
 import { describe, expect, it } from 'bun:test'
 import {
   renderPage, renderToString, withContext, useContext,
   htmxResponse, isHtmx, hxTarget,
-  OOB, Suspense, suspenseRegistry, resolveSuspense,
+  OOB,
   ErrorBoundary,
   defineEvents,
   Form, Field, formContext,
@@ -86,29 +86,6 @@ describe('integration: HTMX partial flow', () => {
     expect(body).toContain('id="cart-count"')
     expect(body).toContain('hx-swap-oob="innerHTML:#cart-count"')
     expect(r.headers.get('HX-Trigger')).toBe('{"cart:updated":{"count":5}}')
-  })
-})
-
-describe('integration: Suspense + ErrorBoundary', () => {
-  it('Suspense que rejeita cai no ErrorBoundary externo? Não — boundary é síncrono', async () => {
-    // Suspense é resolvido fora do render principal — boundary não pega
-    // erros de Suspense diretamente. Esse teste documenta o comportamento.
-    await withContext(suspenseRegistry(), async () => {
-      const html = await renderToString(() =>
-        ErrorBoundary({
-          fallback: () => 'CAUGHT',
-          children: Suspense({
-            fallback: 'wait',
-            children: Promise.reject(new Error('async fail')),
-            id: 'isolated',
-          }),
-        }),
-      )
-      // Placeholder renderiza normalmente — erro só apareceria ao chamar resolveSuspense
-      expect(html).toContain('hx-get="/_htsx/suspense/isolated"')
-      // Resolver retorna null (erro silenciado pelo Suspense)
-      expect(await resolveSuspense('isolated')).toBeNull()
-    })
   })
 })
 

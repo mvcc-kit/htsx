@@ -36,7 +36,7 @@ describe('redirecionamento com htmx', () => {
 describe('href', () => {
   it('monta o link, com escape', () => {
     expect(href('/')).toBe('/')
-    expect(href('/sobre')).toBe('/sobre')
+    expect(href('/about')).toBe('/about')
     expect(href('/blog/[slug]', { slug: 'a b/c' })).toBe('/blog/a%20b%2Fc')
     expect(href('/[[lang]]/x', {})).toBe('/x')
   })
@@ -78,9 +78,9 @@ describe('recarga no dev', () => {
     const prod = await start(config, root, { port: 0 })
     const page = (server: typeof dev, p: string) => fetch(`http://localhost:${server.port}${p}`, { headers: { accept: 'text/html' } })
     try {
-      expect(await (await page(dev, '/sobre')).text()).toContain('EventSource')
+      expect(await (await page(dev, '/about')).text()).toContain('EventSource')
       expect((await page(dev, LIVE_RELOAD_PATH)).headers.get('content-type')).toContain('event-stream')
-      expect(await (await page(prod, '/sobre')).text()).not.toContain('EventSource')
+      expect(await (await page(prod, '/about')).text()).not.toContain('EventSource')
       expect((await page(prod, LIVE_RELOAD_PATH)).status).toBe(404)
     } finally {
       await dev.stop(); await prod.stop()

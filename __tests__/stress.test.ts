@@ -3,7 +3,7 @@
  *
  * Roda volumes altos pra validar:
  * - ALS realmente isola entre requests concorrentes
- * - cache/suspense registry não vaza após request terminar
+ * - cache não vaza após request terminar
  * - Componentes async em paralelo escalam
  *
  * Não roda em CI rápido se for chato — usa contagens moderadas.
@@ -13,7 +13,6 @@ import {
   renderToString, withContext, useContext, maybeContext,
 } from '../index'
 import { cache, cacheContext, cacheSize } from '../src/cache'
-import { Suspense, suspenseRegistry, resolveSuspense } from '../src/suspense'
 import { jsx, createElement } from '../src/jsx-runtime'
 
 const h = createElement
@@ -94,38 +93,6 @@ describe('stress: cache scoping', () => {
         for (let i = 0; i < 20; i++) await fn(i)
       }),
     ).rejects.toThrow(/limite/)
-  })
-})
-
-describe('stress: suspense registry scoping', () => {
-  it('1000 suspenses em diferentes requests não vazam', async () => {
-    await Promise.all(
-      Array.from({ length: 50 }, (_, i) =>
-        withContext(suspenseRegistry(), async () => {
-          // cada request: 20 suspenses
-          const ids: string[] = []
-          for (let j = 0; j < 20; j++) {
-            const id = `s${i}_${j}`
-            ids.push(id)
-            await renderToString(() =>
-              Suspense({
-                fallback: '',
-                children: Promise.resolve(`r${i}_${j}`),
-                id,
-              }),
-            )
-          }
-          for (const id of ids) {
-            const result = await resolveSuspense(id)
-            expect(result).toBe(id.replace('s', 'r'))
-          }
-        }),
-      ),
-    )
-  })
-
-  it('resolveSuspense sem context é seguro', async () => {
-    expect(await resolveSuspense('anything')).toBeNull()
   })
 })
 

@@ -28,13 +28,13 @@ describe.skipIf(!modules)('wrangler instalado: bindings locais reais', () => {
   it('usa o wrangler, não só as vars', () => expect(app.platformSource).toBe('wrangler'))
 
   it('a rota lê D1, R2 e KV reais e grava pelo POST', async () => {
-    const post = await app.respond(new Request('http://localhost/api/notas', { method: 'POST', body: JSON.stringify({ texto: 'nova' }), headers: { 'content-type': 'application/json' } }))
+    const post = await app.respond(new Request('http://localhost/api/notes', { method: 'POST', body: JSON.stringify({ texto: 'nova' }), headers: { 'content-type': 'application/json' } }))
     expect(post.status).toBe(201)
-    const res = await app.respond(new Request('http://localhost/api/notas'))
+    const res = await app.respond(new Request('http://localhost/api/notes'))
     expect(await res.json()).toEqual({ notas: ['do D1 local', 'nova'], anexo: 'do R2 local', flag: 'do KV local' })
   })
 
   it('vars do wrangler.jsonc', async () => {
-    expect(await (await app.respond(new Request('http://localhost/saudacao'))).text()).toContain('Olá do wrangler.jsonc')
+    expect(await (await app.respond(new Request('http://localhost/greeting'))).text()).toContain('Olá do wrangler.jsonc')
   })
 })

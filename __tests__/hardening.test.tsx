@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { contentSecurityPolicy, createElement as h, createNonce, csrf, defineEvents, ErrorBoundary, renderPage, UserContent, flash, htmxResponse, inspector, OOB, raw, renderToString, resolveSuspense, sseEvent, sseResponse, Suspense, suspenseRegistry, withContext } from '../index'
+import { contentSecurityPolicy, createElement as h, createNonce, csrf, defineEvents, ErrorBoundary, renderPage, UserContent, flash, htmxResponse, inspector, OOB, raw, renderToString, sseEvent, sseResponse } from '../index'
 import { defineApp, getRequestEvent, localPath, redirect, route } from '../app'
 import { Head } from '../meta'
 import { symlinkSync } from 'node:fs'
@@ -34,7 +34,7 @@ describe('open redirect', () => {
   })
 
   it('mantém a query e o redirecionamento normal', async () => {
-    expect((await get('/sobre/?a=1')).headers.get('location')).toBe('/sobre?a=1')
+    expect((await get('/about/?a=1')).headers.get('location')).toBe('/about?a=1')
   })
 })
 
@@ -125,25 +125,6 @@ describe('ErrorBoundary', () => {
     const render = (fallback: () => unknown) => renderToString(() => ErrorBoundary({ fallback, children: (() => { try { return Boom() } catch (e) { return Promise.reject(e) } })() }))
     expect(await render(() => [raw('<i>a</i>'), raw('<i>b</i>')])).toBe('<i>a</i><i>b</i>')
     expect(await render(() => '<b>')).toBe('&lt;b&gt;')
-  })
-})
-
-describe('Suspense', () => {
-  it('texto vindo de fora é escapado', async () => {
-    const out = await withContext(suspenseRegistry(), async () => {
-      Suspense({ id: 'a', fallback: 'f', children: Promise.resolve('<img src=x onerror=alert(1)>') })
-      return resolveSuspense('a')
-    })
-    expect(out).toBe('&lt;img src=x onerror=alert(1)&gt;')
-  })
-
-  it('fallback aceita lista; falha sem pedido do cliente não derruba o processo', async () => {
-    const html = await withContext(suspenseRegistry(), async () => {
-      Suspense({ id: 'erro', fallback: 'f', children: Promise.reject(new Error('falhou')) })
-      await Bun.sleep(0)
-      return renderToString(() => Suspense({ id: 'b', fallback: [raw('<i>1</i>')], children: '' }))
-    })
-    expect(html).toContain('<i>1</i>')
   })
 })
 

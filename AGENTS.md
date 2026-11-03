@@ -9,7 +9,10 @@
 | `index.ts` | Tudo o que é público. Não importe de `src/` fora daqui |
 | `src/jsx-runtime.ts` | Como JSX vira string, e onde o escape acontece |
 | `src/attrs.ts` e `src/escape.ts` | Atributos, URLs, CSS e JSON seguros |
-| `src/app/` e `src/adapters/` | Núcleo do app (sem plataforma) e os modos estático, Cloudflare e Bun |
+| `src/crypto.ts` e `src/patterns.ts` | Assinatura e formatos aceitos, em um lugar só |
+| `src/navigation.ts` | O script do navegador: troca de página, acessibilidade, carregamento |
+| `src/app/` e `src/adapters/` | Núcleo do app (sem plataforma; `request.ts` e `partial-logic.ts` só têm regras) e os modos estático, Cloudflare e Bun |
+| `src/meta/` | `<Head>`, `<Outlet>`, `<Title>`; regras em `logic.ts` |
 | `src/config/` e `src/build/commands.ts` | `htsx.config.ts` (sem CLI) e o que `dev`/`build`/`start`/`sync` fazem |
 | `SKILL.md` | Como usar a biblioteca num app |
 | `TAREFAS.md` | O que já foi feito e o que falta |
@@ -22,7 +25,7 @@
 3. **Nada some em silêncio.** Atributo inválido, `on*` bloqueado, URL trocada por `#` ou um filho que não dá para desenhar precisam gerar erro no modo estrito, com o nome do atributo ou do valor e a correção sugerida. Fora do modo estrito, o comportamento seguro continua.
 4. **Funciona em Workers.** Sem APIs só do Node. `node:async_hooks` é aceito porque os Workers o oferecem com `nodejs_compat`.
 5. **Navegador sem CDN em produção.** Alpine e htmx entram como cópia própria, fixada por versão e sha256. CDN só em exemplo ou desenvolvimento.
-6. **Testes não dependem do relógio.** Espere a condição; use relógio falso em Suspense, SSE e flash.
+6. **Testes não dependem do relógio.** Espere a condição; use relógio falso em SSE e flash.
 7. **Núcleo não importa do design system.** `ui/` (`htsx-ui`) fica uma camada acima; `__tests__/layers.test.ts` falha se `src/` importar dele.
 8. **Documentação junto com o código, numa fonte só.** Mudou a API pública: atualize `SKILL.md` e rode `bun run docs` (gera `llms.txt`) no mesmo commit. `__tests__/docs.test.ts` compila e roda cada bloco `ts`/`tsx` de `SKILL.md` e `README.md`, e falha se `llms.txt` estiver desatualizado.
 9. **Lógica separada da implementação.** A lógica do app (`src/app/`: rotas, load, ações, hooks, erros) só conhece `Request → Response` e não importa adaptadores nem build. Cada modo de entrega (estático, Cloudflare Workers) fica em `src/adapters/`, e o código de build em `src/build/`. O que roda no Worker não usa `node:*` além de `node:async_hooks`. `__tests__/layers.test.ts` confere as duas coisas. Modo novo = adaptador novo, sem mexer em `src/app/`.

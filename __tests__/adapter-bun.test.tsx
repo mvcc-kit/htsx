@@ -16,7 +16,7 @@ describe('modo servidor Bun (start)', () => {
 
   it('páginas com layouts, locals do cookie e endpoints pelo servidor HTTP', async () => {
     const p = await page(await fetch(url('/blog/ola'), { headers: { cookie: 'user=Rui' } }))
-    expect(await p.text('small')).toBe('notas · Rui')
+    expect(await p.text('small')).toBe('notes · Rui')
     expect(await (await fetch(url('/api/posts.json'))).json()).toEqual(['ola', 'segundo'])
   })
 
@@ -41,8 +41,8 @@ describe('dev do modo Cloudflare: event.platform.env vem do wrangler.jsonc', () 
   afterAll(() => server?.stop())
 
   it('vars do wrangler.jsonc; binding sem o wrangler instalado → erro dizendo como resolver', async () => {
-    const res = await fetch(`${server.url}api/notas`, { headers: { accept: 'application/json' } })
+    const res = await fetch(`${server.url}api/notes`, { headers: { accept: 'application/json' } })
     expect(res.status).toBe(500)
-    expect((await page(await fetch(`${server.url}saudacao`))).text('p')).resolves.toBe('Olá do wrangler.jsonc')
+    expect((await page(await fetch(`${server.url}greeting`))).text('p')).resolves.toBe('Olá do wrangler.jsonc')
   })
 })

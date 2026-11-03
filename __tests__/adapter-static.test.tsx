@@ -15,17 +15,17 @@ describe('modo estático: buildStatic', () => {
   it('gera páginas, endpoints, redirecionamentos, 404, assets e vendor', async () => {
     const r = await buildStatic(staticApp, { root: ROOT, outDir: OUT })
     expect(r.files).toEqual([
-      '/404.html', '/', '/antigo', '/blog', '/blog/ola', '/blog/segundo-post', '/feed.xml', '/robots.txt', '/sobre',
+      '/404.html', '/', '/antigo', '/blog', '/blog/ola', '/blog/segundo-post', '/feed.xml', '/robots.txt', '/about',
       ...['alpine-anchor', 'alpine-collapse', 'alpine-focus', 'alpine-intersect', 'alpine-mask', 'alpine-morph', 'alpine-persist', 'alpine-sort', 'alpine', 'htmx'].map(f => `${VENDOR_PATH}${f}.min.js`),
       `${VENDOR_PATH}htsx-nav.css`, `${VENDOR_PATH}htsx-nav.js`,
     ].sort())
     expect(await (await page(await read('index.html'))).text('h1')).toBe('Início')
     expect(await (await page(await read('blog/segundo-post.html'))).text('p')).toBe('Outro <texto>')
     expect(await read('feed.xml')).toBe('<rss>2</rss>')
-    expect(await read('antigo.html')).toContain('url=/sobre')
+    expect(await read('antigo.html')).toContain('url=/about')
     expect(await read('404.html')).toContain('<h1>404</h1>')
     expect(await read('robots.txt')).toBe('User-agent: *\n')
-    expect(await (await page(await read('sobre.html'))).attr('script', 'src')).toBe(`${VENDOR_PATH}htmx.min.js`)
+    expect(await (await page(await read('about.html'))).attr('script', 'src')).toBe(`${VENDOR_PATH}htmx.min.js`)
   })
 
   it('rotas que precisam de servidor → erro com a lista e as opções', async () => {

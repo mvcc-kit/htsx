@@ -32,7 +32,7 @@ export function defineEvents<E extends EventMap>(events: E): EventEmitter<E> {
   // Valida nomes na criação (fail fast)
   for (const name of Object.keys(events)) {
     if (!EVENT_NAME.test(name)) {
-      throw new Error(`defineEvents: nome de evento inválido "${name}"`)
+      throw new Error(`htsx: defineEvents: nome de evento inválido "${name}"`)
     }
   }
 
@@ -42,15 +42,12 @@ export function defineEvents<E extends EventMap>(events: E): EventEmitter<E> {
     emit(name, ...args) {
       // Type-safe na chamada (TS) + revalida em runtime (defensivo)
       if (!EVENT_NAME.test(name)) {
-        throw new Error(`emit: nome inválido "${name}"`)
+        throw new Error(`htsx: emit: nome inválido "${name}"`)
       }
       if (!Object.hasOwn(events, name)) {
-        throw new Error(`emit: evento não registrado "${name}"`)
+        throw new Error(`htsx: emit: evento não registrado "${name}"`)
       }
-      const handler = events[name]
-      if (!handler) {
-        throw new Error(`emit: evento não registrado "${name}"`)
-      }
+      const handler = events[name]!
       const payload = handler(...args)
       return { [name]: payload }
     },

@@ -103,7 +103,7 @@ export function Field({
   inputProps = {},
   class: className,
 }: FieldProps): HtmlSafeString | Promise<HtmlSafeString> {
-  if (!name) throw new Error('Field: name é obrigatório')
+  if (!name) throw new Error('htsx: Field: name é obrigatório')
 
   const ctx = getFormCtx()
   const effectiveValue = value ?? (ctx?.values[name] as string | number | undefined)

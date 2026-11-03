@@ -30,7 +30,7 @@ function signedText(sessionId: string, ts: number): string {
 
 function validateSecret(secret: string): void {
   if (!isStrongSecret(secret)) {
-    throw new Error(`csrf: secret deve ter no mínimo ${MIN_SECRET_LENGTH} chars`)
+    throw new Error(`htsx: csrf: secret deve ter no mínimo ${MIN_SECRET_LENGTH} chars`)
   }
 }
 
@@ -38,7 +38,7 @@ export const csrf = {
   /** Gera token assinado. Throw se secret < 32 chars. */
   async sign(opts: CsrfOptions): Promise<string> {
     validateSecret(opts.secret)
-    if (!opts.sessionId) throw new Error('csrf: sessionId obrigatório')
+    if (!opts.sessionId) throw new Error('htsx: csrf: sessionId obrigatório')
     const ts = Math.floor(Date.now() / 1000)
     return `${ts}.${await hmacSha256(opts.secret, signedText(opts.sessionId, ts))}`
   },

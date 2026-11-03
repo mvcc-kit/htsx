@@ -13,12 +13,12 @@ import { b64UrlToText, hmacSha256, isStrongSecret, MIN_SECRET_LENGTH, textToB64U
 import { COOKIE_NAME, UNSAFE_COOKIE_ATTR } from './patterns'
 
 function assertCookieAttr(attr: string, text: string | undefined): void {
-  if (text !== undefined && UNSAFE_COOKIE_ATTR.test(text)) throw new Error(`flash: ${attr} não pode ter ";" nem quebra de linha`)
+  if (text !== undefined && UNSAFE_COOKIE_ATTR.test(text)) throw new Error(`htsx: flash: ${attr} não pode ter ";" nem quebra de linha`)
 }
 
 function assertCookieName(name: string): void {
   if (!COOKIE_NAME.test(name)) {
-    throw new Error(`flash: invalid cookie name "${name}" — must be RFC 6265 token`)
+    throw new Error(`htsx: flash: invalid cookie name "${name}" — must be RFC 6265 token`)
   }
 }
 
@@ -69,9 +69,9 @@ export const flash = {
   /** Serializa mensagens em token assinado, com a hora em que foi criado. */
   async serialize(messages: FlashMessage[], opts: FlashSecret): Promise<string> {
     if (!isStrongSecret(opts.secret)) {
-      throw new Error(`flash: secret mínimo ${MIN_SECRET_LENGTH} chars`)
+      throw new Error(`htsx: flash: secret mínimo ${MIN_SECRET_LENGTH} chars`)
     }
-    if (!Array.isArray(messages)) throw new Error('flash: messages deve ser array')
+    if (!Array.isArray(messages)) throw new Error('htsx: flash: messages deve ser array')
     const payload = textToB64Url(JSON.stringify({ t: Math.floor(Date.now() / 1000), m: messages.filter(isValidMessage) }))
     return `${payload}.${await hmacSha256(opts.secret, signed(payload))}`
   },

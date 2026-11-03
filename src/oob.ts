@@ -38,7 +38,7 @@ export function OOB({
 }: OOBProps): HtmlSafeString | Promise<HtmlSafeString> {
   const id = target.startsWith('#') ? target.slice(1) : target
   if (!ID_RE.test(id)) {
-    throw new Error(`OOB: target inválido "${target}" — use ID HTML válido (letra inicial, alfanum/_/-/:/.)`)
+    throw new Error(`htsx: OOB: target inválido "${target}" — use ID HTML válido (letra inicial, alfanum/_/-/:/.)`)
   }
   // 'true' = swap padrão 'outerHTML' usando o id do elemento como target implícito
   // forma com target explícito: 'innerHTML:#myId'

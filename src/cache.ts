@@ -26,7 +26,7 @@ interface ContextWithCache {
  * @param maxSize limite de entradas (DoS protection). Default 1000.
  */
 export function cacheContext(maxSize = 1000): ContextWithCache {
-  if (maxSize < 1) throw new Error('cacheContext: maxSize deve ser >= 1')
+  if (maxSize < 1) throw new Error('htsx: cacheContext: maxSize deve ser >= 1')
   return { [CACHE_SYMBOL]: { store: new Map(), maxSize } }
 }
 
@@ -72,7 +72,7 @@ export function cache<Args extends unknown[], R>(
     const key = `${id}:${argsKey}`
     if (state.store.has(key)) return state.store.get(key) as R
     if (state.store.size >= state.maxSize) {
-      throw new Error(`cache: limite de ${state.maxSize} entries excedido`)
+      throw new Error(`htsx: cache: limite de ${state.maxSize} entries excedido`)
     }
     const result = await fn(...args)
     state.store.set(key, result)

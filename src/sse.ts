@@ -27,15 +27,15 @@ export function sseEvent(
 ): string {
   const name = opts.name ?? 'message'
   if (!EVENT_NAME.test(name)) {
-    throw new Error(`sseEvent: nome inválido "${name}"`)
+    throw new Error(`htsx: sseEvent: nome inválido "${name}"`)
   }
   if (opts.id !== undefined) {
-    if (typeof opts.id !== 'string') throw new Error('sseEvent: id deve ser string')
-    if (/[\r\n]/.test(opts.id)) throw new Error('sseEvent: id não pode conter newline')
+    if (typeof opts.id !== 'string') throw new Error('htsx: sseEvent: id deve ser string')
+    if (/[\r\n]/.test(opts.id)) throw new Error('htsx: sseEvent: id não pode conter newline')
   }
   if (opts.retry !== undefined) {
     if (!Number.isFinite(opts.retry) || opts.retry < 0) {
-      throw new Error('sseEvent: retry deve ser número >= 0')
+      throw new Error('htsx: sseEvent: retry deve ser número >= 0')
     }
   }
 

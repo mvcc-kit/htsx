@@ -19,7 +19,7 @@ export function storeInit(
   opts?: { nonce?: string },
 ): string {
   if (!STORE_NAME_RE.test(name)) {
-    throw new Error(`storeInit: invalid store name "${name}"`)
+    throw new Error(`htsx: storeInit: invalid store name "${name}"`)
   }
   const json = safeJson(data)
   const nonce = opts?.nonce ? ` nonce="${escapeAttr(opts.nonce)}"` : ''

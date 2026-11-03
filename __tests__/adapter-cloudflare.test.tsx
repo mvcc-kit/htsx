@@ -35,7 +35,7 @@ describe('modo Cloudflare: build', () => {
   beforeAll(async () => { result = await buildCloudflare(workerApp, { root: ROOT, manifest: MANIFEST }) })
 
   it('pré-renderiza o que pode e deixa o resto para o Worker', () => {
-    expect([...result.manifest.prerendered].sort()).toEqual(['/', '/blog', '/blog/ola', '/blog/segundo-post', '/sobre'])
+    expect([...result.manifest.prerendered].sort()).toEqual(['/', '/about', '/blog', '/blog/ola', '/blog/segundo-post'])
     expect(result.dynamic).toEqual(['/contato', '/ola'])
   })
 
@@ -46,7 +46,7 @@ describe('modo Cloudflare: build', () => {
   it('_headers com vendor immutable + os do projeto; _redirects; .assetsignore', async () => {
     const headers = await Bun.file(path.join(OUT, '_headers')).text()
     expect(headers).toBe(`/*\n  X-Frame-Options: DENY\n\n${VENDOR_PATH}*\n  Cache-Control: public, max-age=31536000, immutable\n  X-Robots-Tag: noindex\n\n/_htsx/partial/*\n  Cache-Control: public, max-age=300, stale-while-revalidate=86400\n  X-Robots-Tag: noindex\n`)
-    expect(await Bun.file(path.join(OUT, '_redirects')).text()).toBe('/x-antigo /sobre 301\n/antigo /sobre 308\n')
+    expect(await Bun.file(path.join(OUT, '_redirects')).text()).toBe('/x-antigo /about 301\n/antigo /about 308\n')
     expect(await Bun.file(path.join(OUT, '.assetsignore')).text()).toBe('_worker.js\n_routes.json\n')
     expect(await Bun.file(path.join(OUT, 'robots.txt')).exists()).toBe(true)
   })
@@ -72,15 +72,15 @@ describe('modo Cloudflare: Worker', () => {
   })
 
   it('página pré-renderizada vem do binding de assets', async () => {
-    const res = await call('/sobre')
-    expect(fromAssets).toEqual(['/sobre'])
+    const res = await call('/about')
+    expect(fromAssets).toEqual(['/about'])
     expect(await (await page(res)).text('h1')).toBe('Sobre')
   })
 
   it('barra no fim de página pré-renderizada → 308', async () => {
-    const res = await call('/sobre/?x=1')
+    const res = await call('/about/?x=1')
     expect(res.status).toBe(308)
-    expect(res.headers.get('location')).toBe('/sobre?x=1')
+    expect(res.headers.get('location')).toBe('/about?x=1')
   })
 
   it('rota dinâmica lê env e usa ctx.waitUntil via cloudflarePlatform', async () => {
@@ -98,8 +98,8 @@ describe('modo Cloudflare: Worker', () => {
   })
 
   it('sem o binding → erro com o trecho do wrangler', async () => {
-    const w = cloudflare(workerApp, { manifest: { prerendered: ['/sobre'] } })
-    await expect(w.fetch(new Request('https://x/sobre'), {}, ctx)).rejects.toThrow('htsx: binding "ASSETS" não existe no env; declare "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" } no wrangler.jsonc')
+    const w = cloudflare(workerApp, { manifest: { prerendered: ['/about'] } })
+    await expect(w.fetch(new Request('https://x/about'), {}, ctx)).rejects.toThrow('htsx: binding "ASSETS" não existe no env; declare "assets": { "binding": "ASSETS", "directory": ".htsx/cloudflare" } no wrangler.jsonc')
   })
 
   it('cloudflarePlatform fora do Worker explica o motivo', () => {

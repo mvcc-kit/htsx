@@ -71,6 +71,11 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P16. Qualidade, segunda rodada (03/11/2026)
+
+- [x] Sem `Suspense`; mensagens de erro todas com o prefixo `htsx:`; fixtures em inglês.
+- [x] TypeScript com `noUncheckedIndexedAccess`, `noImplicitOverride` e `noFallthroughCasesInSwitch`.
+
 ## P15. Experiência (03/11/2026)
 
 Base: SvelteKit (live region e foco após navegar) e Next.js (`loading`, `next/image`, rotas tipadas).
@@ -78,7 +83,6 @@ Base: SvelteKit (live region e foco após navegar) e Next.js (`loading`, `next/i
 - [x] `redirect()` com htmx sem destruir o layout; anúncio e foco; barra de carregamento; envio duplo; foco no erro; âncora; sem rede.
 - [x] `partial.lazy`, `href`, `<Image>`, recarga no `dev` e pilha do erro.
 - [ ] Título com modelo (`%s · Site`): o layout não roda na resposta parcial, então o modelo precisa viver na rota.
-- [ ] Códigos de erro com link para a documentação.
 
 ## P14. Segurança, segunda auditoria (03/11/2026)
 
@@ -101,7 +105,7 @@ Base: CVE-2023-29003 e CVE-2023-29008 (SvelteKit), CVE-2025-29927 (Next.js) e a 
 - [x] `<Title>`, `<Meta>` e `<Link>` sem promessa quando o conteúdo é síncrono; cookies e `event.htmx` sob demanda; resposta sem cópia para cabeçalhos.
 - [x] Modo Bun: gzip com cache por versão e `ETag`/304 em arquivos.
 - Sem índice de rotas: 200 rotas com parâmetro não mudam o tempo de forma mensurável (medido).
-- [ ] Streaming de HTML: mandar o `<head>` antes do `load` terminar. Muda o tratamento de erro e de redirecionamento.
+- Streaming de HTML: ver o item de streaming de `load` em P7. Muda o tratamento de erro e de redirecionamento.
 
 ## P11. Auditoria de segurança (02/11/2026)
 
@@ -113,8 +117,8 @@ Testes em `__tests__/hardening.test.tsx`.
 - [x] XSS em `Suspense` com texto comum; token CSRF sem o id da sessão; injeção por CR em SSE.
 - [x] Nome de elemento, função em atributo, `;` em CSS, atributos de cookie, cookie repetido e `constructor`.
 - [x] Prerender não grava fora da saída; `inspector()` some em produção; `handleError` que falha; cabeçalhos de segurança.
-- [ ] O registro do `Suspense` vive em uma requisição, mas o pedido do cliente é outra: o fluxo documentado não funciona no `defineApp`.
-- [ ] Teto de corpo de requisição e limite de tempo fora do modo Bun.
+- [x] `Suspense` removido: o registro vivia em uma requisição e o pedido do cliente era outra; `partial.lazy` resolve o caso.
+- [x] Teto de corpo de requisição em qualquer modo (`bodyLimit`).
 
 ## P10. Modo framework do htmx
 
@@ -124,7 +128,7 @@ Testes em `__tests__/hardening.test.tsx`.
 - [x] Parciais em arquivo no build estático.
 - [x] `<Outlet preload>`: pré-carrega parciais em arquivo, com cache do host, sem baixar duas vezes.
 - [x] Alpine sob demanda, `vendor: 'auto'` e `ETag` nas páginas renderizadas.
-- [ ] `HX-Location` no lugar de `HX-Redirect` em `redirect()` dentro de um layout com `Outlet`.
+- [x] `HX-Location` no lugar de `HX-Redirect` em `redirect()` dentro de um layout com `Outlet`.
 - [ ] Morph (`idiomorph`), para manter foco e estado do Alpine na troca. Exige copiar mais uma biblioteca para `vendor/`.
 
 ## P9. Navegação fluida na raiz

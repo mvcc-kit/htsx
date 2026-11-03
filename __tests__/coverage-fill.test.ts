@@ -5,7 +5,6 @@
  *   - index.ts:91-99 — defineComponent / defineLayout
  *   - head.ts:58-66 — script object branch (defer/async/type/nonce)
  *   - flash.ts:111,156-157 — setCookie domain + readCookie domain branches
- *   - suspense.ts:137-138 — generateId fallback (sem crypto.randomUUID)
  */
 import { describe, expect, it } from 'bun:test'
 import { defineComponent, defineLayout, renderToString } from '../index'
@@ -120,25 +119,3 @@ describe('coverage: flash.readCookie edge cases', () => {
   })
 })
 
-describe('coverage: suspense generateId fallback', () => {
-  it('gera id válido mesmo sem crypto.randomUUID', async () => {
-    // Substitui crypto inteiro pra forçar o fallback (Math.random)
-    const g = globalThis as { crypto?: Crypto }
-    const original = g.crypto
-    g.crypto = undefined as never
-    try {
-      const { Suspense, suspenseRegistry } = await import('../src/suspense')
-      const { withContext } = await import('../src/context')
-      const html = await withContext(suspenseRegistry(), async () => {
-        const node = Suspense({ fallback: 'w', children: 'd' })
-        return String(node)
-      })
-      const m = html.match(/hx-get="\/_htsx\/suspense\/([^"]+)"/)
-      expect(m).toBeTruthy()
-      // Fallback usa Math.random().toString(36).slice(2,10) — 's' + 8 alfanum
-      expect(m![1]).toMatch(/^s[a-z0-9]+$/)
-    } finally {
-      g.crypto = original
-    }
-  })
-})

@@ -1,6 +1,6 @@
 ---
 name: htsx
-description: Use ao construir frontends SSR com JSX + HTMX + Alpine usando o pacote `{{PKG}}`. Acione quando o usuário pedir página/rota HTML, formulário, componente htmx/alpine, SSE, CSRF, flash messages, suspense, testes de página, ou ao trabalhar em qualquer arquivo `.tsx` que renderize HTML (não React).
+description: Use ao construir frontends SSR com JSX + HTMX + Alpine usando o pacote `{{PKG}}`. Acione quando o usuário pedir página/rota HTML, formulário, componente htmx/alpine, SSE, CSRF, flash messages, testes de página, ou ao trabalhar em qualquer arquivo `.tsx` que renderize HTML (não React).
 ---
 
 # {{PKG}} — Guia de uso
@@ -905,30 +905,22 @@ const B = async () => <i>{(await getUser('1')).name}</i>   // não busca de novo
 export const html = await renderToString(() => <><A /><B /></>, { context: cacheContext() })
 ```
 
-### `Suspense` e `ErrorBoundary`
+### `ErrorBoundary`
 
-`Suspense` emite o `fallback` na hora; o cliente busca o conteúdo pronto em `/_htsx/suspense/<id>` via htmx. `ErrorBoundary` troca a subárvore que falhou pelo `fallback`. Ele pega erros de componentes `async` (Promise rejeitada); um erro síncrono acontece antes, quando o JSX do filho é avaliado.
+Se um filho falhar, mostra o `fallback` no lugar. Para trecho lento, use `partial.lazy` (veja "Modo framework"); fora do kit, um `<div hx-get="/trecho" hx-trigger="load" hx-swap="outerHTML">` faz o mesmo.
 
 ```tsx
-import { ErrorBoundary, Suspense, renderPage, resolveSuspense, suspenseRegistry } from '{{PKG}}'
+import { ErrorBoundary, renderPage } from '{{PKG}}'
 
-const Slow = async () => <p>{await Promise.resolve('pronto')}</p>
-const Broken = async (): Promise<never> => { throw new Error('falhou') }
+const Risky = async () => { throw new Error('falhou') }
 
-export const html = await renderPage(
-  () => (
-    <main>
-      <Suspense id="lento" fallback={<p>Carregando...</p>}><Slow /></Suspense>
-      <ErrorBoundary fallback={() => <p>Algo deu errado</p>} onError={err => console.error(err)}>
-        <Broken />
-      </ErrorBoundary>
-    </main>
-  ),
-  { context: suspenseRegistry() },
-)
-
-// Rota que entrega o conteúdo: GET /_htsx/suspense/:id (mesmo contexto da renderização)
-export const lento = (id: string) => resolveSuspense(id)
+export const html = await renderPage(() => (
+  <html>
+    <body>
+      <ErrorBoundary fallback={() => <p>Não deu para carregar.</p>}><Risky /></ErrorBoundary>
+    </body>
+  </html>
+))
 ```
 
 Não exiba `err.message` no `fallback` em produção: pode vazar caminhos ou segredos. Registre com `onError`.
@@ -1021,5 +1013,5 @@ export async function e2e(handler: (req: Request) => Promise<Response>) {
 - ❌ Concatenar HTML com strings (`'<div>' + variavel`): use JSX para o escape funcionar
 - ❌ Tipar `children?: unknown` ou usar `children as JSX.Element`: use `children?: Children`
 - ❌ Atributo inexistente (`clas=`) ou `on*`: o compilador recusa; use `$click` (Alpine) ou `hx-on`
-- ❌ Compartilhar `cache()` ou `Suspense` entre requisições sem contexto: lança erro de propósito
+- ❌ Compartilhar `cache()` entre requisições sem contexto: lança erro de propósito
 - ❌ `raw()` em conteúdo de usuário: o escape é a proteção contra XSS

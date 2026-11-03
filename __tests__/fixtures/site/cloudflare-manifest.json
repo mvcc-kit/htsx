@@ -1,8 +1,8 @@
 {
   "prerendered": [
     "/",
+    "/about",
     "/blog",
-    "/sobre",
     "/blog/ola",
     "/blog/segundo-post"
   ]
