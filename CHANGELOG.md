@@ -2,12 +2,17 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
-## 0.4.2-beta.1 (03/11/2026)
+## 0.4.3-beta.1 (02/11/2026)
+
+- **Sem download duplicado:** links com `hx-boost` não são mais pré-carregados, porque cada clique baixava o parcial duas vezes.
+- **Voltar troca só o `Outlet`:** com `hx-history-elt`, o rodapé e o resto do `<body>` ficam intactos.
+
+## 0.4.2-beta.1 (02/11/2026)
 
 - **Parciais de verdade no site estático:** o build gera cada parcial em `/_htsx/partial/...`, e a navegação baixa só ele, em vez do arquivo inteiro. Se o arquivo faltar, cai para a navegação completa.
 - **Só o `Outlet` anima:** antes, a transição atuava na página inteira.
 - **`hx-get` interno não anima mais a página:** o `<Head>` deixa de ligar `globalViewTransitions`; a navegação por boost continua animada.
-- Pré-carregamento ao passar o mouse volta a funcionar com `hx-boost`, quando há parcial em arquivo.
+- Pré-carregamento ao passar o mouse com `hx-boost`. Saiu na 0.4.3: baixava o parcial duas vezes.
 
 ## 0.4.1-beta.1 (02/11/2026)
 

@@ -76,7 +76,7 @@ describe('partial no servidor', () => {
 
   it('navegação recebe só o conteúdo e o título, com Vary', async () => {
     const res = await get('/', boost)
-    expect(await res.text()).toBe(`<title>Início</title><div id="${OUTLET_ID}"><main>oi</main></div>`)
+    expect(await res.text()).toBe(`<title>Início</title><div id="${OUTLET_ID}" hx-history-elt="true"><main>oi</main></div>`)
     expect(res.headers.get('vary')).toBe('HX-Request, HX-Target')
   })
 
@@ -99,7 +99,7 @@ describe('partial no servidor', () => {
   })
 
   it('fora do app, Outlet é só um trecho', async () => {
-    expect(await renderToString(() => <Outlet>x</Outlet>)).toBe(`<div id="${OUTLET_ID}">x</div>`)
+    expect(await renderToString(() => <Outlet>x</Outlet>)).toBe(`<div id="${OUTLET_ID}" hx-history-elt="true">x</div>`)
   })
 })
 
@@ -209,7 +209,7 @@ describe('parciais em arquivo no build estático', () => {
   it('gera o parcial só com o conteúdo e o título', async () => {
     const { files } = await build(true)
     expect(files).toContain(`${PARTIALS_PATH}/a`)
-    expect(await read('com/_htsx/partial/a.html')).toBe(`<title>Página A</title><div id="${OUTLET_ID}"><main><h1>Conteúdo A</h1></main></div>`)
+    expect(await read('com/_htsx/partial/a.html')).toBe(`<title>Página A</title><div id="${OUTLET_ID}" hx-history-elt="true"><main><h1>Conteúdo A</h1></main></div>`)
   })
 
   it('a página completa avisa onde estão os parciais', async () => {
@@ -245,8 +245,8 @@ describe('parciais em arquivo no build estático', () => {
       await chrome.press('text:B')
       await chrome.waitFor('text:Conteúdo B')
       for (let i = 0; i < 100 && (await ev<string>('document.title')) !== 'Página B'; i++) await Bun.sleep(10)
-      // o pré-carregamento pode pedir o mesmo parcial; a página inteira, nunca
-      expect([...new Set(requests.filter(r => !r.startsWith('/_htsx/vendor') && r !== '/favicon.ico'))]).toEqual([`${PARTIALS_PATH}/b?x=1`])
+      // um só pedido: nem a página inteira, nem o mesmo parcial duas vezes
+      expect(requests.filter(r => !r.startsWith('/_htsx/vendor') && r !== '/favicon.ico')).toEqual([`${PARTIALS_PATH}/b?x=1`])
       expect(await ev<string>('location.pathname + location.search')).toBe('/b?x=1')
       expect(await ev<string>('document.title')).toBe('Página B')
       expect(await ev<boolean>(`window.__same === document.getElementById('menu') && window.__head === document.head`)).toBe(true)
@@ -258,6 +258,8 @@ describe('parciais em arquivo no build estático', () => {
       await chrome.waitFor('text:Conteúdo A')
       expect(await ev<string>('location.pathname')).toBe('/a')
       expect(requests).toContain('/a')
+      expect(await ev<boolean>(`window.__same === document.getElementById('menu')`)).toBe(true)
+      expect(await ev<number>(`document.querySelectorAll('#${OUTLET_ID}').length`)).toBe(1)
     })
 
     it('parcial que falta cai para a navegação completa na URL real', async () => {

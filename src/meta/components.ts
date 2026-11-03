@@ -78,7 +78,8 @@ export function Head(props: HeadProps = {}): Rendered {
 
 /** Onde o conteúdo fica no layout. Com `hx-boost` no `<body>`, a navegação troca só este trecho. */
 export function Outlet(props: { children?: Children }): Rendered {
-  const outlet = jsx('div', { id: OUTLET_ID, children: props.children })
+  // hx-history-elt: voltar no navegador troca só este trecho, não o <body> inteiro
+  const outlet = jsx('div', { id: OUTLET_ID, 'hx-history-elt': 'true', children: props.children })
   if (!isPrerendering()) return outlet
   return Promise.all([place('partials', raw(`<meta name="htsx-partials" content="${PARTIALS_PATH}">`)), outlet])
     .then(([marker, html]) => raw(String(marker) + String(html)))

@@ -232,7 +232,7 @@ export function defineApp(options: AppOptions): App {
       if (event.isFragment) return body
       if (!layout) return /^\s*<html[\s>]/i.test(body) ? `<!DOCTYPE html>${body}` : body
       // Layout próprio da rota pode ser outro: nesse caso vai a página inteira, e o cliente escolhe o trecho.
-      if (partial) return `<div id="${OUTLET_ID}">${body}</div>`
+      if (partial) return `<div id="${OUTLET_ID}" hx-history-elt="true">${body}</div>`
       return `<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`
     })
     headers.set('content-type', 'text/html; charset=utf-8')
