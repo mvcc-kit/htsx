@@ -599,6 +599,7 @@ Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteú
 - **Com servidor:** a resposta traz só a página e o título, sem renderizar o layout.
 - **Em site estático:** o arquivo inteiro chega, e o cliente usa só o trecho do `Outlet`.
 - `hx-get` dentro da página continua funcionando como antes.
+- **`hx-boost` também captura formulários.** Um formulário enviado por JavaScript precisa de `hx-boost="false"`; sem isso, os campos de um GET vão parar na URL.
 - Erro ou resposta sem `Outlet` (como rota com layout próprio) cai para a navegação completa. Voltar e avançar funcionam.
 - **Cada página precisa do próprio `<Title>`:** sem ele, o título da página anterior continua.
 - **O que fica fora do `Outlet` não muda na navegação.** Se depender da página (como o idioma ou o link ativo), ponha dentro dele.
