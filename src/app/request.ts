@@ -58,3 +58,19 @@ export function localPath(target: string | null | undefined, fallback = '/'): st
   if (target.startsWith('//') || target.includes('\\') || /[\u0000-\u001f\u007f]/.test(target)) return fallback
   return target
 }
+
+/** Cabeçalhos de um redirecionamento pedido pelo htmx. */
+export function htmxRedirectHeaders(location: string, inOutlet: boolean, outletId: string): Record<string, string> {
+  // Só caminho deste site cabe no trecho; o resto recarrega a página.
+  if (!inOutlet || localPath(location, '') !== location) return { 'hx-redirect': location }
+  const selector = `#${outletId}`
+  return {
+    'hx-location': JSON.stringify({
+      path: location,
+      target: selector,
+      select: selector,
+      swap: 'outerHTML show:window:top transition:true',
+      headers: { 'HX-Boosted': 'true', 'HX-Target': outletId },
+    }),
+  }
+}

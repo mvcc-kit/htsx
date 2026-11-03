@@ -107,10 +107,13 @@ describe('app: ações de formulário', () => {
     expect(await (await page(await form('/contato', { nome: 'Ana' }))).text('[role=alert]')).toBe('ok Ana')
   })
 
-  it('ação nomeada com ?/nome e redirect 303 (+ HX-Redirect para htmx)', async () => {
+  it('ação nomeada com ?/nome e redirect: 303 sem htmx, HX-Redirect com htmx', async () => {
+    const plain = await form('/sair?/tchau', {})
+    expect(plain.status).toBe(303)
+    expect(plain.headers.get('location')).toBe('/')
     const res = await form('/sair?/tchau', {}, { 'hx-request': 'true' })
-    expect(res.status).toBe(303)
-    expect(res.headers.get('location')).toBe('/')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('location')).toBeNull()
     expect(res.headers.get('hx-redirect')).toBe('/')
   })
 

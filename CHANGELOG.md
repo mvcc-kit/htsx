@@ -2,6 +2,23 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.8-beta.1 (03/11/2026)
+
+Experiência de quem usa o site:
+
+- **Correção importante:** `redirect()` depois de formulário com htmx destruía o layout, porque o navegador seguia o 303 e o htmx trocava a página errada. Agora responde com `HX-Location` (dentro do `Outlet`, sem recarregar) ou `HX-Redirect`.
+- **Acessibilidade:** a navegação anuncia o novo título para leitor de tela e leva o foco ao conteúdo, como o SvelteKit.
+- **Barra de carregamento** só em navegação lenta, com `aria-busy`.
+- **Envio duplo:** o botão fica desligado até a resposta. Com erro 400 ou 422, o foco vai para o primeiro campo inválido.
+- **Âncora** funciona após a troca, e **sem rede** a navegação vira carga completa.
+
+Experiência de quem programa:
+
+- `partial.lazy(props, { fallback, trigger })`: página sai logo, e o trecho lento carrega depois.
+- `href('/blog/[slug]', { slug })`: link com parâmetros tipados.
+- `<Image>`: largura e altura obrigatórias, carregamento adiado.
+- **`dev`:** o navegador recarrega quando um arquivo muda, e erro inesperado mostra a pilha. `event.dev` informa o modo.
+
 ## 0.4.7-beta.1 (03/11/2026)
 
 Segurança:

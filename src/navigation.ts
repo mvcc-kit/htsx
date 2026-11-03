@@ -17,9 +17,18 @@ export const navigationCss = '@media (prefers-reduced-motion:no-preference){@vie
   + '::view-transition-group(htsx-page),::view-transition-old(htsx-page),::view-transition-new(htsx-page){animation-duration:.16s}'
   + '@media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}'
   + '[x-cloak]{display:none!important}'
+  // Barra de carregamento: só aparece em navegação lenta. Cor: --htsx-progress.
+  + 'html.htsx-navigating::before{content:"";position:fixed;inset:0 0 auto;height:2px;z-index:2147483647;background:var(--htsx-progress,currentColor);transform-origin:left;animation:htsx-progress 1.5s ease-out .2s both}'
+  + '@keyframes htsx-progress{from{transform:scaleX(0)}to{transform:scaleX(.9)}}'
+  + '@media (prefers-reduced-motion:reduce){html.htsx-navigating::before{animation:none;opacity:.5}}'
+  // Leitor de tela lê; visualmente some.
+  + '#htsx-announcer{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}'
+  + '#htsx-page:focus{outline:none}'
 
 /**
  * Com `<Head>`, baixa o Alpine só quando a página tem \`x-data\` ou \`x-init\`, inclusive depois de uma troca.
+ * Depois de navegar, anuncia a página para leitor de tela e leva o foco ao conteúdo, como o SvelteKit.
+ * Envio de formulário desliga o botão até a resposta, e sem rede a navegação vira carga completa.
  * Com \`hx-boost\` e \`<Outlet>\`, a navegação troca só o conteúdo da página; se a resposta não tiver
  * esse conteúdo ou for um erro, cai para a navegação completa.
  * Baixa antes o HTML do link, ao passar o mouse, focar ou tocar. Fica de fora: outra origem,
@@ -40,12 +49,44 @@ d.addEventListener('htmx:configRequest',function(e){
 var x=e.detail,p=partials();
 if(!x.boosted||!outlet())return;
 x.headers['HX-Target']='htsx-page';
-if(p&&x.verb==='get'&&x.elt&&x.elt.tagName==='A'){var u=new URL(x.path,location.href);x.htsxUrl=u.href;x.path=p+u.pathname+u.search}});
+if(x.verb==='get'&&x.elt&&x.elt.tagName==='A'){var u=new URL(x.path,location.href);x.htsxUrl=u.href;if(p)x.path=p+u.pathname+u.search}});
 d.addEventListener('htmx:beforeSwap',function(e){
 var x=e.detail,r=x.requestConfig,o=outlet();
 if(!r||!r.boosted||r.verb!=='get'||!o)return;
 if(x.isError||x.serverResponse.indexOf('id="htsx-page"')<0){x.shouldSwap=false;location.href=r.htsxUrl||x.pathInfo.responsePath||x.pathInfo.finalRequestPath;return}
 x.target=o;x.selectOverride='#htsx-page';x.swapOverride='outerHTML show:window:top transition:true'});
+function navigating(r,on){
+if(!r||!r.boosted)return;
+d.documentElement.classList.toggle('htsx-navigating',on);
+var o=outlet();if(o)o.setAttribute('aria-busy',String(on))}
+d.addEventListener('htmx:beforeRequest',function(e){
+var x=e.detail,f=x.elt;navigating(x.requestConfig,true);
+if(f&&f.tagName==='FORM')f.querySelectorAll('button:not([type=button]):not([disabled]),input[type=submit]:not([disabled])').forEach(function(b){b.disabled=true;b.setAttribute('data-htsx-pending','')})});
+d.addEventListener('htmx:afterRequest',function(e){
+var x=e.detail,f=x.elt;navigating(x.requestConfig,false);
+if(f&&f.querySelectorAll)f.querySelectorAll('[data-htsx-pending]').forEach(function(b){b.disabled=false;b.removeAttribute('data-htsx-pending')})});
+function fallback(e){var r=e.detail.requestConfig;if(r&&r.boosted&&r.verb==='get')location.href=r.htsxUrl||r.path}
+d.addEventListener('htmx:sendError',fallback);d.addEventListener('htmx:timeout',fallback);
+function announce(){
+var a=d.getElementById('htsx-announcer');
+if(!a){a=d.createElement('div');a.id='htsx-announcer';a.setAttribute('aria-live','polite');a.setAttribute('aria-atomic','true');d.body.appendChild(a)}
+a.textContent=d.title}
+function arrived(){
+var o=outlet();announce();
+if(!o)return;
+var t=o.querySelector('[autofocus]');
+if(!t){o.tabIndex=-1;t=o}
+t.focus({preventScroll:true});
+var id=location.hash.slice(1),target;
+try{target=id&&d.getElementById(decodeURIComponent(id))}catch(_){}
+// Depois do scroll ao topo da troca: num quadro seguinte, senão ele venceria.
+if(target)requestAnimationFrame(function(){target.scrollIntoView()})}
+d.addEventListener('htmx:afterSettle',function(e){
+var x=e.detail,r=x.requestConfig;
+if(!r||r.htsxDone)return;r.htsxDone=1;
+if(x.xhr&&(x.xhr.status===400||x.xhr.status===422)){var bad=d.querySelector('[aria-invalid="true"]');if(bad)bad.focus();return}
+if(r.boosted&&r.verb==='get')arrived()});
+d.addEventListener('htmx:historyRestore',arrived);
 d.addEventListener('htmx:beforeHistoryUpdate',function(e){var r=e.detail.requestConfig;if(r&&r.htsxUrl)e.detail.history.path=r.htsxUrl});
 if(c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
 var probe=d.createElement('link');

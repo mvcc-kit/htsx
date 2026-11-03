@@ -1,6 +1,7 @@
 // Comandos de `bun htsx.config.ts <comando>` e as funções equivalentes para usar em código.
 // Só Bun (build, dev, servidor): nunca vai para o Worker.
 import { existsSync, watch } from 'node:fs'
+import { createLiveReload } from './live-reload'
 import path from 'node:path'
 import { defineApp, type App, type AppOptions } from '../app/app'
 import type { FileRoutes } from '../app/file-routes'
@@ -167,7 +168,9 @@ export async function start(config?: HtsxConfig, root = '.', opts: { watch?: boo
   let app = await loadApp(cfg, root, { platform: emulated })
   const adapter = cfg.adapter
   const port = opts.port ?? (adapter.name === 'bun' ? adapter.port : undefined) ?? Number(process.env.PORT ?? 3000)
+  const live = opts.watch ? createLiveReload() : undefined
   const server = serve(() => app, {
+    dev: live,
     port,
     // dev só na máquina (como o Vite); produção em todas as interfaces
     hostname: (adapter.name === 'bun' ? adapter.hostname : undefined) ?? (opts.watch ? 'localhost' : '0.0.0.0'),
@@ -183,8 +186,9 @@ export async function start(config?: HtsxConfig, root = '.', opts: { watch?: boo
       if (!existsSync(d)) continue
       watchers.push(watch(d, { recursive: true }, ev => {
         // arquivo novo/apagado muda o manifesto; mudança de conteúdo o `bun --hot` já recarrega
-        if (ev !== 'rename' || pending) return
-        pending = loadApp(cfg, root, { platform: emulated }).then(a => { app = a }, e => console.error((e as Error).message)).finally(() => { pending = undefined })
+        if (ev !== 'rename') { live?.notify(); return }
+        if (pending) return
+        pending = loadApp(cfg, root, { platform: emulated }).then(a => { app = a; live?.notify() }, e => console.error((e as Error).message)).finally(() => { pending = undefined })
       }))
     }
   }
@@ -197,6 +201,7 @@ export async function start(config?: HtsxConfig, root = '.', opts: { watch?: boo
     /** Para o servidor, os observadores e a plataforma emulada. */
     async stop() {
       for (const w of watchers) w.close()
+      live?.close()
       server.stop(true)
       await emulated?.dispose()
     },

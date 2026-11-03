@@ -9,7 +9,7 @@ import { isStrict } from '../strict'
 import { OUTLET_ID, wantsOutlet } from '../outlet'
 import { createHtmxContext, type HtmxContext } from './htmx'
 import { HX_REQUEST } from '../htmx-headers'
-import { canonicalPath, isCrossSiteForm, routePath, secureCookiesByDefault, wantsHtml, wantsJsonOnly } from './request'
+import { canonicalPath, htmxRedirectHeaders, isCrossSiteForm, routePath, secureCookiesByDefault, wantsHtml, wantsJsonOnly } from './request'
 import { HTMX_VARY, htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
 import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
@@ -31,6 +31,8 @@ export interface RequestEvent<Params = Record<string, string>> {
   params: Params
   /** Id da rota que casou (ex.: `/blog/[slug]`), ou `null` quando nenhuma casou. */
   route: { id: string | null }
+  /** `true` no `dev`: erro inesperado mostra a pilha na página. */
+  dev: boolean
   /** Dados da requisição preenchidos pelos hooks (ex.: usuário logado). */
   locals: Record<string, unknown>
   platform: Platform | undefined
@@ -153,6 +155,8 @@ export interface RespondOptions {
   platform?: Platform
   getClientAddress?: () => string
   prerendering?: boolean
+  /** Só o servidor de desenvolvimento liga: expõe a pilha do erro. */
+  dev?: boolean
 }
 
 export interface App {
@@ -214,7 +218,7 @@ export function defineApp(options: AppOptions): App {
       return Response.json({ message }, { status, headers })
     }
     const errorPage = routes.find(r => r.id === event.route.id)?.def.errorPage ?? options.errorPage
-    const plain = async () => `<h1>${status}</h1><p>${String(await Fragment({ children: message }))}</p>`
+    const plain = async () => `<h1>${status}</h1><p${event.dev ? ' style="white-space:pre-wrap"' : ''}>${String(await Fragment({ children: message }))}</p>`
     let page: string
     try {
       page = errorPage ? await withMeta(() => renderNode(errorPage({ status, message, event }))) : await plain()
@@ -317,6 +321,7 @@ export function defineApp(options: AppOptions): App {
       params: match?.params ?? {},
       route: { id: match?.route.id ?? null },
       locals: {},
+      dev: !!opts.dev,
       platform: opts.platform,
       cookies: createCookies(request, secureCookiesByDefault(url)),
       setHeaders(h) {
@@ -362,9 +367,12 @@ export function defineApp(options: AppOptions): App {
 
   async function fromError(err: unknown, event: RequestEvent, headers: Headers): Promise<Response> {
     if (err instanceof Redirect) {
+      if (event.request.headers.get(HX_REQUEST.Request) === 'true') {
+        // O navegador seguiria um 303 sozinho e o htmx nunca veria o destino: trocaria a página errada.
+        for (const [k, v] of Object.entries(htmxRedirectHeaders(err.location, wantsOutlet(event.request.headers), OUTLET_ID))) headers.set(k, v)
+        return new Response(null, { status: 200, headers })
+      }
       headers.set('location', err.location)
-      // htmx segue redirecionamento sozinho, mas troca só o alvo; HX-Redirect faz navegação completa
-      if (event.request.headers.get(HX_REQUEST.Request) === 'true') headers.set('hx-redirect', err.location)
       return new Response(null, { status: err.status, headers })
     }
     if (err instanceof HttpError) return errorResponse(event, err.status, err.message, headers)
@@ -376,7 +384,8 @@ export function defineApp(options: AppOptions): App {
       console.error('htsx: handleError falhou', handlerError)
     }
     if (!options.handleError) console.error(err)
-    return errorResponse(event, 500, safe.message, headers)
+    const detail = event.dev && err instanceof Error ? `${safe.message}\n\n${err.stack ?? err.message}` : safe.message
+    return errorResponse(event, 500, detail, headers)
   }
 
   return {

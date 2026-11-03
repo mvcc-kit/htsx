@@ -132,3 +132,17 @@ type Flatten<T> = { [K in keyof T]: T[K] }
 
 /** `ParamsOf<'/blog/[slug]/[[page]]'>` → `{ slug: string; page?: string }`. */
 export type ParamsOf<Id extends string> = Flatten<UnionToIntersection<ParamOf<Segments<Id>>>>
+
+type HrefArgs<Id extends string> = keyof ParamsOf<Id> extends never ? [] : [params: ParamsOf<Id>]
+
+const parsedRoutes = new Map<string, ParsedRoute>()
+
+/** Link para uma rota, com os parâmetros conferidos pelo TypeScript: `href('/blog/[slug]', { slug })`. */
+export function href<const Id extends string>(id: Id, ...args: HrefArgs<Id>): string {
+  let parsed = parsedRoutes.get(id)
+  if (!parsed) {
+    parsed = parseRouteId(id)
+    if (parsedRoutes.size < 2000) parsedRoutes.set(id, parsed)
+  }
+  return resolveRoute(parsed, (args[0] ?? {}) as Record<string, string | undefined>)
+}

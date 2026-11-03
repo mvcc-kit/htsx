@@ -2,6 +2,7 @@
 import path from 'node:path'
 import type { App, Platform } from '../app/app'
 import { fileServer } from '../build/files'
+import { injectLiveReload, LIVE_RELOAD_PATH, type LiveReload } from '../build/live-reload'
 import { acceptsGzip, isCompressible, MIN_COMPRESS_BYTES } from './compression'
 
 export interface BunServeOptions {
@@ -17,6 +18,8 @@ export interface BunServeOptions {
   maxBodySize?: number
   /** Lembra a busca de arquivos estáticos (produção). Padrão `true`. */
   cacheFiles?: boolean
+  /** Só o `dev`: recarrega o navegador e mostra a pilha do erro. */
+  dev?: LiveReload
   /** Comprime HTML, CSS, JS e JSON com gzip. Padrão `true`; `false` se um proxy já comprime. */
   compress?: boolean
 }
@@ -36,13 +39,24 @@ export function serve(app: App | (() => App), opts: BunServeOptions = {}) {
     hostname: opts.hostname,
     maxRequestBodySize: opts.maxBodySize ?? 10 * 1024 * 1024,
     async fetch(req, server) {
-      const res = await (files(req) ?? getApp().respond(req, {
+      if (opts.dev && new URL(req.url).pathname === LIVE_RELOAD_PATH) return opts.dev.response()
+      const answered = await (files(req) ?? getApp().respond(req, {
         platform: { ...opts.platform, server },
         getClientAddress: () => server.requestIP(req)?.address ?? '',
+        dev: !!opts.dev,
       }))
+      const res = opts.dev ? await withLiveReload(answered, req) : answered
       return opts.compress === false ? res : compressed(req, res)
     },
   })
+}
+
+async function withLiveReload(res: Response, req: Request): Promise<Response> {
+  const isPage = res.headers.get('content-type')?.startsWith('text/html') && req.headers.get('hx-request') !== 'true'
+  if (!isPage || !res.body) return res
+  const headers = new Headers(res.headers)
+  headers.delete('etag')
+  return new Response(injectLiveReload(await res.text()), { status: res.status, statusText: res.statusText, headers })
 }
 
 // O mesmo conteúdo não precisa ser comprimido de novo: ETag ou arquivo imutável identificam a versão.

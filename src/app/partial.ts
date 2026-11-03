@@ -1,6 +1,6 @@
 // `partial()`: um trecho de página com URL própria. Usa-se como componente, e o htmx pede de novo o
 // mesmo trecho. As regras estão em ./partial-logic; aqui só se valida, carrega e renderiza.
-import { HtmlSafeString, raw, toHtml } from '../jsx-runtime'
+import { HtmlSafeString, jsx, raw, toHtml } from '../jsx-runtime'
 import { getRequestEvent, type RequestEvent } from './app'
 import { error } from './errors'
 import { withMeta } from '../meta/collector'
@@ -30,6 +30,11 @@ export interface PartialComponent<I> {
   (props: I): Promise<HtmlSafeString>
   /** Atributos do htmx para pedir este parcial: `<button {...List.get({ id: 1 }, { target: '#x' })}>`. */
   get(props: I, opts?: PartialRequestOpts): PartialRequestAttrs
+  /**
+   * Página sai logo, com o `fallback`, e o trecho carrega depois. `trigger: 'revealed'` espera
+   * aparecer na tela. Use no lugar de `Suspense` em trecho lento.
+   */
+  lazy(props: I, opts?: { fallback?: unknown; trigger?: string }): HtmlSafeString | Promise<HtmlSafeString>
   /** Resposta de uma ação de formulário só com este parcial. */
   respond(props: I): Promise<Response>
   /** Uso interno do roteador. */
@@ -55,6 +60,12 @@ export function partial<I = Record<never, never>, D = undefined, P = Params>(def
     if (!name) throw new Error('htsx: parcial sem rota; registre em route(id, { partials: { name } }) ou use +name.partial.tsx')
     return partialAttrs(partialUrl(name, props as object), opts)
   }
+
+  component.lazy = (props, opts = {}) => jsx('div', {
+    ...component.get(props, { trigger: opts.trigger ?? 'load', swap: 'outerHTML' }),
+    'aria-busy': 'true',
+    children: opts.fallback,
+  })
 
   component.respond = async props => new Response(await withMeta(() => html(props, getRequestEvent())), {
     headers: { 'content-type': 'text/html; charset=utf-8' },

@@ -71,6 +71,15 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P15. Experiência (03/11/2026)
+
+Base: SvelteKit (live region e foco após navegar) e Next.js (`loading`, `next/image`, rotas tipadas).
+
+- [x] `redirect()` com htmx sem destruir o layout; anúncio e foco; barra de carregamento; envio duplo; foco no erro; âncora; sem rede.
+- [x] `partial.lazy`, `href`, `<Image>`, recarga no `dev` e pilha do erro.
+- [ ] Título com modelo (`%s · Site`): o layout não roda na resposta parcial, então o modelo precisa viver na rota.
+- [ ] Códigos de erro com link para a documentação.
+
 ## P14. Segurança, segunda auditoria (03/11/2026)
 
 Base: CVE-2023-29003 e CVE-2023-29008 (SvelteKit), CVE-2025-29927 (Next.js) e a documentação do htmx.

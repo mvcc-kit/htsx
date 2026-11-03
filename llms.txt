@@ -227,7 +227,8 @@ Comportamento padrão, como no SvelteKit:
 - `/sobre/` redireciona para `/sobre` (`trailingSlash: 'never'`).
 - `event.cookies` usa `HttpOnly`, `Secure` e `SameSite=Lax` por padrão. `event.setHeaders()` acrescenta cabeçalhos e `event.locals` guarda dados dos hooks.
 - `getRequestEvent()` devolve o evento atual dentro de qualquer componente. `HEAD` e `405` com `Allow` saem sozinhos.
-- Um `redirect()` numa requisição htmx também manda `HX-Redirect`.
+- Um `redirect()` numa requisição htmx responde 200 com `HX-Redirect` (ou `HX-Location`, com `Outlet`), porque o navegador seguiria um 3xx sozinho e o htmx trocaria a página errada.
+- `href('/blog/[slug]', { slug })` monta o link com os parâmetros conferidos pelo TypeScript.
 
 ### Rotas por arquivos (opcional) — `+page.tsx`, `+layout.tsx`...
 
@@ -616,6 +617,7 @@ export const app = defineApp({
 - **Segurança:** a entrada passa pelo `input` (erro 400 sem detalhes), e `handle` sempre roda. O que chega pela URL é do usuário: confira a permissão de cada dado.
 - **Em arquivos:** os `load` de `+layout.server.ts` rodam antes do parcial, inclusive a exigência de login. Para `params` tipado, use `partialFor<Params>()`, com `Params` de `./$types`.
 - **Ação que devolve só o parcial:** `actions: { add: () => List.respond({ page: 1 }) }`.
+- **Trecho lento:** `{List.lazy({ page: 1 }, { fallback: 'Carregando...' })}` envia a página logo e carrega o trecho depois; `trigger: 'revealed'` espera aparecer na tela. É o caminho no lugar de `Suspense`, que não funciona no `defineApp`.
 - **Precisa de servidor:** o build falha se a rota tiver `prerender`.
 
 `event.htmx` traz o pedido (`request`, `boosted`, `target`, `triggeredBy`, `currentUrl`) e os comandos da resposta: `trigger(name, detail)`, `retarget`, `reswap`, `reselect`, `pushUrl`, `replaceUrl`, `location`, `redirect` e `refresh`.
@@ -659,6 +661,10 @@ Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteú
 - **Pré-carregar:** `<Outlet preload>` baixa o parcial ao passar o mouse. Só ligue se o host der cache a `/_htsx/partial/`, como `max-age=300`; o adaptador Cloudflare já configura.
 - **Só o que a página usa:** o `<Head>` baixa o Alpine só quando a página tem `x-data` ou `x-init`, inclusive depois de uma troca. Com `navigation={false}`, ele carrega sempre. Em site estático, `buildStatic(app, { vendor: 'auto' })` publica só os arquivos citados pelas páginas.
 - **Com servidor:** as páginas levam `ETag`, e o que não mudou volta como 304. O modo Bun comprime HTML, CSS, JS e JSON com gzip e guarda o resultado; use `compress: false` atrás de um proxy que já comprime, ou se a rota faz streaming de HTML.
+- **Quem usa leitor de tela:** cada navegação anuncia o novo título e leva o foco ao conteúdo, ou ao elemento com `autofocus`.
+- **Navegação lenta:** a classe `htsx-navigating` no `<html>` mostra uma barra fina depois de 200 ms (cor em `--htsx-progress`), e o `Outlet` fica com `aria-busy`.
+- **Formulário:** o botão fica desligado até a resposta, o que evita envio duplo. Com erro 400 ou 422, o foco vai para o primeiro campo com `aria-invalid`.
+- **Âncora:** `/pagina#titulo` rola até o trecho depois da troca. **Sem rede:** vira carga completa da página.
 - **Só o `Outlet` anima:** o resto da página fica parado, e um `hx-get` interno troca só o alvo dele.
 - **O que fica dentro do `Outlet` é o que muda:** quanto menor o trecho, menor o parcial.
 - `hx-get` dentro da página continua funcionando como antes.
@@ -709,6 +715,24 @@ export const html = await renderPage(() => (
 - Fora de `renderPage` e do app (`renderToString`), a tag sai onde foi escrita.
 - Regras em `src/meta/logic.ts`, sem renderização; os componentes só geram o HTML.
 - `Htmx`, `Alpine` e `Navigation` também existem soltos, para quem não usa `<Head>`.
+
+---
+
+## `<Image>`
+
+Largura e altura obrigatórias, para a página não pular; carregamento adiado por padrão. `priority` na imagem principal, visível sem rolar.
+
+```tsx
+import { Image } from '{{PKG}}'
+
+export const hero = <Image src="/capa.webp" alt="Capa" width={1200} height={630} priority />
+```
+
+---
+
+## Desenvolvimento
+
+No `dev`, o navegador recarrega quando um arquivo muda, e erro inesperado mostra a pilha na página. `event.dev` diz se está nesse modo. Nada disso entra em produção.
 
 ---
 
