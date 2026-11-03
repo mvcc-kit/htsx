@@ -2,4 +2,4 @@
 export { buildStatic } from './src/adapters/static'
 export type { StaticOptions, BuildResult } from './src/adapters/static'
 export { VENDOR_PATH } from './src/vendor-path'
-export { ASSETS_PATH, fingerprintAssets } from './src/build/fingerprint'
+export { ASSETS_PATH, fingerprintAssets, inlineStyles } from './src/build/fingerprint'

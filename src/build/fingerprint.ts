@@ -1,7 +1,7 @@
 // Nome com hash nos arquivos do projeto: o conteúdo decide o nome, então o host pode dar
 // cache para sempre, e um deploy nunca mistura HTML novo com CSS ou JS antigo.
 import { createHash } from 'node:crypto'
-import { mkdir, readdir, rename } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 
 /** Pasta dos arquivos com hash. No host, dê a ela cache longo e `immutable`. */
@@ -52,4 +52,40 @@ export async function fingerprintAssets(outDir: string, files: readonly string[]
     if (after !== before) await Bun.write(page, after)
   }
   return renamed
+}
+
+/**
+ * Põe o CSS dentro de cada HTML que o cita, no lugar de `<link rel="stylesheet">`: a primeira
+ * visita não espera outro download para desenhar. Cada página fica maior, e o CSS deixa de ter
+ * cache próprio, então serve para CSS pequeno. Com CSP, some os hashes devolvidos a `style-src`.
+ * Rode depois de gerar os arquivos, antes de `fingerprintAssets`.
+ */
+export async function inlineStyles(outDir: string, files: readonly string[]): Promise<{ cspHashes: string[] }> {
+  const root = path.resolve(outDir)
+  const sources: Array<{ url: string; file: string; css: string }> = []
+  for (const url of files) {
+    const file = path.resolve(root, `.${url}`)
+    if (!url.startsWith('/') || !file.startsWith(root + path.sep)) {
+      throw new Error(`htsx: inlineStyles espera um caminho da raiz do site, dentro da saída: ${url}`)
+    }
+    const source = Bun.file(file)
+    if (!(await source.exists())) throw new Error(`htsx: inlineStyles não achou ${url} em ${outDir}`)
+    const css = await source.text()
+    // Dentro de <style>, este texto fecharia a tag: o HTML seguinte viraria outra coisa.
+    if (/<\/style/i.test(css)) throw new Error(`htsx: inlineStyles recusa ${url}, que contém </style`)
+    sources.push({ url, file, css })
+  }
+  for (const page of await htmlFiles(root)) {
+    const before = await Bun.file(page).text()
+    let after = before
+    for (const { url, css } of sources) {
+      const link = new RegExp(`<link\\b(?=[^>]*\\brel="stylesheet")[^>]*\\bhref="${escapeRegex(url)}"[^>]*>`, 'g')
+      after = after.replace(link, () => `<style>${css}</style>`)
+    }
+    if (after !== before) await Bun.write(page, after)
+  }
+  await Promise.all(sources.map(({ file }) => rm(file)))
+  return {
+    cspHashes: sources.map(({ css }) => `'sha256-${createHash('sha256').update(css).digest('base64')}'`),
+  }
 }

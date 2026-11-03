@@ -2,6 +2,12 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.4-beta (03/11/2026)
+
+### Adicionado
+
+- `inlineStyles(outDir, files)` em `htsx/adapter-static`: põe o CSS pequeno dentro de cada HTML, para a primeira visita não esperar outro download, e devolve os hashes para a CSP.
+
 ## 0.1.3-beta (03/11/2026)
 
 ### Melhorado

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { ASSETS_PATH, fingerprintAssets } from '../src/build/fingerprint'
+import { ASSETS_PATH, fingerprintAssets, inlineStyles } from '../src/build/fingerprint'
 
 let dir = ''
 const write = (file: string, text: string) => Bun.write(path.join(dir, file), text)
@@ -55,5 +55,37 @@ describe('fingerprintAssets', () => {
     await expect(fingerprintAssets(dir, ['/nao-existe.css'])).rejects.toThrow('não achou')
     await expect(fingerprintAssets(dir, ['/../fora.css'])).rejects.toThrow('dentro da saída')
     await expect(fingerprintAssets(dir, ['styles.css'])).rejects.toThrow('caminho da raiz')
+  })
+})
+
+describe('inlineStyles', () => {
+  it('troca o link pelo CSS, apaga o arquivo e devolve o hash da CSP', async () => {
+    await setup()
+    const { cspHashes } = await inlineStyles(dir, ['/styles.css'])
+    expect(await read('index.html')).toContain('<style>a{}</style><script src="/support.js">')
+    expect(await read('index.html')).not.toContain('href="/styles.css"')
+    expect(await Bun.file(path.join(dir, 'styles.css')).exists()).toBe(false)
+    const expected = new Bun.CryptoHasher('sha256').update('a{}').digest('base64')
+    expect(cspHashes).toEqual([`'sha256-${expected}'`])
+  })
+
+  it('não mexe em texto da página nem em outro link', async () => {
+    await setup()
+    await inlineStyles(dir, ['/styles.css'])
+    expect(await read('_htsx/partial/page.html')).toContain('<p>/styles.css</p>')
+    expect(await read('index.html')).toContain('href="/support.js.txt"')
+  })
+
+  it('recusa CSS que fecharia a tag, sem alterar nada', async () => {
+    await setup()
+    await write('styles.css', 'a{}</style><script>x</script>')
+    await expect(inlineStyles(dir, ['/styles.css'])).rejects.toThrow('contém </style')
+    expect(await read('index.html')).toContain('href="/styles.css"')
+  })
+
+  it('recusa arquivo ausente e caminho fora da saída', async () => {
+    await setup()
+    await expect(inlineStyles(dir, ['/nao-existe.css'])).rejects.toThrow('não achou')
+    await expect(inlineStyles(dir, ['/../fora.css'])).rejects.toThrow('dentro da saída')
   })
 })
