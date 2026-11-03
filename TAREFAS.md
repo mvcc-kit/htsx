@@ -41,6 +41,12 @@ Marque `[x]` ao terminar, no mesmo commit da mudança.
 - [x] Tokens e componentes base (Button, Field, Panel, Badge) num pacote à parte, por exemplo `htsx-ui`.
 - [x] Checagem que impede `src/` de importar desse pacote.
 
+### Evolução futura: Components
+
+- [ ] Evoluir a UI atual (`htsx-ui`, em `ui/`) para **Components**, com entrada pública `htsx/component`.
+- [ ] Avaliar o catálogo e os padrões do [GPUI Kit Components — https://gpui-kit.com/component](https://gpui-kit.com/component) como referência para oferecer componentes equivalentes; o conjunto de componentes ainda está em aberto.
+- [ ] Oferecer componentes com estilos habilitados ou desabilitados, mantendo padrões consistentes de uso. Com os estilos habilitados, permitir ampla personalização e padronização visual entre os componentes.
+
 ## P6. Placar
 
 - [x] `bun run scorecard`: número de testes, tamanho minificado, o que ainda some sem aviso e pendências desta lista.

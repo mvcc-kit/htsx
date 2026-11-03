@@ -30,6 +30,7 @@
 8. **Documentação junto com o código, numa fonte só.** Mudou a API pública: atualize `SKILL.md` e rode `bun run docs` (gera `llms.txt`) no mesmo commit. `__tests__/docs.test.ts` compila e roda cada bloco `ts`/`tsx` de `SKILL.md` e `README.md`, e falha se `llms.txt` estiver desatualizado.
 9. **Lógica separada da implementação.** A lógica do app (`src/app/`: rotas, load, ações, hooks, erros) só conhece `Request → Response` e não importa adaptadores nem build. Cada modo de entrega (estático, Cloudflare Workers) fica em `src/adapters/`, e o código de build em `src/build/`. O que roda no Worker não usa `node:*` além de `node:async_hooks`. `__tests__/layers.test.ts` confere as duas coisas. Modo novo = adaptador novo, sem mexer em `src/app/`.
 10. **Código em inglês.** Identificadores, nomes de arquivo, rotas e exemplos em inglês (`list`, nunca `lista`). Comentários, documentação e mensagens de erro ficam em português.
+11. **O que a IA acrescenta precisa ser perguntado.** "Isso, perfeito" aprova o que o dono pediu, não o que a IA acrescentou ao plano. Sugerir é bem-vindo: diga o que foi acrescentado, separado do que ele pediu, e pergunte se ele quer ou não. Regra, limite ou número criado pela IA não vira decisão do dono sem essa resposta, nem bloqueia um pedido dele.
 
 ## Antes de terminar
 
