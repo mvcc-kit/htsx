@@ -1,7 +1,7 @@
 {
   "index.ts": {
-    "maxBytes": 30000,
-    "motivo": "02/11/2026: núcleo + Navigation + coletor de /meta = cerca de 28.700 bytes; folga de ~4%"
+    "maxBytes": 32000,
+    "motivo": "03/11/2026: núcleo + Navigation (com parciais em arquivo) + coletor de /meta = cerca de 30.800 bytes; folga de ~4%"
   },
   "store.ts": {
     "maxBytes": 1500,

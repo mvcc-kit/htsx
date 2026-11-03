@@ -90,12 +90,11 @@ export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
 }
 
 /**
- * Padrão do <Head>: mesma transição da navegação, sem cópia de páginas no aparelho, sem `eval` no
+ * Padrão do <Head>: sem cópia de páginas no aparelho, sem `eval` no
  * navegador (`hx-on` precisa de `allowEval: true`) e com a resposta de `fail()` aparecendo na tela,
  * porque o htmx não troca o conteúdo em erro 4xx por padrão.
  */
 export const DEFAULT_HTMX_CONFIG = {
-  globalViewTransitions: true,
   historyCacheSize: 0,
   allowEval: false,
   responseHandling: [

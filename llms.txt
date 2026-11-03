@@ -655,14 +655,16 @@ export const app = defineApp({
 Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteúdo:
 
 - **Com servidor:** a resposta traz só a página e o título, sem renderizar o layout.
-- **Em site estático:** o arquivo inteiro chega, e o cliente usa só o trecho do `Outlet`.
+- **Em site estático:** o build gera cada parcial em `/_htsx/partial/...`, e o navegador baixa só ele, sem mudar a URL. Se o arquivo faltar, cai para a navegação completa. O hospedeiro precisa servir `/x` a partir de `x.html`. Não ponha cache permanente nessa pasta.
+- **Só o `Outlet` anima:** o resto da página fica parado, e um `hx-get` interno troca só o alvo dele.
+- **O que fica dentro do `Outlet` é o que muda:** quanto menor o trecho, menor o parcial.
 - `hx-get` dentro da página continua funcionando como antes.
 - **`hx-boost` também captura formulários.** Um formulário enviado por JavaScript precisa de `hx-boost="false"`; sem isso, os campos de um GET vão parar na URL.
 - Erro ou resposta sem `Outlet` (como rota com layout próprio) cai para a navegação completa. Voltar e avançar funcionam.
 - **Cada página precisa do próprio `<Title>`:** sem ele, o título da página anterior continua.
 - **O que fica fora do `Outlet` não muda na navegação.** Se depender da página (como o idioma ou o link ativo), ponha dentro dele.
 - **Script de uma página específica vai dentro do conteúdo**, não no `<head>`: o `<head>` não é trocado. Evite `type="module"`, porque o navegador não o executa de novo.
-- Padrão do htmx no `<Head>`: `globalViewTransitions: true`; `historyCacheSize: 0`, para não deixar cópias de páginas no `localStorage`; `allowEval: false`, então `hx-on` pede `htmx={{ allowEval: true }}`; e `400` e `422` aparecem na tela, para o `fail()` funcionar.
+- Padrão do htmx no `<Head>`: `historyCacheSize: 0`, para não deixar cópias de páginas no `localStorage`; `allowEval: false`, então `hx-on` pede `htmx={{ allowEval: true }}`; e `400` e `422` aparecem na tela, para o `fail()` funcionar.
 - CSP estrita: o Alpine padrão precisa de `unsafe-eval`, e o htmx, de `includeIndicatorStyles: false`.
 
 ---

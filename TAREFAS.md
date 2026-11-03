@@ -89,7 +89,7 @@ Testes em `__tests__/hardening.test.tsx`.
 - [x] `htsx/kit` e `partial()`: componente tipado com URL própria (`?/name`), `+name.partial.tsx`, `input` com Standard Schema, `guard` e `load` dos layouts antes do parcial.
 - [x] `event.htmx`: leitura do pedido e comandos da resposta.
 - [x] `<Head>` mais seguro por padrão: `allowEval: false`, e `fail()` com 400 ou 422 aparece na tela.
-- [ ] Pré-carregar links com `hx-boost` ao passar o mouse.
+- [x] Parciais em arquivo no build estático, com pré-carregamento ao passar o mouse.
 - [ ] `HX-Location` no lugar de `HX-Redirect` em `redirect()` dentro de um layout com `Outlet`.
 - [ ] Morph (`idiomorph`), para manter foco e estado do Alpine na troca. Exige copiar mais uma biblioteca para `vendor/`.
 

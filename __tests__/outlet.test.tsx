@@ -4,10 +4,13 @@ import path from 'node:path'
 import { renderPage, renderToString, VENDOR_PATH } from '../index'
 import { Head, Outlet, Title } from '../meta'
 import { defineApp, route } from '../app'
+import { buildStatic } from '../adapter-static'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { fileServer } from '../src/build/files'
 import { DEFAULT_HTMX_CONFIG, resolveAlpineOptions, resolveHtmxConfig } from '../src/meta/logic'
 import { navigationJs } from '../src/navigation'
-import { OUTLET_ID, wantsOutlet } from '../src/outlet'
+import { OUTLET_ID, PARTIALS_PATH, wantsOutlet } from '../src/outlet'
 import { findChrome, open, type App } from '../testing'
 
 describe('regras do <Head>', () => {
@@ -30,7 +33,7 @@ describe('<Head>', () => {
 
   it('por padrão traz charset, viewport, htmx, Alpine e navegação do VENDOR_PATH', async () => {
     const html = await render(<Head />)
-    for (const part of ['<meta charset="utf-8">', 'name="viewport"', `${VENDOR_PATH}htmx.min.js`, `${VENDOR_PATH}alpine.min.js`, `${VENDOR_PATH}htsx-nav.js`, 'globalViewTransitions']) {
+    for (const part of ['<meta charset="utf-8">', 'name="viewport"', `${VENDOR_PATH}htmx.min.js`, `${VENDOR_PATH}alpine.min.js`, `${VENDOR_PATH}htsx-nav.js`, 'historyCacheSize']) {
       expect(html).toContain(part)
     }
     expect(html.indexOf('charset')).toBeLessThan(html.indexOf('<script'))
@@ -181,3 +184,96 @@ for (const mode of ['servidor', 'estático'] as const) {
     })
   })
 }
+
+describe('parciais em arquivo no build estático', () => {
+  let dir: string
+  const build = async (withOutlet: boolean) => {
+    const Layout = ({ children }: { children?: unknown }) => (
+      <html><Head alpine={false} /><body hx-boost="true"><nav id="menu"><a href="/a">A</a> <a href="/b?x=1">B</a> <a href="/quebrada">Quebrada</a></nav>{withOutlet ? <Outlet>{children as string}</Outlet> : children as string}</body></html>
+    )
+    const app = defineApp({
+      prerender: true,
+      layout: Layout,
+      routes: [
+        route('/a', { page: () => <main><Title>Página A</Title><h1>Conteúdo A</h1></main> }),
+        route('/b', { page: () => <main><Title>Página B</Title><h1>Conteúdo B</h1></main> }),
+        route('/quebrada', { page: () => <main><Title>Quebrada</Title><h1>Página completa</h1></main> }),
+      ],
+    })
+    return buildStatic(app, { root: dir, outDir: withOutlet ? 'com' : 'sem', vendor: true, fallback: false })
+  }
+  beforeAll(async () => { dir = await mkdtemp(path.join(tmpdir(), 'htsx-partials-')) })
+  afterAll(() => rm(dir, { recursive: true, force: true }))
+  const read = (f: string) => Bun.file(path.join(dir, f)).text()
+
+  it('gera o parcial só com o conteúdo e o título', async () => {
+    const { files } = await build(true)
+    expect(files).toContain(`${PARTIALS_PATH}/a`)
+    expect(await read('com/_htsx/partial/a.html')).toBe(`<title>Página A</title><div id="${OUTLET_ID}"><main><h1>Conteúdo A</h1></main></div>`)
+  })
+
+  it('a página completa avisa onde estão os parciais', async () => {
+    const html = await read('com/a.html')
+    expect(html).toContain(`<meta name="htsx-partials" content="${PARTIALS_PATH}">`)
+    expect(html).not.toContain('htsx-meta')
+  })
+
+  it('sem Outlet, nenhum parcial', async () => {
+    const { files } = await build(false)
+    expect(files.filter(f => f.startsWith(PARTIALS_PATH))).toEqual([])
+    expect(await read('sem/a.html')).not.toContain('htsx-partials')
+  })
+
+  describe.skipIf(!findChrome())('no Chrome real', () => {
+    let chrome: App
+    const requests: string[] = []
+    beforeAll(async () => {
+      await build(true)
+      await rm(path.join(dir, 'com/_htsx/partial/quebrada.html'))
+      const files = fileServer(path.join(dir, 'com'), { html: true })
+      chrome = await open(req => {
+        requests.push(new URL(req.url).pathname + new URL(req.url).search)
+        return files(req) ?? new Response('nao existe', { status: 404 })
+      }, '/a')
+    })
+    afterAll(async () => { await chrome?.close() })
+    const ev = <T,>(e: string) => chrome.evaluate<T>(e)
+
+    it('baixa só o parcial; a URL, o título e o resto da página ficam certos', async () => {
+      await ev(`(window.__same = document.getElementById('menu'), window.__head = document.head)`).catch(() => {})
+      requests.length = 0
+      await chrome.press('text:B')
+      await chrome.waitFor('text:Conteúdo B')
+      for (let i = 0; i < 100 && (await ev<string>('document.title')) !== 'Página B'; i++) await Bun.sleep(10)
+      // o pré-carregamento pode pedir o mesmo parcial; a página inteira, nunca
+      expect([...new Set(requests.filter(r => !r.startsWith('/_htsx/vendor') && r !== '/favicon.ico'))]).toEqual([`${PARTIALS_PATH}/b?x=1`])
+      expect(await ev<string>('location.pathname + location.search')).toBe('/b?x=1')
+      expect(await ev<string>('document.title')).toBe('Página B')
+      expect(await ev<boolean>(`window.__same === document.getElementById('menu') && window.__head === document.head`)).toBe(true)
+    })
+
+    it('voltar traz a página anterior pela URL real', async () => {
+      requests.length = 0
+      await ev('history.back()')
+      await chrome.waitFor('text:Conteúdo A')
+      expect(await ev<string>('location.pathname')).toBe('/a')
+      expect(requests).toContain('/a')
+    })
+
+    it('parcial que falta cai para a navegação completa na URL real', async () => {
+      await chrome.press('text:Quebrada')
+      let path = ''
+      for (let i = 0; i < 300 && path !== '/quebrada'; i++) {
+        path = await ev<string>('location.pathname').catch(() => '')
+        await Bun.sleep(10)
+      }
+      expect(path).toBe('/quebrada')
+      await chrome.waitFor('text:Página completa')
+    })
+  })
+})
+
+it('só a navegação anima: hx-get dentro da página não vira transição da página inteira', () => {
+  expect(DEFAULT_HTMX_CONFIG).not.toHaveProperty('globalViewTransitions')
+  expect(navigationJs).toContain('transition:true')
+})

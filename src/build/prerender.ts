@@ -2,6 +2,7 @@
 // das páginas geradas, como o SvelteKit. Compartilhado pelos adaptadores estático e Cloudflare.
 import type { App, Route } from '../app/app'
 import { matchRoute, resolveRoute } from '../app/routing'
+import { OUTLET_ID, PARTIALS_PATH } from '../outlet'
 
 export interface PrerenderOptions {
   /** Origem usada nas requisições de build. Padrão `http://localhost`. */
@@ -106,6 +107,19 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
     }
     const body = new Uint8Array(await res.arrayBuffer())
     files.push({ path, file: outputFile(path, isHtml, slash), body, contentType })
+    // Página com <Outlet> no layout do app: o parcial vira arquivo, porque o host estático ignora cabeçalhos.
+    if (isHtml && r.def.layout === undefined && new TextDecoder().decode(body).includes(`id="${OUTLET_ID}"`)) {
+      const partial = await app.respond(new Request(origin + requestPath, {
+        headers: { accept: 'text/html,*/*', 'hx-request': 'true', 'hx-boosted': 'true', 'hx-target': OUTLET_ID },
+      }), { prerendering: true })
+      if (partial.status !== 200) problems.push(`parcial de ${path} respondeu ${partial.status}`)
+      else files.push({
+        path: PARTIALS_PATH + path,
+        file: `${PARTIALS_PATH.slice(1)}/${outputFile(path, true, slash)}`,
+        body: new Uint8Array(await partial.arrayBuffer()),
+        contentType,
+      })
+    }
     if (isHtml) for (const link of await links(new TextDecoder().decode(body), origin + path, origin)) enqueue(link, path)
   }
 

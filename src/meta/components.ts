@@ -6,7 +6,7 @@ import { escapeAttr } from '../escape'
 import type { Children } from '../jsx-types'
 import { collect } from './collector'
 import { linkKey, metaKey, resolveAlpineOptions, resolveHtmxConfig, TITLE_KEY, type Attrs } from './logic'
-import { OUTLET_ID } from '../outlet'
+import { isPrerendering, OUTLET_ID, PARTIALS_PATH } from '../outlet'
 import { VENDOR_PATH } from '../vendor-path'
 
 type Rendered = HtmlSafeString | Promise<HtmlSafeString>
@@ -78,5 +78,8 @@ export function Head(props: HeadProps = {}): Rendered {
 
 /** Onde o conteúdo fica no layout. Com `hx-boost` no `<body>`, a navegação troca só este trecho. */
 export function Outlet(props: { children?: Children }): Rendered {
-  return jsx('div', { id: OUTLET_ID, children: props.children })
+  const outlet = jsx('div', { id: OUTLET_ID, children: props.children })
+  if (!isPrerendering()) return outlet
+  return Promise.all([place('partials', raw(`<meta name="htsx-partials" content="${PARTIALS_PATH}">`)), outlet])
+    .then(([marker, html]) => raw(String(marker) + String(html)))
 }

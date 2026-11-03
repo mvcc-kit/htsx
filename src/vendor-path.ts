@@ -4,7 +4,7 @@ import pins from '../vendor/pins.json'
 
 // sha256 de `navigationCss + navigationJs`: sem importar os textos, que não precisam ir para o Worker.
 // Conferido em __tests__/navigation.test.tsx; se mudar, o caminho muda e o cache immutable não fica velho.
-export const NAVIGATION_SHA256 = '18f16fce998ff604379698c6ee0e32503cd5897e0232862668d133c33bd150a0'
+export const NAVIGATION_SHA256 = '359942fc469570555aaa0aacc9d00e9fd5b01c7af60dc75279ae48a7e42c85a5'
 
 function fnv1a(s: string): string {
   let h = 0x811c9dc5

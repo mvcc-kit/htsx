@@ -2,6 +2,13 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.2-beta.1 (03/11/2026)
+
+- **Parciais de verdade no site estático:** o build gera cada parcial em `/_htsx/partial/...`, e a navegação baixa só ele, em vez do arquivo inteiro. Se o arquivo faltar, cai para a navegação completa.
+- **Só o `Outlet` anima:** antes, a transição atuava na página inteira.
+- **`hx-get` interno não anima mais a página:** o `<Head>` deixa de ligar `globalViewTransitions`; a navegação por boost continua animada.
+- Pré-carregamento ao passar o mouse volta a funcionar com `hx-boost`, quando há parcial em arquivo.
+
 ## 0.4.1-beta.1 (02/11/2026)
 
 **Atualize:** esta versão corrige falhas de segurança.
