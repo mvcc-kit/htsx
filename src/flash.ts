@@ -9,19 +9,15 @@
  * - Cookie config separado do payload (dev escolhe path/maxAge/secure)
  */
 
-const ENCODER = new TextEncoder()
-const DECODER = new TextDecoder()
-const MIN_SECRET_LENGTH = 32
-
-// RFC 6265 §4.1.1 — cookie-name = token (visible ASCII, no separators/CTLs)
-const VALID_COOKIE_NAME_RE = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/
+import { b64UrlToText, hmacSha256, isStrongSecret, MIN_SECRET_LENGTH, textToB64Url, timingSafeEqual } from './crypto'
+import { COOKIE_NAME, UNSAFE_COOKIE_ATTR } from './patterns'
 
 function assertCookieAttr(attr: string, text: string | undefined): void {
-  if (text !== undefined && /[;\r\n]/.test(text)) throw new Error(`flash: ${attr} não pode ter ";" nem quebra de linha`)
+  if (text !== undefined && UNSAFE_COOKIE_ATTR.test(text)) throw new Error(`flash: ${attr} não pode ter ";" nem quebra de linha`)
 }
 
 function assertCookieName(name: string): void {
-  if (!VALID_COOKIE_NAME_RE.test(name)) {
+  if (!COOKIE_NAME.test(name)) {
     throw new Error(`flash: invalid cookie name "${name}" — must be RFC 6265 token`)
   }
 }
@@ -36,48 +32,6 @@ export interface FlashMessage {
 
 export interface FlashSecret {
   secret: string
-}
-
-/**
- * base64url-encode de string Unicode arbitrária.
- * btoa() só aceita Latin-1; pra UTF-8 precisamos passar pelos bytes do encoder.
- */
-function b64UrlEncode(s: string): string {
-  const bytes = ENCODER.encode(s)
-  let bin = ''
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-/** Inverso de b64UrlEncode: retorna a string UTF-8 original. */
-function b64UrlDecode(s: string): string {
-  const pad = (4 - (s.length % 4)) % 4
-  const padded = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(pad)
-  const bin = atob(padded)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return DECODER.decode(bytes)
-}
-/** Helper interno: bytes brutos → b64url (usado pra sig HMAC). */
-function bytesToB64Url(bytes: Uint8Array): string {
-  let bin = ''
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]!)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-async function hmac(key: string, data: string): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw', ENCODER.encode(key),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, ENCODER.encode(data))
-  return bytesToB64Url(new Uint8Array(sig))
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return diff === 0
 }
 
 const VALID_TYPES: ReadonlySet<FlashType> = new Set(['success', 'error', 'info', 'warning'])
@@ -109,30 +63,30 @@ export interface CookieOpts {
 export const flash = {
   /** Serializa mensagens em token assinado. */
   async serialize(messages: FlashMessage[], opts: FlashSecret): Promise<string> {
-    if (typeof opts.secret !== 'string' || opts.secret.length < MIN_SECRET_LENGTH) {
+    if (!isStrongSecret(opts.secret)) {
       throw new Error(`flash: secret mínimo ${MIN_SECRET_LENGTH} chars`)
     }
     if (!Array.isArray(messages)) throw new Error('flash: messages deve ser array')
     const sanitized = messages.filter(isValidMessage)
-    const payload = b64UrlEncode(JSON.stringify(sanitized))
-    const sig = await hmac(opts.secret, payload)
+    const payload = textToB64Url(JSON.stringify(sanitized))
+    const sig = await hmacSha256(opts.secret, payload)
     return `${payload}.${sig}`
   },
 
   /** Parse + valida + filtra. Retorna [] em qualquer erro (não throw). */
   async parse(token: unknown, opts: FlashSecret): Promise<FlashMessage[]> {
     if (typeof token !== 'string' || !token) return []
-    if (typeof opts.secret !== 'string' || opts.secret.length < MIN_SECRET_LENGTH) return []
+    if (!isStrongSecret(opts.secret)) return []
 
     const parts = token.split('.')
     if (parts.length !== 2) return []
     const [payload, sig] = parts as [string, string]
 
-    const expected = await hmac(opts.secret, payload)
+    const expected = await hmacSha256(opts.secret, payload)
     if (!timingSafeEqual(sig, expected)) return []
 
     try {
-      const json = b64UrlDecode(payload)
+      const json = b64UrlToText(payload)
       const parsed = JSON.parse(json)
       if (!Array.isArray(parsed)) return []
       return parsed.filter(isValidMessage)

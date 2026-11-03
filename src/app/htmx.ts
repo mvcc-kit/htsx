@@ -1,6 +1,5 @@
 // `event.htmx`: o que o htmx mandou no pedido e o que a resposta manda ele fazer.
-import { HX_HEADERS } from '../htmx-headers'
-import { triggerHeader } from '../htmx-headers'
+import { HX_HEADERS, HX_REQUEST, triggerHeader } from '../htmx-headers'
 import { safeUrl } from '../safe-url'
 
 export interface HtmxContext {
@@ -39,12 +38,12 @@ export function createHtmxContext(request: Headers, response: Headers): HtmxCont
     response.set(name, url)
   }
   return {
-    get request() { return request.get('hx-request') === 'true' },
-    get boosted() { return request.get('hx-boosted') === 'true' },
-    get historyRestore() { return request.get('hx-history-restore-request') === 'true' },
-    get target() { return request.get('hx-target') },
-    get triggeredBy() { return request.get('hx-trigger') },
-    get currentUrl() { return request.get('hx-current-url') },
+    get request() { return request.get(HX_REQUEST.Request) === 'true' },
+    get boosted() { return request.get(HX_REQUEST.Boosted) === 'true' },
+    get historyRestore() { return request.get(HX_REQUEST.HistoryRestore) === 'true' },
+    get target() { return request.get(HX_REQUEST.Target) },
+    get triggeredBy() { return request.get(HX_REQUEST.Trigger) },
+    get currentUrl() { return request.get(HX_REQUEST.CurrentUrl) },
     trigger(name, detail = null) {
       events[name] = detail
       response.set(HX_HEADERS.Trigger, triggerHeader(events))

@@ -47,7 +47,7 @@ describe('camadas', () => {
     expect(await violations(runtime, isNodeOnly)).toEqual([])
   })
 
-  for (const file of ['src/meta/logic.ts', 'src/app/partial-logic.ts']) {
+  for (const file of ['src/meta/logic.ts', 'src/app/partial-logic.ts', 'src/app/request.ts', 'src/adapters/compression.ts', 'src/patterns.ts']) {
     it(`as regras de ${file} não importam nada`, async () => {
       expect(imports(file, await Bun.file(path.join(ROOT, file)).text())).toEqual([])
     })

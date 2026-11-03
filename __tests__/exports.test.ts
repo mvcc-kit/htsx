@@ -21,7 +21,7 @@ describe('package.json exports', () => {
 
   it('todo .ts de entrada na raiz está nos exports', async () => {
     const targets = new Set(Object.values(pkg.exports))
-    const notEntries = new Set(['build.ts'])
+    const notEntries = new Set<string>()
     for await (const f of new Bun.Glob('*.ts').scan({ cwd: ROOT })) {
       if (f.endsWith('.d.ts') || notEntries.has(f)) continue
       expect(targets.has(`./${f}`), `${f} não está em package.json exports`).toBe(true)

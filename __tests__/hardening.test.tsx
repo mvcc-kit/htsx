@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { createElement as h, csrf, defineEvents, flash, htmxResponse, inspector, OOB, raw, renderToString, resolveSuspense, sseEvent, sseResponse, Suspense, suspenseRegistry, withContext } from '../index'
+import { createElement as h, csrf, defineEvents, ErrorBoundary, flash, htmxResponse, inspector, OOB, raw, renderToString, resolveSuspense, sseEvent, sseResponse, Suspense, suspenseRegistry, withContext } from '../index'
 import { defineApp, redirect, route } from '../app'
 import { createCookies } from '../src/app/cookies'
 import { createHtmxContext } from '../src/app/htmx'
@@ -114,6 +114,15 @@ describe('OOB', () => {
     expect(await renderToString(() => OOB({ target: 'a', children: [raw('<b>1</b>'), raw('<b>2</b>')] }))).toBe('<div id="a" hx-swap-oob="true"><b>1</b><b>2</b></div>')
     expect(await renderToString(() => OOB({ target: 'a', children: Promise.resolve(raw('<b>1</b>')) }))).toBe('<div id="a" hx-swap-oob="true"><b>1</b></div>')
     expect(await renderToString(() => OOB({ target: 'a', children: '<script>' }))).toContain('&lt;script&gt;')
+  })
+})
+
+describe('ErrorBoundary', () => {
+  it('fallback aceita lista, sem virar texto escapado; texto continua escapado', async () => {
+    const Boom = () => { throw new Error('x') }
+    const render = (fallback: () => unknown) => renderToString(() => ErrorBoundary({ fallback, children: (() => { try { return Boom() } catch (e) { return Promise.reject(e) } })() }))
+    expect(await render(() => [raw('<i>a</i>'), raw('<i>b</i>')])).toBe('<i>a</i><i>b</i>')
+    expect(await render(() => '<b>')).toBe('&lt;b&gt;')
   })
 })
 

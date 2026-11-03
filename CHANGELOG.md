@@ -2,6 +2,18 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.6-beta.1 (03/11/2026)
+
+Qualidade de código:
+
+- **Sem duplicação:** base64url, HMAC e comparação segura ficam em `src/crypto.ts`; nomes de cookie e de evento, em `src/patterns.ts`; cabeçalhos de pedido do htmx, em `HX_REQUEST`.
+- **Lógica separada:** regras de requisição em `src/app/request.ts`, sem imports, e montagem de resposta em `src/app/response.ts`, ambas testadas sozinhas.
+- Sai `build.ts`, que publicava no npm: a distribuição é pelo GitHub.
+
+**Mudança incompatível:** `<Form>` não aceita mais `errors` e `values`. Antes eles eram recebidos e descartados em silêncio. Use `<Field error value>` ou `formContext()`.
+
+Correção: `ErrorBoundary` com `fallback` em lista saía como texto escapado.
+
 ## 0.4.5-beta.1 (03/11/2026)
 
 Performance, medida com `bun run bench`:

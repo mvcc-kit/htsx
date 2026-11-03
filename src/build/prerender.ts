@@ -2,6 +2,7 @@
 // das páginas geradas, como o SvelteKit. Compartilhado pelos adaptadores estático e Cloudflare.
 import type { App, Route } from '../app/app'
 import { matchRoute, resolveRoute } from '../app/routing'
+import { HX_REQUEST } from '../htmx-headers'
 import { OUTLET_ID, PARTIALS_PATH } from '../outlet'
 
 export interface PrerenderOptions {
@@ -107,18 +108,10 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
     }
     const body = new Uint8Array(await res.arrayBuffer())
     files.push({ path, file: outputFile(path, isHtml, slash), body, contentType })
-    // Página com <Outlet> no layout do app: o parcial vira arquivo, porque o host estático ignora cabeçalhos.
     if (isHtml && r.def.layout === undefined && new TextDecoder().decode(body).includes(`id="${OUTLET_ID}"`)) {
-      const partial = await app.respond(new Request(origin + requestPath, {
-        headers: { accept: 'text/html,*/*', 'hx-request': 'true', 'hx-boosted': 'true', 'hx-target': OUTLET_ID },
-      }), { prerendering: true })
-      if (partial.status !== 200) problems.push(`parcial de ${path} respondeu ${partial.status}`)
-      else files.push({
-        path: PARTIALS_PATH + path,
-        file: `${PARTIALS_PATH.slice(1)}/${outputFile(path, true, slash)}`,
-        body: new Uint8Array(await partial.arrayBuffer()),
-        contentType,
-      })
+      const partial = await prerenderPartial(app, origin + requestPath, path, slash, contentType)
+      if (typeof partial === 'string') problems.push(partial)
+      else files.push(partial)
     }
     if (isHtml) for (const link of await links(new TextDecoder().decode(body), origin + path, origin)) enqueue(link, path)
   }
@@ -131,6 +124,20 @@ export async function prerender(app: App, opts: PrerenderOptions = {}): Promise<
   if (problems.length) throw new Error(`htsx: prerender falhou:\n${problems.map(p => `  - ${p}`).join('\n')}`)
 
   return { files, redirects, dynamic: app.routes.filter(r => !isPrerenderable(app, r)) }
+}
+
+/** O parcial da página com <Outlet> vira arquivo, porque o host estático ignora cabeçalhos. Texto: o problema. */
+async function prerenderPartial(app: App, url: string, path: string, slash: 'never' | 'always', contentType: string): Promise<PrerenderedFile | string> {
+  const res = await app.respond(new Request(url, {
+    headers: { accept: 'text/html,*/*', [HX_REQUEST.Request]: 'true', [HX_REQUEST.Boosted]: 'true', [HX_REQUEST.Target]: OUTLET_ID },
+  }), { prerendering: true })
+  if (res.status !== 200) return `parcial de ${path} respondeu ${res.status}`
+  return {
+    path: PARTIALS_PATH + path,
+    file: `${PARTIALS_PATH.slice(1)}/${outputFile(path, true, slash)}`,
+    body: new Uint8Array(await res.arrayBuffer()),
+    contentType,
+  }
 }
 
 /** Links internos (`<a href>`) de uma página, sem query nem âncora. */

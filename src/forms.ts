@@ -3,16 +3,13 @@
  * Funções puras — recebem `errors` e `values` via props, não lêem global.
  */
 
+import { maybeContext } from './context'
 import { jsx, HtmlSafeString } from './jsx-runtime'
 
 export interface FormProps {
   action?: string
   method?: 'get' | 'post' | 'dialog'
-  /** Mapa de erros por field name. Renderiza abaixo do input. */
-  errors?: Record<string, string | string[]>
-  /** Valores prévios pra repopular. */
-  values?: Record<string, string | number | boolean | null | undefined>
-  /** CSRF token — se passado, injeta `<input name="_csrf">`. */
+  /** Token CSRF: se passado, entra como `<input type="hidden">`. */
   csrf?: string
   /** Nome do campo CSRF. Default '_csrf'. */
   csrfName?: string
@@ -20,13 +17,6 @@ export interface FormProps {
   [key: string]: unknown
   children?: unknown
 }
-
-// Symbol pra propagar errors/values via context implícito (sem ALS — usamos
-// closure no <Field>, então propagamos via prop manualmente OU via ctx).
-// Pra manter simples: <Field> recebe os mesmos props que <Form> via wrapper.
-// Solução: expor FormContext que <Field> lê.
-
-import { maybeContext } from './context'
 
 const FORM_CTX = Symbol.for('htsx.form_ctx')
 
@@ -40,49 +30,24 @@ interface CtxWithForm {
 }
 
 function getFormCtx(): FormCtxState | null {
-  const ctx = maybeContext<CtxWithForm>()
-  return ctx?.[FORM_CTX] ?? null
+  return maybeContext<CtxWithForm>()?.[FORM_CTX] ?? null
 }
 
 /**
- * <Form>. Componente raiz que registra errors/values no context pra <Field> ler.
- * Renderiza CSRF field automaticamente se `csrf` passado.
+ * <form> com o campo CSRF. Erros e valores chegam a cada <Field> pela prop `error`/`value`
+ * ou por `formContext()` no contexto do render: o JSX monta os filhos antes do pai,
+ * então o <Form> não teria como passá-los.
  */
-export async function Form({
+export function Form({
   action,
   method = 'post',
-  errors,
-  values,
   csrf,
   csrfName = '_csrf',
   children,
   ...rest
-}: FormProps): Promise<HtmlSafeString> {
-  // Strategy: <Form> emite tag manual + insere FormCtx via "wrapper string"
-  // que <Field> detecta. Mas como SSR é stateless, vamos por outro caminho:
-  // <Field> EXIGE ser usado dentro de um withFormContext wrapper.
-
-  // Pra simplificar: <Form> aceita uma função-children que recebe { Field }
-  // OU os Fields explicitamente recebem errors/values via prop.
-  // Vamos pela 2ª: <Field error={errors.x} value={values.x} ... />
-  // É mais explícito, sem mágica.
-
-  // No entanto, pra DX, registramos no context se houver:
-  // Apenas useful se renderizar com context já configurado.
-
-  const formChildren: unknown[] = []
-  if (csrf) {
-    formChildren.push(
-      jsx('input', { type: 'hidden', name: csrfName, value: csrf }),
-    )
-  }
-  formChildren.push(children)
-
-  // Marca props desconhecidas (errors/values não devem ir pro DOM)
-  void errors
-  void values
-
-  return jsx('form', { action, method, ...rest, children: formChildren }) as Promise<HtmlSafeString> | HtmlSafeString as HtmlSafeString
+}: FormProps): HtmlSafeString | Promise<HtmlSafeString> {
+  const hidden = csrf ? jsx('input', { type: 'hidden', name: csrfName, value: csrf }) : null
+  return jsx('form', { action, method, ...rest, children: [hidden, children] })
 }
 
 /**

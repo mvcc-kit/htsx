@@ -7,7 +7,9 @@ import { cacheContext } from '../cache'
 import { withMeta } from '../meta/collector'
 import { OUTLET_ID, wantsOutlet } from '../outlet'
 import { createHtmxContext, type HtmxContext } from './htmx'
-import { etagMatches, weakEtag } from './etag'
+import { HX_REQUEST } from '../htmx-headers'
+import { canonicalPath, isCrossSiteForm, routePath, secureCookiesByDefault, wantsHtml, wantsJsonOnly } from './request'
+import { htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
 import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
@@ -176,7 +178,6 @@ export function sequence(...handlers: Handle[]): Handle {
   }
 }
 
-const FORM_TYPES = ['application/x-www-form-urlencoded', 'multipart/form-data', 'text/plain']
 
 const renderNode = toHtml
 
@@ -206,8 +207,7 @@ export function defineApp(options: AppOptions): App {
   }
 
   async function errorResponse(event: RequestEvent, status: number, message: string, headers: Headers): Promise<Response> {
-    const accept = event.request.headers.get('accept') ?? ''
-    if (accept.includes('application/json') && !accept.includes('text/html')) {
+    if (wantsJsonOnly(event.request.headers.get('accept'))) {
       return Response.json({ message }, { status, headers })
     }
     const errorPage = routes.find(r => r.id === event.route.id)?.def.errorPage ?? options.errorPage
@@ -238,7 +238,7 @@ export function defineApp(options: AppOptions): App {
     })
     headers.set('content-type', 'text/html; charset=utf-8')
     if (layout) headers.append('vary', partial ? 'HX-Request, HX-Target' : 'HX-Request')
-    return htmlResponse(event, html, status, headers)
+    return htmlResponse(event.request, html, status, headers)
   }
 
   async function runAction(route: Route, event: RequestEvent, headers: Headers): Promise<Response> {
@@ -270,12 +270,12 @@ export function defineApp(options: AppOptions): App {
         headers.set('content-type', 'text/html; charset=utf-8')
         // pedaço de página: não deve aparecer em buscadores
         headers.set('x-robots-tag', 'noindex')
-        const res = await htmlResponse(event, html, 200, headers)
+        const res = await htmlResponse(event.request, html, 200, headers)
         return method === 'HEAD' ? new Response(null, res) : res
       }
     }
     const endpoint = def[method === 'HEAD' ? 'GET' : method as Method]
-    if (endpoint && !(method === 'GET' && def.page && wantsHtml(event.request))) {
+    if (endpoint && !(method === 'GET' && def.page && wantsHtml(event.request.headers.get('accept')))) {
       const res = mergeHeaders(await endpoint(event), headers)
       return method === 'HEAD' ? new Response(null, res) : res
     }
@@ -293,15 +293,12 @@ export function defineApp(options: AppOptions): App {
     const url = new URL(request.url)
     const slash = options.trailingSlash ?? 'never'
     if (request.method === 'GET' || request.method === 'HEAD') {
-      const p = url.pathname
-      const fixed = p === '/' ? p : slash === 'never' && p.endsWith('/') ? p.replace(/\/+$/, '') : slash === 'always' && !p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p) ? p + '/' : p
-      // "//evil.com/" sem a barra final viraria "//evil.com", que o navegador lê como outro site
-      if (fixed !== p) return new Response(null, { status: 308, headers: { location: fixed.replace(/^\/{2,}/, '/') + url.search } })
+      const canonical = canonicalPath(url.pathname, slash)
+      if (canonical !== url.pathname) return new Response(null, { status: 308, headers: { location: canonical + url.search } })
     }
-    // barra no fim não muda a rota (POST para /contato/ casa com /contato)
-    const match = find(url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : url.pathname)
+    const match = find(routePath(url.pathname))
     const headers = new Headers()
-    const isHtmxReq = request.headers.get('hx-request') === 'true'
+    const isHtmxReq = request.headers.get(HX_REQUEST.Request) === 'true'
     let htmx: HtmxContext | undefined
     const event: RequestEvent = {
       request,
@@ -310,8 +307,7 @@ export function defineApp(options: AppOptions): App {
       route: { id: match?.route.id ?? null },
       locals: {},
       platform: opts.platform,
-      // Secure sempre, menos em http local (o navegador recusa cookie Secure em http)
-      cookies: createCookies(request, !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))),
+      cookies: createCookies(request, secureCookiesByDefault(url)),
       setHeaders(h) {
         for (const [k, v] of Object.entries(h)) {
           if (k.toLowerCase() === 'set-cookie') throw new Error('htsx: use event.cookies.set() em vez de setHeaders({ "set-cookie" })')
@@ -320,14 +316,20 @@ export function defineApp(options: AppOptions): App {
         }
       },
       prerendering: !!opts.prerendering,
-      isFragment: isHtmxReq && request.headers.get('hx-boosted') !== 'true' && request.headers.get('hx-history-restore-request') !== 'true',
+      isFragment: isHtmxReq && request.headers.get(HX_REQUEST.Boosted) !== 'true' && request.headers.get(HX_REQUEST.HistoryRestore) !== 'true',
       // Sob demanda: a maioria das rotas não usa.
       get htmx() { return (htmx ??= createHtmxContext(request.headers, headers)) },
       getClientAddress: opts.getClientAddress ?? (() => { throw new Error('htsx: getClientAddress() não está disponível nesta plataforma') }),
     }
 
     const csrf = options.csrf ?? {}
-    if ((csrf.checkOrigin ?? true) && isCsrfForbidden(request, url.origin, csrf.trustedOrigins ?? [])) {
+    if ((csrf.checkOrigin ?? true) && isCrossSiteForm({
+      method: request.method,
+      contentType: request.headers.get('content-type'),
+      origin: request.headers.get('origin'),
+      self: url.origin,
+      trusted: csrf.trustedOrigins ?? [],
+    })) {
       return new Response(`Envio de formulário ${request.method} entre sites bloqueado`, { status: 403 })
     }
 
@@ -351,7 +353,7 @@ export function defineApp(options: AppOptions): App {
     if (err instanceof Redirect) {
       headers.set('location', err.location)
       // htmx segue redirecionamento sozinho, mas troca só o alvo; HX-Redirect faz navegação completa
-      if (event.request.headers.get('hx-request') === 'true') headers.set('hx-redirect', err.location)
+      if (event.request.headers.get(HX_REQUEST.Request) === 'true') headers.set('hx-redirect', err.location)
       return new Response(null, { status: err.status, headers })
     }
     if (err instanceof HttpError) return errorResponse(event, err.status, err.message, headers)
@@ -374,72 +376,4 @@ export function defineApp(options: AppOptions): App {
   }
 }
 
-function wantsHtml(request: Request): boolean {
-  return (request.headers.get('accept') ?? '').includes('text/html')
-}
-
-function isCsrfForbidden(request: Request, self: string, trusted: string[]): boolean {
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) return false
-  const type = (request.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
-  if (type && !FORM_TYPES.includes(type)) return false
-  const origin = request.headers.get('origin')
-  return origin !== self && (!origin || !trusted.includes(origin))
-}
-
-/** Cabeçalhos de setHeaders entram também na resposta de um endpoint (cópia, se for imutável). */
-function mergeHeaders(res: Response, headers: Headers): Response {
-  let out: Response | undefined
-  headers.forEach((v, k) => {
-    out ??= new Response(res.body, res)
-    if (!out.headers.has(k)) out.headers.set(k, v)
-  })
-  return out ?? res
-}
-
-/** Valem para toda resposta do app, menos o que a rota já definiu. */
-export const DEFAULT_SECURITY_HEADERS: Readonly<Record<string, string>> = {
-  'x-content-type-options': 'nosniff',
-  'x-frame-options': 'SAMEORIGIN',
-  'referrer-policy': 'strict-origin-when-cross-origin',
-}
-
-function withSecurityHeaders(res: Response, custom: AppOptions['securityHeaders']): Response {
-  if (custom === false) return res
-  // Resposta criada aqui aceita mudança; a de fetch() é imutável e precisa de cópia.
-  let out = res
-  try {
-    applyDefaults(out.headers, custom)
-  } catch {
-    out = new Response(res.body, res)
-    applyDefaults(out.headers, custom)
-  }
-  return out
-}
-
-function applyDefaults(headers: Headers, custom: Record<string, string> | undefined): void {
-  for (const k in DEFAULT_SECURITY_HEADERS) if (!headers.has(k)) headers.set(k, DEFAULT_SECURITY_HEADERS[k]!)
-  if (custom) for (const k in custom) if (!headers.has(k)) headers.set(k, custom[k]!)
-}
-
-/** Página que não mudou vira 304: o `load` já rodou, mas o HTML não trafega de novo. */
-async function htmlResponse(event: RequestEvent, html: string, status: number, headers: Headers): Promise<Response> {
-  const method = event.request.method
-  if (status !== 200 || (method !== 'GET' && method !== 'HEAD') || headers.has('etag')) return new Response(html, { status, headers })
-  const etag = await weakEtag(html)
-  headers.set('etag', etag)
-  if (etagMatches(event.request.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers })
-  return new Response(html, { status, headers })
-}
-
-function withCookies(res: Response, cookies: string[]): Response {
-  if (!cookies.length) return res
-  let out = res
-  try {
-    for (const c of cookies) out.headers.append('set-cookie', c)
-  } catch {
-    out = new Response(res.body, res)
-    for (const c of cookies) out.headers.append('set-cookie', c)
-  }
-  return out
-}
 

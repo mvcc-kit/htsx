@@ -2,6 +2,7 @@
  * HTMX request detection — framework-agnostic.
  * Aceita Request padrão, Headers, ou qualquer objeto { headers: Headers }.
  */
+import { HX_REQUEST } from './htmx-headers'
 
 export type ReqLike = Request | Headers | { headers: Headers }
 
@@ -25,40 +26,40 @@ function getHeaders(r: ReqLike): Headers {
 
 /** `HX-Request: true` → request feita pelo HTMX (não navegação direta). */
 export function isHtmx(r: ReqLike): boolean {
-  return getHeaders(r).get('HX-Request') === 'true'
+  return getHeaders(r).get(HX_REQUEST.Request) === 'true'
 }
 
 /** `HX-Boosted: true` → request veio de link/form com hx-boost. */
 export function isBoosted(r: ReqLike): boolean {
-  return getHeaders(r).get('HX-Boosted') === 'true'
+  return getHeaders(r).get(HX_REQUEST.Boosted) === 'true'
 }
 
 /** ID do elemento target do request (ou null). */
 export function hxTarget(r: ReqLike): string | null {
-  return getHeaders(r).get('HX-Target')
+  return getHeaders(r).get(HX_REQUEST.Target)
 }
 
 /** ID do elemento que disparou o request. */
 export function hxTrigger(r: ReqLike): string | null {
-  return getHeaders(r).get('HX-Trigger')
+  return getHeaders(r).get(HX_REQUEST.Trigger)
 }
 
 /** Atributo name do elemento que disparou. */
 export function hxTriggerName(r: ReqLike): string | null {
-  return getHeaders(r).get('HX-Trigger-Name')
+  return getHeaders(r).get(HX_REQUEST.TriggerName)
 }
 
 /** URL atual do browser quando o request foi feito. */
 export function hxCurrentUrl(r: ReqLike): string | null {
-  return getHeaders(r).get('HX-Current-URL')
+  return getHeaders(r).get(HX_REQUEST.CurrentUrl)
 }
 
 /** Resposta do user em hx-prompt. */
 export function hxPrompt(r: ReqLike): string | null {
-  return getHeaders(r).get('HX-Prompt')
+  return getHeaders(r).get(HX_REQUEST.Prompt)
 }
 
 /** Indica se a request foi feita via History API restore (back/forward). */
 export function isHistoryRestore(r: ReqLike): boolean {
-  return getHeaders(r).get('HX-History-Restore-Request') === 'true'
+  return getHeaders(r).get(HX_REQUEST.HistoryRestore) === 'true'
 }

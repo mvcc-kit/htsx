@@ -1,5 +1,4 @@
-import { Fragment, HtmlSafeString, raw } from './jsx-runtime'
-import { escapeHtml } from './escape'
+import { Fragment, HtmlSafeString } from './jsx-runtime'
 
 export interface ErrorBoundaryProps {
   /**
@@ -37,12 +36,7 @@ export async function ErrorBoundary({
     } catch {
       // onError não pode quebrar a recovery
     }
-    const fb = await Promise.resolve(fallback(error))
-    // Safe-stringify: HtmlSafeString (JSX output) passes through;
-    // plain strings are escaped so fallback functions can't return raw HTML.
-    const fbStr = fb instanceof HtmlSafeString
-      ? String(fb)
-      : escapeHtml(String(fb ?? ''))
-    return raw(fbStr)
+    // mesmo caminho dos filhos: texto é escapado, e lista funciona
+    return await Fragment({ children: await fallback(error) })
   }
 }

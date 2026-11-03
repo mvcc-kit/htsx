@@ -71,6 +71,12 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P13. Qualidade de código (03/11/2026)
+
+- [x] `src/crypto.ts`, `src/patterns.ts`, `src/env.ts` e `HX_REQUEST`: uma definição só.
+- [x] `src/app/request.ts` e `src/app/response.ts`: regras fora de `app.ts`.
+- [x] `<Form>` sem props descartadas; sem `build.ts`; `ErrorBoundary` e `prerender` mais simples.
+
 ## P12. Performance (03/11/2026)
 
 - [x] `bun run bench`: benchmark reproduzível do render e de `respond`.

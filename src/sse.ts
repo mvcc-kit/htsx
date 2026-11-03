@@ -5,7 +5,7 @@
  *   <div hx-ext="sse" sse-connect="/progress" sse-swap="done">
  */
 
-const EVENT_NAME_RE = /^[a-zA-Z][\w:-]*$/
+import { EVENT_NAME } from './patterns'
 
 export interface SseEventOpts {
   /** Identificador do evento (event:). Default 'message'. */
@@ -26,7 +26,7 @@ export function sseEvent(
   opts: SseEventOpts = {},
 ): string {
   const name = opts.name ?? 'message'
-  if (!EVENT_NAME_RE.test(name)) {
+  if (!EVENT_NAME.test(name)) {
     throw new Error(`sseEvent: nome inválido "${name}"`)
   }
   if (opts.id !== undefined) {

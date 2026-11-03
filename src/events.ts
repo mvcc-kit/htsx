@@ -10,7 +10,7 @@
  * - Refactor (renomear evento) pega em compile time
  */
 
-const EVENT_NAME_RE = /^[a-zA-Z][\w:-]*$/
+import { EVENT_NAME } from './patterns'
 
 export type EventMap = Record<string, (...args: never[]) => unknown>
 
@@ -31,7 +31,7 @@ export interface EventEmitter<E extends EventMap> {
 export function defineEvents<E extends EventMap>(events: E): EventEmitter<E> {
   // Valida nomes na criação (fail fast)
   for (const name of Object.keys(events)) {
-    if (!EVENT_NAME_RE.test(name)) {
+    if (!EVENT_NAME.test(name)) {
       throw new Error(`defineEvents: nome de evento inválido "${name}"`)
     }
   }
@@ -41,7 +41,7 @@ export function defineEvents<E extends EventMap>(events: E): EventEmitter<E> {
 
     emit(name, ...args) {
       // Type-safe na chamada (TS) + revalida em runtime (defensivo)
-      if (!EVENT_NAME_RE.test(name)) {
+      if (!EVENT_NAME.test(name)) {
         throw new Error(`emit: nome inválido "${name}"`)
       }
       if (!Object.hasOwn(events, name)) {

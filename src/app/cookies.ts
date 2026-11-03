@@ -1,6 +1,8 @@
 // event.cookies: leitura do Cookie da requisição e escrita de Set-Cookie, com padrões seguros
 // (HttpOnly, Secure, SameSite=Lax, Path=/), como no SvelteKit.
 
+import { COOKIE_NAME, UNSAFE_COOKIE_ATTR } from '../patterns'
+
 export interface CookieOptions {
   path?: string
   domain?: string
@@ -19,8 +21,6 @@ export interface Cookies {
   /** Valores de Set-Cookie acumulados (usado pelo núcleo ao montar a resposta). */
   readonly headers: string[]
 }
-
-const NAME_RE = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/
 
 function parseCookies(header: string): Record<string, string> {
   // Sem protótipo: get('constructor') não pode devolver uma função.
@@ -44,9 +44,9 @@ export function createCookies(request: Request, secureByDefault: boolean): Cooki
   const headers: string[] = []
 
   function serialize(name: string, value: string, o: CookieOptions): string {
-    if (!NAME_RE.test(name)) throw new Error(`htsx: nome de cookie inválido ${JSON.stringify(name)}; use só letras, números e !#$%&'*+-.^_\`|~`)
+    if (!COOKIE_NAME.test(name)) throw new Error(`htsx: nome de cookie inválido ${JSON.stringify(name)}; use só letras, números e !#$%&'*+-.^_\`|~`)
     for (const [attr, text] of [['path', o.path], ['domain', o.domain]] as const) {
-      if (text !== undefined && /[;\r\n]/.test(text)) throw new Error(`htsx: ${attr} do cookie "${name}" não pode ter ";" nem quebra de linha`)
+      if (text !== undefined && UNSAFE_COOKIE_ATTR.test(text)) throw new Error(`htsx: ${attr} do cookie "${name}" não pode ter ";" nem quebra de linha`)
     }
     if (o.sameSite === 'None' && o.secure === false) throw new Error(`htsx: cookie "${name}" com SameSite=None precisa de Secure; o navegador o recusaria`)
     const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${o.path ?? '/'}`]

@@ -1,3 +1,16 @@
+/** Cabeçalhos que o htmx manda no pedido. */
+export const HX_REQUEST = {
+  Request: 'hx-request',
+  Boosted: 'hx-boosted',
+  Target: 'hx-target',
+  Trigger: 'hx-trigger',
+  TriggerName: 'hx-trigger-name',
+  CurrentUrl: 'hx-current-url',
+  Prompt: 'hx-prompt',
+  HistoryRestore: 'hx-history-restore-request',
+} as const
+
+/** Cabeçalhos com que a resposta dá ordens ao htmx. */
 export const HX_HEADERS = {
   Location:           'HX-Location',
   PushUrl:            'HX-Push-Url',

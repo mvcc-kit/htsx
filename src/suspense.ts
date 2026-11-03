@@ -18,7 +18,6 @@ const ID_RE = /^[a-zA-Z][\w-]*$/
 
 interface PendingEntry {
   promise: Promise<string>
-  expiresAt: number
 }
 
 export interface SuspenseRegistry {
@@ -97,7 +96,7 @@ export function Suspense({ fallback, children, id, timeout }: SuspenseProps): Ht
   const promise = Promise.race([toHtml(children), timeoutPromise]).finally(() => clearTimeout(timer))
   // A falha aparece em resolveSuspense; se o cliente nunca pedir, não derruba o processo.
   promise.catch(() => {})
-  reg.promises.set(suspenseId, { promise, expiresAt: Date.now() + ms })
+  reg.promises.set(suspenseId, { promise })
 
   return jsx('div', {
     id: `susp-${suspenseId}`,

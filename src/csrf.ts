@@ -12,10 +12,7 @@
 
 import { jsx } from './jsx-runtime'
 import type { HtmlSafeString } from './jsx-runtime'
-
-const ENCODER = new TextEncoder()
-
-const MIN_SECRET_LENGTH = 32
+import { hmacSha256, isStrongSecret, MIN_SECRET_LENGTH, textToB64Url, timingSafeEqual } from './crypto'
 
 export interface CsrfOptions {
   /** Secret HMAC. Mínimo 32 chars — throw caso contrário. */
@@ -26,50 +23,13 @@ export interface CsrfOptions {
   maxAge?: number
 }
 
-/** Codifica Uint8Array → base64url (sem padding, URL-safe). */
-function toB64Url(bytes: Uint8Array): string {
-  let s = ''
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!)
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-/**
- * base64url-encode arbitrary UTF-8 string. Diferente de encodeURIComponent
- * (que não escapa `.`), garante que o resultado não conflita com nosso
- * delimitador `.` no token.
- */
-function strToB64Url(s: string): string {
-  return toB64Url(ENCODER.encode(s))
-}
-
-async function hmacSha256(key: string, data: string): Promise<string> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    ENCODER.encode(key),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', cryptoKey, ENCODER.encode(data))
-  return toB64Url(new Uint8Array(sig))
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return diff === 0
-}
-
 /** Prefixo separa do flash, caso usem o mesmo segredo. */
 function signedText(sessionId: string, ts: number): string {
-  return `csrf:${strToB64Url(sessionId)}.${ts}`
+  return `csrf:${textToB64Url(sessionId)}.${ts}`
 }
 
 function validateSecret(secret: string): void {
-  if (typeof secret !== 'string' || secret.length < MIN_SECRET_LENGTH) {
+  if (!isStrongSecret(secret)) {
     throw new Error(`csrf: secret deve ter no mínimo ${MIN_SECRET_LENGTH} chars`)
   }
 }
@@ -89,7 +49,7 @@ export const csrf = {
    */
   async verify(token: unknown, opts: CsrfOptions): Promise<boolean> {
     if (typeof token !== 'string' || !token) return false
-    if (typeof opts.secret !== 'string' || opts.secret.length < MIN_SECRET_LENGTH) return false
+    if (!isStrongSecret(opts.secret)) return false
     if (!opts.sessionId) return false
 
     const parts = token.split('.')
