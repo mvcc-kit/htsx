@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { createElement as h, raw } from '../src/jsx-runtime'
 import { isStrict } from '../src/strict'
-import { semModoEstrito } from './setup'
+import { withoutStrictMode } from './setup'
 
 describe('modo estrito (HTSX_STRICT=1, ligado nos testes)', () => {
   it('está ligado', () => expect(isStrict()).toBe(true))
@@ -47,7 +47,7 @@ describe('modo estrito (HTSX_STRICT=1, ligado nos testes)', () => {
 })
 
 describe('fora do modo estrito: comportamento seguro, sem erro', () => {
-  semModoEstrito()
+  withoutStrictMode()
 
   it('está desligado', () => expect(isStrict()).toBe(false))
 

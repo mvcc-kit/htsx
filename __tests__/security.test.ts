@@ -2,12 +2,12 @@ import { describe, expect, it } from 'bun:test'
 import { renderToString, raw, storeInit, alpinePlugin, head } from '../index'
 import { jsx, createElement } from '../src/jsx-runtime'
 import { flash } from '../src/flash'
-import { semModoEstrito } from './setup'
+import { withoutStrictMode } from './setup'
 
 const h = createElement
 
 describe('XSS: texto interpolado', () => {
-  semModoEstrito()
+  withoutStrictMode()
   it('escapa <script> em conteúdo de texto', async () => {
     const html = await renderToString(() => h('div', {}, '<script>alert(1)</script>'))
     expect(html).toBe('<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>')
@@ -79,7 +79,7 @@ describe('XSS: aspas em JSON dentro de atributo (hx-headers)', () => {
 })
 
 describe('XSS: injeção via spread de atributos', () => {
-  semModoEstrito()
+  withoutStrictMode()
   it('onclick bloqueado', async () => {
     const evil = { onclick: 'alert(1)' }
     const html = await renderToString(() => h('div', { ...evil }))
@@ -137,7 +137,7 @@ describe('XSS: HtmlSafeString vs string literal', () => {
 })
 
 describe('CSS injection via style object', () => {
-  semModoEstrito()
+  withoutStrictMode()
   it('< e > no valor CSS são removidos', async () => {
     const html = await renderToString(() =>
       h('div', { style: { color: 'red</style><script>alert(1)' } })
@@ -175,7 +175,7 @@ describe('CSS injection via style object', () => {
 })
 
 describe('safeUrl: bloqueio de esquemas perigosos', () => {
-  semModoEstrito()
+  withoutStrictMode()
   it('javascript: bloqueado', async () => {
     const html = await renderToString(() => h('a', { href: 'javascript:alert(1)' }, 'x'))
     expect(html).toContain('href="#"')

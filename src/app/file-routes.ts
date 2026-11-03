@@ -3,7 +3,7 @@
 //   +page.tsx / +page.server.ts     → página; `load`, `actions`, `prerender`, `entries`
 //   +server.ts                      → GET/POST/... (endpoint)
 //   +error.tsx                      → página de erro mais próxima
-//   +nome.partial.tsx               → trecho da página com URL própria (`?/nome`), pedido pelo htmx
+//   +name.partial.tsx               → trecho da página com URL própria (`?/name`), pedido pelo htmx
 // Os dados descem: cada layout recebe os dados dele e dos layouts acima; a página recebe todos.
 // Lógica pura: recebe os módulos já importados (o manifesto gerado no sync do htsx.config.ts).
 import { route, type ErrorPage, type Layout, type RequestEvent, type Route, type RouteDef, type RoutePartial } from './app'
@@ -66,7 +66,7 @@ export interface RouteFiles {
   page?: PageModule
   pageServer?: PageServerModule
   endpoint?: EndpointModule
-  /** `+nome.partial.tsx` da pasta da rota. */
+  /** `+name.partial.tsx` da pasta da rota. */
   partials?: Record<string, PartialModule>
 }
 

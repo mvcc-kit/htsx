@@ -193,7 +193,7 @@ export const app = defineApp({
     route('/contato', {
       prerender: false,
       actions: {
-        // <form method="post"> sem action → default; com action="?/nome" → ação nomeada
+        // <form method="post"> sem action → default; com action="?/name" → ação nomeada
         default: async ({ request }) => {
           const email = String((await request.formData()).get('email') ?? '')
           if (!email.includes('@')) return fail(400, { erro: 'E-mail inválido', email })
@@ -570,55 +570,55 @@ export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpi
 
 Um parcial é um trecho de página com URL própria. Na página, é um componente tipado; no navegador, o htmx pede de novo só aquele trecho.
 
-Em arquivos, fica ao lado da página, como `src/routes/tarefas/+lista.partial.tsx`. Na mão, entra em `route(id, { partials: { lista } })`.
+Em arquivos, fica ao lado da página, como `src/routes/tasks/+list.partial.tsx`. Na mão, entra em `route(id, { partials: { list } })`.
 
 ```tsx
 import { defineApp, partial, route, type StandardSchema } from '{{PKG}}/kit'
 
 // Qualquer Standard Schema serve (Valibot, Zod...). O que vem da URL é sempre texto: o schema converte.
-const pagina: StandardSchema<{ pagina: number }> = {
+const pageInput: StandardSchema<{ page: number }> = {
   '~standard': {
     version: 1,
     vendor: 'exemplo',
     validate: value => {
-      const n = Number((value as { pagina?: string }).pagina)
-      return Number.isInteger(n) && n > 0 ? { value: { pagina: n } } : { issues: [{ message: 'página inválida' }] }
+      const n = Number((value as { page?: string }).page)
+      return Number.isInteger(n) && n > 0 ? { value: { page: n } } : { issues: [{ message: 'invalid page' }] }
     },
   },
 }
 
-const Lista = partial({
-  input: pagina,
-  load: ({ input }) => ({ itens: [`Item da página ${input.pagina}`] }),
+const List = partial({
+  input: pageInput,
+  load: ({ input }) => ({ items: [`Item da página ${input.page}`] }),
   render: ({ input, data }) => (
-    <ul id="lista">
-      {data.itens.map(item => <li>{item}</li>)}
-      <button {...Lista.get({ pagina: input.pagina + 1 }, { target: '#lista', swap: 'outerHTML' })}>Próxima</button>
+    <ul id="list">
+      {data.items.map(item => <li>{item}</li>)}
+      <button {...List.get({ page: input.page + 1 }, { target: '#list', swap: 'outerHTML' })}>Próxima</button>
     </ul>
   ),
 })
 
 export const app = defineApp({
   routes: [
-    route('/tarefas', {
-      partials: { lista: Lista },
+    route('/tasks', {
+      partials: { list: List },
       // o load da página não roda neste pedido: o que proteger o parcial fica aqui ou em handle
-      guard: ({ cookies }) => { if (!cookies.get('sessao')) throw new Error('sem sessão') },
-      page: () => <Lista pagina={1} />,
+      guard: ({ cookies }) => { if (!cookies.get('session')) throw new Error('sem sessão') },
+      page: () => <List page={1} />,
     }),
   ],
 })
 ```
 
-- **URL:** `?/lista&pagina=2`, no mesmo formato das ações. `GET` pede o parcial; `POST` roda a ação.
-- **`Lista.get(props, opções)`** gera os atributos do htmx, com as mesmas props tipadas do componente.
+- **URL:** `?/list&page=2`, no mesmo formato das ações. `GET` pede o parcial; `POST` roda a ação.
+- **`List.get(props, opções)`** gera os atributos do htmx, com as mesmas props tipadas do componente.
 - **Só o que o parcial precisa roda:** sem layout e sem o `load` da página.
 - **Segurança:** a entrada passa pelo `input` (erro 400 sem detalhes), e `handle` sempre roda. O que chega pela URL é do usuário: confira a permissão de cada dado.
 - **Em arquivos:** os `load` de `+layout.server.ts` rodam antes do parcial, inclusive a exigência de login. Para `params` tipado, use `partialFor<Params>()`, com `Params` de `./$types`.
-- **Ação que devolve só o parcial:** `actions: { add: () => Lista.respond({ pagina: 1 }) }`.
+- **Ação que devolve só o parcial:** `actions: { add: () => List.respond({ page: 1 }) }`.
 - **Precisa de servidor:** o build falha se a rota tiver `prerender`.
 
-`event.htmx` traz o pedido (`request`, `boosted`, `target`, `triggeredBy`, `currentUrl`) e os comandos da resposta: `trigger(nome, dados)`, `retarget`, `reswap`, `reselect`, `pushUrl`, `replaceUrl`, `location`, `redirect` e `refresh`.
+`event.htmx` traz o pedido (`request`, `boosted`, `target`, `triggeredBy`, `currentUrl`) e os comandos da resposta: `trigger(name, detail)`, `retarget`, `reswap`, `reselect`, `pushUrl`, `replaceUrl`, `location`, `redirect` e `refresh`.
 
 ---
 
@@ -675,7 +675,7 @@ Escreva `<Title>`, `<Meta>` e `<Link>` em qualquer componente; eles vão para o 
 import { renderPage, VENDOR_PATH } from '{{PKG}}'
 import { Alpine, Htmx, Link, Meta, Navigation, Title } from '{{PKG}}/meta'
 
-const Artigo = () => (
+const Article = () => (
   <article>
     <Title>Meu artigo</Title>
     <Meta name="description" content="Resumo" />
@@ -692,7 +692,7 @@ export const html = await renderPage(() => (
       <Alpine vendor={VENDOR_PATH} plugins={['collapse']} />
       <Navigation base={VENDOR_PATH} />
     </head>
-    <body><Artigo /></body>
+    <body><Article /></body>
   </html>
 ))
 ```

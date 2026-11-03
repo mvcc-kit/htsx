@@ -5,7 +5,7 @@ import { head, raw, renderPage, renderToString } from '../index'
 import { Alpine, Htmx, Link, Meta, Navigation, Title } from '../meta'
 import { defineApp, route } from '../app'
 import { applyMeta, dedupeTags, existingTagPattern, linkKey, metaKey, metaMarker, resolveMarkers } from '../src/meta/logic'
-import { semModoEstrito } from './setup'
+import { withoutStrictMode } from './setup'
 import { findChrome, open, type App } from '../testing'
 
 const tag = (key: string | null, html: string) => ({ key, html })
@@ -52,24 +52,24 @@ describe('regras', () => {
 })
 
 describe('renderPage', () => {
-  const Filho = () => <section><Title>Filho</Title><Meta name="description" content={'a"<b'} /><Link rel="canonical" href="https://x.com/" /></section>
+  const Child = () => <section><Title>Child</Title><Meta name="description" content={'a"<b'} /><Link rel="canonical" href="https://x.com/" /></section>
 
   it('leva ao <head> de qualquer ponto, com escape, e o filho vence o pai', async () => {
-    const html = await renderPage(() => <html><head><Title>Pai</Title></head><body><Filho /></body></html>)
-    expect(html).toBe('<!DOCTYPE html><html><head><title>Filho</title><meta name="description" content="a&quot;&lt;b"><link rel="canonical" href="https://x.com/"></head><body><section></section></body></html>')
+    const html = await renderPage(() => <html><head><Title>Parent</Title></head><body><Child /></body></html>)
+    expect(html).toBe('<!DOCTYPE html><html><head><title>Child</title><meta name="description" content="a&quot;&lt;b"><link rel="canonical" href="https://x.com/"></head><body><section></section></body></html>')
   })
 
   it('componente que recebe filhos: o filho vence, embora renderize antes', async () => {
-    const Pai = ({ children }: { children?: unknown }) => <div><Title>Pai</Title>{children as string}</div>
-    const html = await renderPage(() => <html><head></head><body><Pai><Title>Filho</Title></Pai></body></html>)
-    expect(html).toContain('<title>Filho</title>')
-    expect(html).not.toContain('Pai')
+    const Parent = ({ children }: { children?: unknown }) => <div><Title>Parent</Title>{children as string}</div>
+    const html = await renderPage(() => <html><head></head><body><Parent><Title>Child</Title></Parent></body></html>)
+    expect(html).toContain('<title>Child</title>')
+    expect(html).not.toContain('Parent')
     expect(html).not.toContain('htsx-meta')
   })
 
   it('funciona com componente assíncrono', async () => {
-    const Lento = async () => { await Promise.resolve(); return <Title>Lento</Title> }
-    expect(await renderPage(() => <html><head></head><body><Lento /></body></html>)).toContain('<head><title>Lento</title></head>')
+    const Slow = async () => { await Promise.resolve(); return <Title>Slow</Title> }
+    expect(await renderPage(() => <html><head></head><body><Slow /></body></html>)).toContain('<head><title>Slow</title></head>')
   })
 
   it('o título escapa conteúdo e não some', async () => {
@@ -84,10 +84,10 @@ describe('renderPage', () => {
   })
 
   it('trocam o que head() escreveu', async () => {
-    const html = await renderPage(() => <html><head>{raw(head({ title: 'Padrão', description: 'antes' }))}</head><body><Filho /></body></html>)
+    const html = await renderPage(() => <html><head>{raw(head({ title: 'Padrão', description: 'antes' }))}</head><body><Child /></body></html>)
     expect(html).not.toContain('Padrão')
     expect(html).not.toContain('antes')
-    expect(html).toContain('<title>Filho</title>')
+    expect(html).toContain('<title>Child</title>')
   })
 
   it('<html> sem <head> é erro no modo estrito', async () => {
@@ -95,7 +95,7 @@ describe('renderPage', () => {
   })
 
   describe('fora do modo estrito', () => {
-    semModoEstrito()
+    withoutStrictMode()
     it('continua renderizando', async () => {
       expect(await renderPage(() => <html><body><Meta name="a" /></body></html>)).toContain('<body></body>')
     })

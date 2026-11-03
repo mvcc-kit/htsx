@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import path from 'node:path'
 import pins from '../vendor/pins.json'
 import { head } from '../src/head'
-import { semModoEstrito } from './setup'
+import { withoutStrictMode } from './setup'
 
 const VENDOR = path.join(import.meta.dir, '..', 'vendor')
 
@@ -41,7 +41,7 @@ describe('head(): vendor local e integrity no CDN', () => {
     expect(() => head({ htmx: { version: '2.0.0' } })).toThrow(/htsx: htmx.org@2.0.0 vem de CDN sem integrity/))
 
   describe('fora do modo estrito', () => {
-    semModoEstrito()
+    withoutStrictMode()
     it('versão fora da fixada sai sem integrity', () => {
       expect(head({ htmx: { version: '2.0.0' } })).toContain('<script src="https://unpkg.com/htmx.org@2.0.0/dist/htmx.min.js"></script>')
     })

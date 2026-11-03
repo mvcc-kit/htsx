@@ -13,7 +13,7 @@ type StandardResult<Output> = { readonly value: Output; readonly issues?: undefi
 
 export const PARTIAL_NAME = /^[a-zA-Z][\w-]*$/
 
-/** Nome do parcial pedido na URL: `?/lista&id=1` → `lista`. */
+/** Nome do parcial pedido na URL: `?/list&id=1` → `list`. */
 export function partialNameFromQuery(query: URLSearchParams): string | null {
   for (const key of query.keys()) if (key.startsWith('/')) return key.slice(1)
   return null
@@ -35,7 +35,7 @@ function scalar(key: string, value: unknown): string {
   throw new Error(`htsx: parcial: "${key}" não cabe na URL (${value === null ? 'null' : typeof value}); use texto, número, booleano ou lista deles`)
 }
 
-/** URL relativa à página atual, no formato das ações: `?/lista&id=1`. */
+/** URL relativa à página atual, no formato das ações: `?/list&id=1`. */
 export function partialUrl(name: string, input: object): string {
   const parts = [`?/${encodeURIComponent(name)}`]
   for (const [key, value] of Object.entries(input)) {

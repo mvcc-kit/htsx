@@ -21,16 +21,16 @@ afterAll(() => app.close())
 
 describe('rotas por arquivos: htsx.config.ts', () => {
   it('monta o app com grupos, endpoints e matchers', async () => {
-    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/parciais', '/saudacao', '/sobre'])
+    expect(app.routes.map(r => r.id).sort()).toEqual(['/', '/api/notas', '/api/posts.json', '/blog', '/blog/[slug]', '/item/[id=int]', '/partials', '/saudacao', '/sobre'])
   })
 
-  it('+nome.partial.tsx: componente na página, trecho pela URL e entrada validada', async () => {
-    const pageHtml = await (await req('/parciais')).text()
-    expect(pageHtml).toContain('página 1, dobro 2')
-    expect(pageHtml).toContain('hx-get="?/tarefas&amp;pagina=2"')
-    expect(await (await req('/parciais?/tarefas&pagina=2')).text()).toBe('<p id="tarefas">página 2, dobro 4</p>')
-    expect((await req('/parciais?/tarefas&pagina=x')).status).toBe(400)
-    expect((await req('/parciais?/nada')).status).toBe(404)
+  it('+name.partial.tsx: componente na página, trecho pela URL e entrada validada', async () => {
+    const pageHtml = await (await req('/partials')).text()
+    expect(pageHtml).toContain('page 1, double 2')
+    expect(pageHtml).toContain('hx-get="?/tasks&amp;page=2"')
+    expect(await (await req('/partials?/tasks&page=2')).text()).toBe('<p id="tasks">page 2, double 4</p>')
+    expect((await req('/partials?/tasks&page=x')).status).toBe(400)
+    expect((await req('/partials?/missing')).status).toBe(404)
   })
 
   it('tipos gerados ($types) compilam com o app', () => {

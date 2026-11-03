@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { serializeAttrs } from '../src/attrs'
-import { semModoEstrito } from './setup'
+import { withoutStrictMode } from './setup'
 
 // helper: get the attrs string trimmed (serializeAttrs returns " key=val ...")
 const attrs = (props: Record<string, unknown>) => serializeAttrs(props).trim()
@@ -140,7 +140,7 @@ describe('style object → CSS string', () => {
   it('valor numérico (ex: zIndex)', () =>
     expect(attrs({ style: { zIndex: 10 } })).toBe('style="z-index: 10;"'))
   describe('fora do modo estrito', () => {
-    semModoEstrito()
+    withoutStrictMode()
     it('remove < e > do valor CSS', () => {
       const out = attrs({ style: { color: 'red</style>' } })
       expect(out).not.toContain('</style>')
@@ -179,7 +179,7 @@ describe('hx-headers / hx-vals / hx-request → JSON aspas simples', () => {
 })
 
 describe('segurança: bloqueio de on* handlers', () => {
-  semModoEstrito()
+  withoutStrictMode()
   it('onclick bloqueado', () =>
     expect(attrs({ onclick: 'alert(1)' })).toBe(''))
   it('onload bloqueado', () =>

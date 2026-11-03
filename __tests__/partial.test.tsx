@@ -11,21 +11,21 @@ import { createHtmxContext } from '../src/app/htmx'
 import { scanRoutes } from '../src/build/routes'
 import { findChrome, open, type App } from '../testing'
 
-const pagina: StandardSchema<{ pagina: number }> = {
+const pageInput: StandardSchema<{ page: number }> = {
   '~standard': {
     version: 1,
     vendor: 'teste',
     validate: value => {
-      const n = Number((value as { pagina?: string }).pagina)
-      return Number.isInteger(n) && n > 0 ? { value: { pagina: n } } : { issues: [{ message: 'detalhe interno' }] }
+      const n = Number((value as { page?: string }).page)
+      return Number.isInteger(n) && n > 0 ? { value: { page: n } } : { issues: [{ message: 'detalhe interno' }] }
     },
   },
 }
 
 describe('regras', () => {
-  it('lê o nome e a entrada da URL, com chave repetida como lista', () => {
-    const q = new URLSearchParams('/lista&a=1&b=2&b=3')
-    expect(partialNameFromQuery(q)).toBe('lista')
+  it('lê o nome e a entrada da URL, com chave repetida como list', () => {
+    const q = new URLSearchParams('/list&a=1&b=2&b=3')
+    expect(partialNameFromQuery(q)).toBe('list')
     expect(partialNameFromQuery(new URLSearchParams('a=1'))).toBeNull()
     expect({ ...queryToInput(q) }).toEqual({ a: '1', b: ['2', '3'] })
   })
@@ -37,7 +37,7 @@ describe('regras', () => {
   })
 
   it('gera URL relativa, com escape e sem o que não existe', () => {
-    expect(partialUrl('lista', { a: 1, b: 'x y&z', c: undefined, d: [1, 2], e: true })).toBe('?/lista&a=1&b=x%20y%26z&d=1&d=2&e=true')
+    expect(partialUrl('list', { a: 1, b: 'x y&z', c: undefined, d: [1, 2], e: true })).toBe('?/list&a=1&b=x%20y%26z&d=1&d=2&e=true')
   })
 
   it('objeto na URL é erro com o nome do campo', () => {
@@ -53,9 +53,9 @@ describe('regras', () => {
   })
 
   it('HX-Trigger aceita acento e passa pelo Headers', () => {
-    const value = triggerHeader({ salvo: { texto: 'ação 😀' } })
+    const value = triggerHeader({ saved: { text: 'ação 😀' } })
     expect(() => new Headers({ 'hx-trigger': value })).not.toThrow()
-    expect(JSON.parse(value)).toEqual({ salvo: { texto: 'ação 😀' } })
+    expect(JSON.parse(value)).toEqual({ saved: { text: 'ação 😀' } })
   })
 })
 
@@ -75,35 +75,35 @@ describe('event.htmx', () => {
 
 describe('no roteador', () => {
   let pageLoads = 0
-  const Lista = partial({
-    input: pagina,
+  const List = partial({
+    input: pageInput,
     load: ({ input, event }) => {
-      event.htmx.trigger('carregou', { pagina: input.pagina })
-      return { dobro: input.pagina * 2 }
+      event.htmx.trigger('loaded', { page: input.page })
+      return { double: input.page * 2 }
     },
-    render: ({ input, data }) => <ul id="lista"><Title>Lista</Title>{`p${input.pagina} d${data.dobro}`}</ul>,
+    render: ({ input, data }) => <ul id="list"><Title>List</Title>{`p${input.page} d${data.double}`}</ul>,
   })
-  const Livre = partial({ render: () => <b>livre</b> })
-  const Protegido = partial({ render: () => <b>segredo</b> })
+  const Open = partial({ render: () => <b>open</b> })
+  const Protected = partial({ render: () => <b>secret</b> })
   const app = defineApp({
     layout: ({ children }) => <html><head></head><body><nav>menu</nav>{children}</body></html>,
     handle: ({ event, resolve }) => {
-      if (event.url.pathname === '/bloqueada') error(403, 'Bloqueada')
+      if (event.url.pathname === '/blocked') error(403, 'Bloqueada')
       return resolve(event)
     },
     routes: [
       route('/', {
-        partials: { lista: Lista, livre: Livre },
+        partials: { list: List, open: Open },
         load: () => { pageLoads++; return {} },
-        page: () => <main><Lista pagina={3} /><button {...Lista.get({ pagina: 4 }, { target: '#lista' })}>x</button></main>,
-        actions: { add: () => Lista.respond({ pagina: 9 }) },
+        page: () => <main><List page={3} /><button {...List.get({ page: 4 }, { target: '#list' })}>x</button></main>,
+        actions: { add: () => List.respond({ page: 9 }) },
       }),
-      route('/privada', {
-        partials: { protegido: Protegido },
-        guard: ({ cookies }) => { if (!cookies.get('sessao')) error(401, 'Entre') },
-        page: () => <p>pagina</p>,
+      route('/private', {
+        partials: { protected: Protected },
+        guard: ({ cookies }) => { if (!cookies.get('session')) error(401, 'Entre') },
+        page: () => <p>page</p>,
       }),
-      route('/bloqueada', { partials: { livre: Livre }, page: () => <p>x</p> }),
+      route('/blocked', { partials: { open: Open }, page: () => <p>x</p> }),
     ],
   })
   const get = (p: string, headers: Record<string, string> = {}) => app.respond(new Request(`http://x${p}`, { headers }))
@@ -112,83 +112,83 @@ describe('no roteador', () => {
     const html = await (await get('/')).text()
     expect(html).toContain('<nav>menu</nav>')
     expect(html).toContain('p3 d6')
-    expect(html).toContain('hx-get="?/lista&amp;pagina=4"')
-    expect(html).toContain('hx-target="#lista"')
-    expect(html).toContain('<title>Lista</title>')
+    expect(html).toContain('hx-get="?/list&amp;page=4"')
+    expect(html).toContain('hx-target="#list"')
+    expect(html).toContain('<title>List</title>')
   })
 
   it('pela URL, sai só o trecho: sem layout e sem o load da página', async () => {
     const before = pageLoads
-    const res = await get('/?/lista&pagina=2', { 'hx-request': 'true' })
-    expect(await res.text()).toBe('<title>Lista</title><ul id="lista">p2 d4</ul>')
+    const res = await get('/?/list&page=2', { 'hx-request': 'true' })
+    expect(await res.text()).toBe('<title>List</title><ul id="list">p2 d4</ul>')
     expect(pageLoads).toBe(before)
     expect(res.headers.get('x-robots-tag')).toBe('noindex')
-    expect(JSON.parse(res.headers.get('hx-trigger')!)).toEqual({ carregou: { pagina: 2 } })
+    expect(JSON.parse(res.headers.get('hx-trigger')!)).toEqual({ loaded: { page: 2 } })
   })
 
   it('HEAD não traz corpo', async () => {
-    const res = await app.respond(new Request('http://x/?/livre', { method: 'HEAD' }))
+    const res = await app.respond(new Request('http://x/?/open', { method: 'HEAD' }))
     expect(res.status).toBe(200)
     expect(await res.text()).toBe('')
   })
 
   it('entrada inválida dá 400, sem vazar detalhe do schema', async () => {
-    const res = await get('/?/lista&pagina=abc')
+    const res = await get('/?/list&page=abc')
     expect(res.status).toBe(400)
     expect(await res.text()).not.toContain('detalhe interno')
   })
 
   it('nome desconhecido dá 404, inclusive nomes de Object', async () => {
-    for (const name of ['nada', 'constructor', '__proto__', 'toString']) expect((await get(`/?/${name}`)).status).toBe(404)
+    for (const name of ['missing', 'constructor', '__proto__', 'toString']) expect((await get(`/?/${name}`)).status).toBe(404)
   })
 
   it('handle e guard protegem o parcial', async () => {
-    expect((await get('/bloqueada?/livre')).status).toBe(403)
-    expect((await get('/privada?/protegido')).status).toBe(401)
-    expect(await (await get('/privada?/protegido', { cookie: 'sessao=1' })).text()).toBe('<b>segredo</b>')
+    expect((await get('/blocked?/open')).status).toBe(403)
+    expect((await get('/private?/protected')).status).toBe(401)
+    expect(await (await get('/private?/protected', { cookie: 'session=1' })).text()).toBe('<b>secret</b>')
   })
 
   it('rota sem o parcial ignora ?/nome como antes', async () => {
-    const other = defineApp({ routes: [route('/', { page: () => <p>pagina</p> })] })
-    expect(await (await other.respond(new Request('http://x/?/qualquer'))).text()).toBe('<p>pagina</p>')
+    const other = defineApp({ routes: [route('/', { page: () => <p>page</p> })] })
+    expect(await (await other.respond(new Request('http://x/?/any'))).text()).toBe('<p>page</p>')
   })
 
   it('POST no mesmo ?/nome é a ação, que pode devolver só o parcial', async () => {
     const res = await app.respond(new Request('http://x/?/add', { method: 'POST', headers: { origin: 'http://x', 'content-type': 'application/x-www-form-urlencoded' }, body: '' }))
-    expect(await res.text()).toBe('<title>Lista</title><ul id="lista">p9 d18</ul>')
+    expect(await res.text()).toBe('<title>List</title><ul id="list">p9 d18</ul>')
   })
 
   it('erros de uso dizem o que fazer', () => {
     expect(() => partial({ render: () => null }).get({})).toThrow(/parcial sem rota/)
     expect(() => route('/', { partials: { 'a b': partial({ render: () => null }) } })).toThrow(/nome de parcial inválido/)
     const dup = partial({ render: () => null })
-    route('/a', { partials: { um: dup } })
-    expect(() => route('/b', { partials: { dois: dup } })).toThrow(/registrado como "um" e "dois"/)
+    route('/a', { partials: { first: dup } })
+    expect(() => route('/b', { partials: { second: dup } })).toThrow(/registrado como "first" e "second"/)
     expect(() => route('/', { prerender: true, partials: { x: partial({ render: () => null }) } })).toThrow(/parciais precisam de servidor/)
   })
 })
 
 describe('o load dos layouts protege o parcial em arquivos', () => {
   let pageLoads = 0
-  const Segredo = partial({ render: () => <b>segredo</b> })
+  const Secret = partial({ render: () => <b>secret</b> })
   const { routes } = fileRoutes({
     routes: [{
-      id: '/conta',
+      id: '/account',
       levels: [{
         dir: 'src/routes',
-        layoutServer: { load: ({ cookies }) => { if (!cookies.get('sessao')) error(401, 'Entre') } },
+        layoutServer: { load: ({ cookies }) => { if (!cookies.get('session')) error(401, 'Entre') } },
       }],
-      page: { default: () => <p>pagina</p> },
+      page: { default: () => <p>page</p> },
       pageServer: { load: () => { pageLoads++; return {} } },
-      partials: { segredo: { default: Segredo } },
+      partials: { secret: { default: Secret } },
     }],
   })
   const app = defineApp({ routes })
-  const get = (headers: Record<string, string> = {}) => app.respond(new Request('http://x/conta?/segredo', { headers }))
+  const get = (headers: Record<string, string> = {}) => app.respond(new Request('http://x/account?/secret', { headers }))
 
   it('sem sessão, o parcial não roda; com sessão, roda sem o load da página', async () => {
     expect((await get()).status).toBe(401)
-    expect(await (await get({ cookie: 'sessao=1' })).text()).toBe('<b>segredo</b>')
+    expect(await (await get({ cookie: 'session=1' })).text()).toBe('<b>secret</b>')
     expect(pageLoads).toBe(0)
   })
 
@@ -219,14 +219,14 @@ describe('em arquivos', () => {
   }
 
   it('acha +nome.partial.tsx', async () => {
-    const [dir] = await scan(['+page.tsx', '+lista.partial.tsx', '+outra-coisa.partial.ts'])
-    expect(Object.keys(dir!.partials).sort()).toEqual(['lista', 'outra-coisa'])
+    const [dir] = await scan(['+page.tsx', '+list.partial.tsx', '+other-thing.partial.ts'])
+    expect(Object.keys(dir!.partials).sort()).toEqual(['list', 'other-thing'])
   })
 
   it('sem página é erro, e nome parecido sugere o certo', async () => {
-    await expect(scan(['+lista.partial.tsx'])).rejects.toThrow(/sem \+page\.tsx/)
-    await expect(scan(['+page.tsx', '+lista.partials.tsx'])).rejects.toThrow(/use \+nome\.partial\.tsx/)
-    await expect(scan(['+page.tsx', '+partial.tsx'])).rejects.toThrow(/use \+nome\.partial\.tsx/)
+    await expect(scan(['+list.partial.tsx'])).rejects.toThrow(/sem \+page\.tsx/)
+    await expect(scan(['+page.tsx', '+list.partials.tsx'])).rejects.toThrow(/use \+name\.partial\.tsx/)
+    await expect(scan(['+page.tsx', '+partial.tsx'])).rejects.toThrow(/use \+name\.partial\.tsx/)
   })
 })
 
@@ -234,22 +234,22 @@ const assets = fileServer(path.join(import.meta.dir, 'nao-existe'), { vendor: tr
 
 describe.skipIf(!findChrome())('no Chrome real', () => {
   let chrome: App
-  const Lista = partial({
-    input: pagina,
+  const List = partial({
+    input: pageInput,
     render: ({ input }) => (
-      <div id="lista">
-        <p>{`Página ${input.pagina}`}</p>
-        <button {...Lista.get({ pagina: input.pagina + 1 }, { target: '#lista', swap: 'outerHTML' })}>Próxima</button>
+      <div id="list">
+        <p>{`Página ${input.page}`}</p>
+        <button {...List.get({ page: input.page + 1 }, { target: '#list', swap: 'outerHTML' })}>Próxima</button>
       </div>
     ),
   })
   const app = defineApp({
     layout: ({ children }) => <html><Head alpine={false} /><body hx-boost="true"><Outlet>{children}</Outlet></body></html>,
     routes: [
-      route('/', { partials: { lista: Lista }, page: () => <main><Lista pagina={1} /></main> }),
+      route('/', { partials: { list: List }, page: () => <main><List page={1} /></main> }),
       route('/form', {
-        actions: { default: () => fail(422, { erro: 'Nome obrigatório' }) },
-        page: ({ form }) => <main><form method="post"><button>Enviar</button></form><p>{form?.erro ?? 'sem erro'}</p></main>,
+        actions: { default: () => fail(422, { message: 'Nome obrigatório' }) },
+        page: ({ form }) => <main><form method="post"><button>Enviar</button></form><p>{form?.message ?? 'sem erro'}</p></main>,
       }),
     ],
   })
@@ -264,7 +264,7 @@ describe.skipIf(!findChrome())('no Chrome real', () => {
     await chrome.press('text:Próxima')
     await chrome.waitFor('text:Página 3')
     expect(await chrome.evaluate<string>('location.pathname + location.search')).toBe('/')
-    expect(await chrome.evaluate<number>(`document.querySelectorAll('#lista').length`)).toBe(1)
+    expect(await chrome.evaluate<number>(`document.querySelectorAll('#list').length`)).toBe(1)
   })
 
   it('fail() com 422 aparece na tela, em formulário com hx-boost', async () => {

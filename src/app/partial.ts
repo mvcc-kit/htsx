@@ -26,9 +26,9 @@ export interface PartialDef<I, D, P> {
 }
 
 export interface PartialComponent<I> {
-  /** Usado como componente: `<Lista id={1} />`, no HTML da página, sem passar pela rede. */
+  /** Usado como componente: `<List id={1} />`, no HTML da página, sem passar pela rede. */
   (props: I): Promise<HtmlSafeString>
-  /** Atributos do htmx para pedir este parcial: `<button {...Lista.get({ id: 1 }, { target: '#x' })}>`. */
+  /** Atributos do htmx para pedir este parcial: `<button {...List.get({ id: 1 }, { target: '#x' })}>`. */
   get(props: I, opts?: PartialRequestOpts): PartialRequestAttrs
   /** Resposta de uma ação de formulário só com este parcial. */
   respond(props: I): Promise<Response>
@@ -38,7 +38,7 @@ export interface PartialComponent<I> {
   handle(event: RequestEvent): Promise<string>
 }
 
-/** Declara um parcial. Em arquivos: `export default partial({ ... })` em `+nome.partial.tsx`. */
+/** Declara um parcial. Em arquivos: `export default partial({ ... })` em `+name.partial.tsx`. */
 export function partial<I = Record<never, never>, D = undefined, P = Params>(def: PartialDef<I, D, P>): PartialComponent<I> {
   let name: string | undefined
 
@@ -52,7 +52,7 @@ export function partial<I = Record<never, never>, D = undefined, P = Params>(def
   const component = (async (props: I) => raw(await html(props, getRequestEvent()))) as PartialComponent<I>
 
   component.get = (props, opts) => {
-    if (!name) throw new Error('htsx: parcial sem rota; registre em route(id, { partials: { nome } }) ou use +nome.partial.tsx')
+    if (!name) throw new Error('htsx: parcial sem rota; registre em route(id, { partials: { name } }) ou use +name.partial.tsx')
     return partialAttrs(partialUrl(name, props as object), opts)
   }
 

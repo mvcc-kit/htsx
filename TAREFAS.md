@@ -73,7 +73,7 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 
 ## P10. Modo framework do htmx
 
-- [x] `htsx/kit` e `partial()`: componente tipado com URL própria (`?/nome`), `+nome.partial.tsx`, `input` com Standard Schema, `guard` e `load` dos layouts antes do parcial.
+- [x] `htsx/kit` e `partial()`: componente tipado com URL própria (`?/name`), `+name.partial.tsx`, `input` com Standard Schema, `guard` e `load` dos layouts antes do parcial.
 - [x] `event.htmx`: leitura do pedido e comandos da resposta.
 - [x] `<Head>` mais seguro por padrão: `allowEval: false`, e `fail()` com 400 ou 422 aparece na tela.
 - [ ] Pré-carregar links com `hx-boost` ao passar o mouse.

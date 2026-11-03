@@ -68,9 +68,9 @@ export interface RouteDef<Id extends string, D, A> {
   load?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<D>
   /** Componente da página. Recebe `data` do load e `form` da ação. */
   page?: (props: PageProps<ParamsOf<Id>, Awaited<D>, ActionData<A>>) => Node
-  /** Ações de formulário (POST). `?/nome` escolhe a ação; sem nome, usa `default`. */
+  /** Ações de formulário (POST). `?/name` escolhe a ação; sem nome, usa `default`. */
   actions?: A & Record<string, Action<ParamsOf<Id>>>
-  /** Trechos da página com URL própria (`?/nome`), pedidos pelo htmx. Veja `partial()`. */
+  /** Trechos da página com URL própria (`?/name`), pedidos pelo htmx. Veja `partial()`. */
   partials?: Record<string, RoutePartial>
   /** Roda antes de cada parcial (ex.: exigir login), porque o `load` da página não roda nesse pedido. */
   guard?: (event: RequestEvent<ParamsOf<Id>>) => MaybePromise<unknown>

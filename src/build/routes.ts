@@ -22,7 +22,7 @@ export interface ScannedDir {
   /** Id da rota desta pasta, sem grupos (ex.: `/blog`). */
   id: string
   files: Partial<Record<Kind, string>>
-  /** `+nome.partial.tsx`: nome → arquivo. */
+  /** `+name.partial.tsx`: nome → arquivo. */
   partials: Record<string, string>
   parent: ScannedDir | null
 }
@@ -70,7 +70,7 @@ export async function scanRoutes(root: string, routesDir: string): Promise<Scann
         continue
       }
       if (/partials?$/.test(kind)) {
-        problems.push(`${rel}/${e.name}: use +nome.partial.tsx, por exemplo +lista.partial.tsx`)
+        problems.push(`${rel}/${e.name}: use +name.partial.tsx, por exemplo +list.partial.tsx`)
         continue
       }
       if (!ext || !KINDS.includes(kind as Kind)) {

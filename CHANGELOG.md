@@ -2,6 +2,10 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.0-beta.2 (02/11/2026)
+
+- Exemplos, testes e o padrão de arquivo na documentação em inglês: `+name.partial.tsx`, `?/name`, `List`. A API não mudou.
+
 ## 0.4.0-beta.1 (02/11/2026)
 
 **Mudança incompatível:** o `<Head>` agora liga `allowEval: false`. Quem usa `hx-on` precisa de `<Head htmx={{ allowEval: true }}>`.
