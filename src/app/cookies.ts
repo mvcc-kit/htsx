@@ -22,17 +22,25 @@ export interface Cookies {
 
 const NAME_RE = /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/
 
-export function createCookies(request: Request, secureByDefault: boolean): Cookies {
+function parseCookies(header: string): Record<string, string> {
   // Sem protótipo: get('constructor') não pode devolver uma função.
-  const parsed: Record<string, string> = Object.create(null)
-  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+  const out: Record<string, string> = Object.create(null)
+  for (const part of header.split(';')) {
     const i = part.indexOf('=')
     if (i < 1) continue
     const k = part.slice(0, i).trim()
     // Repetido: vale o primeiro, o de caminho mais específico. Assim um subdomínio não sobrescreve.
-    if (k in parsed) continue
-    try { parsed[k] = decodeURIComponent(part.slice(i + 1).trim()) } catch { parsed[k] = part.slice(i + 1).trim() }
+    if (k in out) continue
+    const value = part.slice(i + 1).trim()
+    try { out[k] = decodeURIComponent(value) } catch { out[k] = value }
   }
+  return out
+}
+
+export function createCookies(request: Request, secureByDefault: boolean): Cookies {
+  // Só lê o cabeçalho se alguém pedir um cookie: a maioria das rotas não pede.
+  let parsedCookies: Record<string, string> | undefined
+  const parsed = (): Record<string, string> => (parsedCookies ??= parseCookies(request.headers.get('cookie') ?? ''))
   const headers: string[] = []
 
   function serialize(name: string, value: string, o: CookieOptions): string {
@@ -52,10 +60,10 @@ export function createCookies(request: Request, secureByDefault: boolean): Cooki
   }
 
   return {
-    get: name => parsed[name],
-    getAll: () => ({ ...parsed }),
-    set(name, value, opts = {}) { headers.push(serialize(name, value, opts)); parsed[name] = value },
-    delete(name, opts = {}) { headers.push(serialize(name, '', { ...opts, maxAge: 0 })); delete parsed[name] },
+    get: name => parsed()[name],
+    getAll: () => ({ ...parsed() }),
+    set(name, value, opts = {}) { headers.push(serialize(name, value, opts)); parsed()[name] = value },
+    delete(name, opts = {}) { headers.push(serialize(name, '', { ...opts, maxAge: 0 })); delete parsed()[name] },
     headers,
   }
 }

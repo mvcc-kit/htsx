@@ -81,6 +81,11 @@ describe('atributos e elementos', () => {
       }
     })
 
+    it('nome herdado de Object não vira código no HTML', async () => {
+      const html = await renderToString(() => h('a', { constructor: 'x', toString: 'y' } as never))
+      expect(html).toBe('<a constructor="x" toString="y"></a>')
+    })
+
     it('função em atributo não vira código no HTML', async () => {
       expect(await renderToString(() => h('a', { title: () => 'segredo' } as never))).toBe('<a></a>')
     })

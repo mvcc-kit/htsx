@@ -302,6 +302,7 @@ export function defineApp(options: AppOptions): App {
     const match = find(url.pathname !== '/' ? url.pathname.replace(/\/+$/, '') : url.pathname)
     const headers = new Headers()
     const isHtmxReq = request.headers.get('hx-request') === 'true'
+    let htmx: HtmxContext | undefined
     const event: RequestEvent = {
       request,
       url,
@@ -320,7 +321,8 @@ export function defineApp(options: AppOptions): App {
       },
       prerendering: !!opts.prerendering,
       isFragment: isHtmxReq && request.headers.get('hx-boosted') !== 'true' && request.headers.get('hx-history-restore-request') !== 'true',
-      htmx: createHtmxContext(request.headers, headers),
+      // Sob demanda: a maioria das rotas não usa.
+      get htmx() { return (htmx ??= createHtmxContext(request.headers, headers)) },
       getClientAddress: opts.getClientAddress ?? (() => { throw new Error('htsx: getClientAddress() não está disponível nesta plataforma') }),
     }
 
@@ -403,11 +405,20 @@ export const DEFAULT_SECURITY_HEADERS: Readonly<Record<string, string>> = {
 
 function withSecurityHeaders(res: Response, custom: AppOptions['securityHeaders']): Response {
   if (custom === false) return res
-  const out = new Response(res.body, res)
-  for (const [k, v] of Object.entries({ ...DEFAULT_SECURITY_HEADERS, ...custom })) {
-    if (!out.headers.has(k)) out.headers.set(k, v)
+  // Resposta criada aqui aceita mudança; a de fetch() é imutável e precisa de cópia.
+  let out = res
+  try {
+    applyDefaults(out.headers, custom)
+  } catch {
+    out = new Response(res.body, res)
+    applyDefaults(out.headers, custom)
   }
   return out
+}
+
+function applyDefaults(headers: Headers, custom: Record<string, string> | undefined): void {
+  for (const k in DEFAULT_SECURITY_HEADERS) if (!headers.has(k)) headers.set(k, DEFAULT_SECURITY_HEADERS[k]!)
+  if (custom) for (const k in custom) if (!headers.has(k)) headers.set(k, custom[k]!)
 }
 
 /** Página que não mudou vira 304: o `load` já rodou, mas o HTML não trafega de novo. */
@@ -422,8 +433,13 @@ async function htmlResponse(event: RequestEvent, html: string, status: number, h
 
 function withCookies(res: Response, cookies: string[]): Response {
   if (!cookies.length) return res
-  const out = new Response(res.body, res)
-  for (const c of cookies) out.headers.append('set-cookie', c)
+  let out = res
+  try {
+    for (const c of cookies) out.headers.append('set-cookie', c)
+  } catch {
+    out = new Response(res.body, res)
+    for (const c of cookies) out.headers.append('set-cookie', c)
+  }
   return out
 }
 

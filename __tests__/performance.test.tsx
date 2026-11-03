@@ -3,12 +3,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { renderPage, VENDOR_PATH } from '../index'
+import { renderPage, sseEvent, sseResponse, VENDOR_PATH } from '../index'
 import { Head, Outlet, Title } from '../meta'
 import { defineApp, partial, route } from '../kit'
 import { buildStatic } from '../adapter-static'
 import { fileServer } from '../src/build/files'
 import { etagMatches, weakEtag } from '../src/app/etag'
+import { serve } from '../adapter-bun'
+import { acceptsGzip, isCompressible } from '../src/adapters/compression'
 import { findChrome, open, type App } from '../testing'
 
 describe('Alpine sob demanda', () => {
@@ -172,5 +174,78 @@ describe.skipIf(!findChrome())('Alpine sob demanda no Chrome real', () => {
     await chrome.goto('/rich')
     for (let i = 0; i < 300 && (await chrome.text('id:count').catch(() => null)) !== '42'; i++) await Bun.sleep(10)
     expect(await chrome.text('id:count')).toBe('42')
+  })
+})
+
+describe('modo Bun: compressão', () => {
+  it('só tipos de texto, sem SSE', () => {
+    for (const type of ['text/html; charset=utf-8', 'text/css', 'application/json', 'text/javascript', 'image/svg+xml']) expect(isCompressible(type)).toBe(true)
+    for (const type of ['image/png', 'text/event-stream', 'application/octet-stream', null]) expect(isCompressible(type)).toBe(false)
+  })
+
+  it('entende Accept-Encoding', () => {
+    expect(acceptsGzip('gzip, deflate, br')).toBe(true)
+    expect(acceptsGzip('GZIP;q=0.5')).toBe(true)
+    expect(acceptsGzip('gzip;q=0')).toBe(false)
+    expect(acceptsGzip('br')).toBe(false)
+    expect(acceptsGzip(null)).toBe(false)
+  })
+
+  describe('no servidor', () => {
+    let server: ReturnType<typeof serve>
+    let dir: string
+    const big = 'x'.repeat(5000)
+    const app = defineApp({
+      routes: [
+        route('/big', { page: () => <p>{big}</p> }),
+        route('/small', { page: () => <p>oi</p> }),
+        route('/events', { GET: () => sseResponse(async function* () { yield sseEvent('um') }) }),
+      ],
+    })
+    beforeAll(async () => {
+      dir = await mkdtemp(path.join(tmpdir(), 'htsx-bun-'))
+      await Bun.write(path.join(dir, 'site.css'), 'a{}'.repeat(1000))
+      server = serve(app, { port: 0, hostname: '127.0.0.1', assets: dir })
+    })
+    afterAll(async () => { server.stop(true); await rm(dir, { recursive: true, force: true }) })
+    const get = (p: string, headers: Record<string, string> = { 'accept-encoding': 'gzip' }) => fetch(`http://127.0.0.1:${server.port}${p}`, { headers, decompress: false } as RequestInit)
+
+    it('HTML grande vai comprimido e continua íntegro', async () => {
+      const res = await get('/big')
+      expect(res.headers.get('content-encoding')).toBe('gzip')
+      expect(res.headers.get('vary')).toContain('Accept-Encoding')
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      expect(bytes.byteLength).toBeLessThan(500)
+      expect(new TextDecoder().decode(Bun.gunzipSync(bytes))).toContain(big)
+    })
+
+    it('resposta pequena, cliente sem gzip e SSE não comprimem', async () => {
+      expect((await get('/small')).headers.get('content-encoding')).toBeNull()
+      expect((await get('/big', {})).headers.get('content-encoding')).toBeNull()
+      const events = await get('/events')
+      expect(events.headers.get('content-encoding')).toBeNull()
+      expect(await events.text()).toContain('data: um')
+    })
+
+    it('o mesmo conteúdo comprimido sai igual, e mudança de arquivo não serve o antigo', async () => {
+      const first = new Uint8Array(await (await get('/site.css')).arrayBuffer())
+      const second = new Uint8Array(await (await get('/site.css')).arrayBuffer())
+      expect(second).toEqual(first)
+      await Bun.write(path.join(dir, 'site.css'), 'b{}'.repeat(2000))
+      const changed = await get('/site.css')
+      expect(new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(await changed.arrayBuffer())))).toStartWith('b{}')
+    })
+
+    it('arquivo estático comprime e volta 304 quando não mudou', async () => {
+      const first = await get('/site.css')
+      expect(first.headers.get('content-encoding')).toBe('gzip')
+      const etag = first.headers.get('etag')!
+      expect(etag).toMatch(/^W\//)
+      expect(first.headers.get('x-content-type-options')).toBe('nosniff')
+      await first.arrayBuffer()
+      const again = await get('/site.css', { 'accept-encoding': 'gzip', 'if-none-match': etag })
+      expect(again.status).toBe(304)
+      expect((await again.arrayBuffer()).byteLength).toBe(0)
+    })
   })
 })

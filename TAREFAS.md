@@ -71,6 +71,15 @@ Análise e origem de cada item: [`docs/sveltekit-analise.md`](docs/sveltekit-ana
 - [x] Testado no `workerd` real (`wrangler dev` no `_worker.js`) e com `getPlatformProxy` (D1/R2/KV locais), com o wrangler instalado à parte; `__tests__/wrangler.test.tsx` roda com `HTSX_WRANGLER_NODE_MODULES`.
 - [ ] Durable Objects locais no dev (o `getPlatformProxy` precisa do script com a classe).
 
+## P12. Performance (03/11/2026)
+
+- [x] `bun run bench`: benchmark reproduzível do render e de `respond`.
+- [x] Render 2x mais rápido: `HtmlSafeString` sem herdar de `String`, sem cópia de props, sem objeto de contexto por elemento, com cache de nomes de atributo e de elemento.
+- [x] `<Title>`, `<Meta>` e `<Link>` sem promessa quando o conteúdo é síncrono; cookies e `event.htmx` sob demanda; resposta sem cópia para cabeçalhos.
+- [x] Modo Bun: gzip com cache por versão e `ETag`/304 em arquivos.
+- Sem índice de rotas: 200 rotas com parâmetro não mudam o tempo de forma mensurável (medido).
+- [ ] Streaming de HTML: mandar o `<head>` antes do `load` terminar. Muda o tratamento de erro e de redirecionamento.
+
 ## P11. Auditoria de segurança (02/11/2026)
 
 Testes em `__tests__/hardening.test.tsx`.

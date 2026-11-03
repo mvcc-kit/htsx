@@ -2,6 +2,7 @@
 import path from 'node:path'
 import type { App, Platform } from '../app/app'
 import { fileServer } from '../build/files'
+import { acceptsGzip, isCompressible, MIN_COMPRESS_BYTES } from './compression'
 
 export interface BunServeOptions {
   port?: number
@@ -16,6 +17,8 @@ export interface BunServeOptions {
   maxBodySize?: number
   /** Lembra a busca de arquivos estáticos (produção). Padrão `true`. */
   cacheFiles?: boolean
+  /** Comprime HTML, CSS, JS e JSON com gzip. Padrão `true`; `false` se um proxy já comprime. */
+  compress?: boolean
 }
 
 /** `event.platform` no modo Bun. */
@@ -32,11 +35,42 @@ export function serve(app: App | (() => App), opts: BunServeOptions = {}) {
     port: opts.port ?? 3000,
     hostname: opts.hostname,
     maxRequestBodySize: opts.maxBodySize ?? 10 * 1024 * 1024,
-    fetch(req, server) {
-      return files(req) ?? getApp().respond(req, {
+    async fetch(req, server) {
+      const res = await (files(req) ?? getApp().respond(req, {
         platform: { ...opts.platform, server },
         getClientAddress: () => server.requestIP(req)?.address ?? '',
-      })
+      }))
+      return opts.compress === false ? res : compressed(req, res)
     },
   })
+}
+
+// O mesmo conteúdo não precisa ser comprimido de novo: ETag ou arquivo imutável identificam a versão.
+const gzipCache = new Map<string, Uint8Array>()
+const GZIP_CACHE_ENTRIES = 200
+const GZIP_CACHE_MAX_BYTES = 1024 * 1024
+
+function gzipOnce(key: string | null, body: Uint8Array): Uint8Array {
+  const known = key ? gzipCache.get(key) : undefined
+  if (known) return known
+  const out = Bun.gzipSync(body)
+  if (key && body.byteLength <= GZIP_CACHE_MAX_BYTES) {
+    if (gzipCache.size >= GZIP_CACHE_ENTRIES) gzipCache.clear()
+    gzipCache.set(key, out)
+  }
+  return out
+}
+
+async function compressed(req: Request, res: Response): Promise<Response> {
+  const type = res.headers.get('content-type')
+  if (!res.body || !acceptsGzip(req.headers.get('accept-encoding')) || !isCompressible(type) || res.headers.has('content-encoding')) return res
+  const body = new Uint8Array(await res.arrayBuffer())
+  const headers = new Headers(res.headers)
+  headers.append('vary', 'Accept-Encoding')
+  if (body.byteLength < MIN_COMPRESS_BYTES) return new Response(body, { status: res.status, statusText: res.statusText, headers })
+  headers.set('content-encoding', 'gzip')
+  const etag = res.headers.get('etag')
+  const version = etag ?? (res.headers.get('cache-control')?.includes('immutable') ? 'immutable' : null)
+  const key = version && res.status === 200 ? `${new URL(req.url).pathname}|${version}` : null
+  return new Response(gzipOnce(key, body), { status: res.status, statusText: res.statusText, headers })
 }

@@ -4,7 +4,7 @@ import { HtmlSafeString, jsx, raw, toHtml } from '../jsx-runtime'
 import { navigationTags, type NavigationOpts } from '../navigation'
 import { escapeAttr } from '../escape'
 import type { Children } from '../jsx-types'
-import { collect } from './collector'
+import { collect, isCollecting } from './collector'
 import { linkKey, metaKey, resolveAlpineOptions, resolveHtmxConfig, TITLE_KEY, type Attrs } from './logic'
 import { isPrerendering, OUTLET_ID, PARTIALS_PATH } from '../outlet'
 import { VENDOR_PATH } from '../vendor-path'
@@ -13,11 +13,12 @@ type Rendered = HtmlSafeString | Promise<HtmlSafeString>
 
 /** Vai para o <head> da página; fora de `renderPage` ou do app, sai onde foi escrito. */
 function place(key: string | null, node: Rendered): Rendered {
-  const html = toHtml(node)
+  if (!isCollecting()) return node
+  // Quase toda tag é síncrona: promessa só quando há conteúdo assíncrono.
+  const html = node instanceof HtmlSafeString ? node.toString() : toHtml(node)
   const marker = collect({ key, html })
-  if (marker === null) return node
-  html.catch(() => {}) // a falha aparece quando a renderização aguarda a tag
-  return raw(marker)
+  if (typeof html !== 'string') html.catch(() => {}) // a falha aparece quando a renderização aguarda a tag
+  return raw(marker ?? '')
 }
 
 export function Title(props: { children?: Children }): Rendered {

@@ -2,6 +2,19 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.4.5-beta.1 (03/11/2026)
+
+Performance, medida com `bun run bench`:
+
+- **Render cerca de 2x mais rápido:** tabela de 500 linhas de 759 para 377 µs; 10 atributos de 0,96 para 0,42 µs.
+- `renderPage` com `<Head>` de 8,3 para 4,9 µs: tags síncronas não criam mais promessas.
+- Cookies e `event.htmx` só são lidos se a rota usar, e a resposta não é mais copiada para receber cabeçalhos.
+- **Modo Bun:** comprime com gzip, guarda o resultado por versão, e arquivos estáticos levam `ETag` e `nosniff`, com 304 quando não mudam.
+
+**Mudança para quem usa:** `HtmlSafeString` não herda mais de `String`. `String(x)` e `x.toString()` continuam iguais; métodos como `x.length` e `x.includes()` precisam de `String(x)` antes.
+
+Correção: `{...props}` com a chave `constructor` ou `toString` não gera mais o código da função no HTML.
+
 ## 0.4.4-beta.1 (02/11/2026)
 
 - **Alpine sob demanda:** o `<Head>` baixa o Alpine só quando a página tem `x-data` ou `x-init`, inclusive depois de uma troca. Script inline que usa `Alpine` direto deve esperar `alpine:init`.

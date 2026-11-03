@@ -49,106 +49,108 @@ function serializeStyle(obj: Record<string, string | number>, tag: string): stri
 
 const HX_ON_RE = /^hx-on-htmx-(.+)$/
 
+/** O que se sabe de um nome de atributo, sem olhar o valor. */
+interface AttrInfo {
+  /** Nome inválido ou `on*` nativo: não sai no HTML. */
+  blocked: boolean
+  /** Nome quando o valor é texto ou número. */
+  name: string
+  /** Nome quando o valor é `true`. */
+  flagName: string
+  /** `aria-*` e `data-*`: booleano vira "true" ou "false". */
+  stringBoolean: boolean
+  /** `hx-*`: `true` vira `="true"`. */
+  htmx: boolean
+  url: boolean
+}
+
+function describeAttr(key: string): AttrInfo {
+  // hasOwn: 'constructor' viria de Object, e sairia o código da função no HTML
+  const flagName = Object.hasOwn(JSX_TO_HTML_ATTRS, key) ? JSX_TO_HTML_ATTRS[key]! : key
+  let name = flagName
+  if (key.startsWith('$')) name = `x-on:${key.slice(1).replace(/_/g, '.')}`        // $event → x-on:event
+  else if (key.startsWith('x-bind-')) name = `x-bind:${key.slice(7)}`                // x-bind-* → x-bind:*
+  else if (key.startsWith('x-') && key.includes('_')) name = key.replace(/_/g, '.')  // x-*_* → x-*.*
+  else {
+    const hxOn = HX_ON_RE.exec(key)
+    if (hxOn) name = `hx-on::${hxOn[1]}`                                              // hx-on-htmx-* → hx-on::*
+  }
+  return {
+    blocked: !VALID_ATTR_NAME.test(key) || isUnsafeEventHandler(key),
+    name,
+    flagName,
+    stringBoolean: key.startsWith('aria-') || key.startsWith('data-'),
+    htmx: key.startsWith('hx-'),
+    url: name === flagName && URL_ATTRS.has(flagName.toLowerCase()),
+  }
+}
+
+// Os nomes de atributo se repetem muito; o limite cobre `{...props}` com nomes vindos de fora.
+const attrCache = new Map<string, AttrInfo>()
+
+function attrInfo(key: string): AttrInfo {
+  let info = attrCache.get(key)
+  if (!info) {
+    info = describeAttr(key)
+    if (attrCache.size < 2000) attrCache.set(key, info)
+  }
+  return info
+}
+
+function reportBlocked(key: string, tag: string): void {
+  if (!VALID_ATTR_NAME.test(key)) {
+    strictFail(`nome de atributo inválido ${JSON.stringify(key)} em <${tag}>; use letras, números, "-", ":", "." ou "_"`)
+  } else {
+    const event = key.slice(2).toLowerCase()
+    strictFail(`atributo "${key}" bloqueado em <${tag}>; use $${event} (Alpine) ou hx-on:${event} (htmx)`)
+  }
+}
+
 export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento'): string {
-  const parts: string[] = []
+  let out = ''
 
-  for (const [rawKey, value] of Object.entries(props)) {
-    // skip internal JSX props
-    if (rawKey === 'children' || rawKey === 'key') continue
+  for (const key of Object.keys(props)) {
+    if (key === 'children' || key === 'key') continue
+    const value = props[key]
+    const info = attrInfo(key)
 
-    // security: validate attr name
-    if (!VALID_ATTR_NAME.test(rawKey)) {
-      strictFail(`nome de atributo inválido ${JSON.stringify(rawKey)} em <${tag}>; use letras, números, "-", ":", "." ou "_"`)
+    if (info.blocked) {
+      reportBlocked(key, tag)
       continue
     }
 
-    // security: block native on* event handlers (allow x-on / hx-on)
-    if (isUnsafeEventHandler(rawKey)) {
-      strictFail(`atributo "${rawKey}" bloqueado em <${tag}>; use $${rawKey.slice(2).toLowerCase()} (Alpine) ou hx-on:${rawKey.slice(2).toLowerCase()}`)
+    if (typeof value === 'boolean') {
+      if (info.stringBoolean) out += ` ${key}="${value}"`
+      else if (value) out += info.htmx ? ` ${info.flagName}="true"` : ` ${info.flagName}`
       continue
     }
 
-    // aria-* e data-*: booleano vira "true" ou "false"
-    if (typeof value === 'boolean' && (rawKey.startsWith('aria-') || rawKey.startsWith('data-'))) {
-      parts.push(`${rawKey}="${value}"`)
-      continue
-    }
-
-    // omit falsy values
-    if (value === null || value === undefined || value === false) continue
+    if (value === null || value === undefined) continue
 
     // função viraria o código-fonte dela no HTML
     if (typeof value === 'function') {
-      strictFail(`atributo "${rawKey}" de <${tag}> recebeu uma função; chame a função ou passe o valor`)
+      strictFail(`atributo "${key}" de <${tag}> recebeu uma função; chame a função ou passe o valor`)
       continue
     }
 
-    // boolean true
-    if (value === true) {
-      const htmlKey = JSX_TO_HTML_ATTRS[rawKey] ?? rawKey
-      if (rawKey.startsWith('hx-')) {
-        parts.push(`${htmlKey}="true"`)
-      } else {
-        parts.push(htmlKey)
+    if (typeof value === 'object') {
+      out += key === 'style'
+        ? ` style="${serializeStyle(value as Record<string, string | number>, tag)}"`
+        : ` ${key}='${attrJson(value)}'`
+      continue
+    }
+
+    const text = String(value)
+    if (info.url) {
+      const url = safeUrl(text)
+      if (url === '#' && text !== '#') {
+        strictFail(`URL ${JSON.stringify(text)} em ${info.name} de <${tag}> foi trocada por "#"; use http(s), caminho relativo, mailto: ou tel:`)
       }
-      continue
+      out += ` ${info.name}="${escapeAttr(url)}"`
+    } else {
+      out += ` ${info.name}="${escapeAttr(text)}"`
     }
-
-    // object / array values
-    if (typeof value === 'object' && value !== null) {
-      if (rawKey === 'style') {
-        const css = serializeStyle(value as Record<string, string | number>, tag)
-        parts.push(`style="${css}"`)
-      } else {
-        parts.push(`${rawKey}='${attrJson(value)}'`)
-      }
-      continue
-    }
-
-    // string / number — determine HTML attr name first, then escape value
-    const escaped = escapeAttr(String(value))
-
-    // $event → x-on:event (with _ → . for modifiers)
-    if (rawKey.startsWith('$')) {
-      const event = rawKey.slice(1).replace(/_/g, '.')
-      parts.push(`x-on:${event}="${escaped}"`)
-      continue
-    }
-
-    // x-bind-* → x-bind:*
-    if (rawKey.startsWith('x-bind-')) {
-      const attr = rawKey.slice(7)
-      parts.push(`x-bind:${attr}="${escaped}"`)
-      continue
-    }
-
-    // x-*_* → x-*.* (modifiers)
-    if (rawKey.startsWith('x-') && rawKey.includes('_')) {
-      const transformed = rawKey.replace(/_/g, '.')
-      parts.push(`${transformed}="${escaped}"`)
-      continue
-    }
-
-    // hx-on-htmx-* → hx-on::*
-    const hxOnMatch = HX_ON_RE.exec(rawKey)
-    if (hxOnMatch) {
-      parts.push(`hx-on::${hxOnMatch[1]}="${escaped}"`)
-      continue
-    }
-
-    // camelCase aliases (className, htmlFor, tabIndex, etc.)
-    const htmlKey = JSX_TO_HTML_ATTRS[rawKey] ?? rawKey
-    // Auto-sanitize URL attributes — blocks javascript:, data:, vbscript:, blob:
-    let finalEscaped = escaped
-    if (URL_ATTRS.has(htmlKey.toLowerCase())) {
-      const url = safeUrl(String(value))
-      if (url === '#' && String(value) !== '#') {
-        strictFail(`URL ${JSON.stringify(String(value))} em ${htmlKey} de <${tag}> foi trocada por "#"; use http(s), caminho relativo, mailto: ou tel:`)
-      }
-      finalEscaped = escapeAttr(url)
-    }
-    parts.push(`${htmlKey}="${finalEscaped}"`)
   }
 
-  return parts.length > 0 ? ' ' + parts.join(' ') : ''
+  return out
 }

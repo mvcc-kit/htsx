@@ -5,10 +5,15 @@ import { applyMeta, metaMarker, resolveMarkers } from './logic'
 
 export interface PendingTag {
   key: string | null
-  html: Promise<string>
+  html: string | Promise<string>
 }
 
 const storage = new ALS<PendingTag[]>()
+
+/** Há renderização completa em andamento: a tag vai para o <head>. */
+export function isCollecting(): boolean {
+  return storage.getStore() !== undefined
+}
 
 /** Guarda a tag para o <head> e devolve a marca do lugar dela. `null`: não há renderização completa em andamento. */
 export function collect(tag: PendingTag): string | null {
@@ -23,7 +28,8 @@ export function withMeta(render: () => Promise<string>): Promise<string> {
   return storage.run(tags, async () => {
     const html = await render()
     if (tags.length === 0) return html
-    const resolved = await Promise.all(tags.map(async tag => ({ key: tag.key, html: await tag.html })))
+    const resolved: Array<{ key: string | null; html: string }> = []
+    for (const tag of tags) resolved.push({ key: tag.key, html: await tag.html })
     const marked = resolveMarkers(html, resolved)
     const applied = applyMeta(marked.html, marked.tags)
     if (applied.dropped.length > 0) {

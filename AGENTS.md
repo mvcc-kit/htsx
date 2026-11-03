@@ -35,6 +35,7 @@ bun test             # 500+ testes; nenhum pode depender de tempo
 bunx tsc --noEmit -p .
 bunx tsc --noEmit -p ui   # design system htsx-ui
 bun run scorecard         # placar: testes, tamanho, o que some sem aviso, pendências
+bun run bench             # custo do que roda a cada requisição: compare antes e depois
 ```
 
 O tamanho minificado tem teto em `size-limit.json` (testado em `__tests__/size.test.ts`). Se precisar subir, mude `maxBytes` e explique em `motivo`.

@@ -39,12 +39,12 @@ export function createHtmxContext(request: Headers, response: Headers): HtmxCont
     response.set(name, url)
   }
   return {
-    request: request.get('hx-request') === 'true',
-    boosted: request.get('hx-boosted') === 'true',
-    historyRestore: request.get('hx-history-restore-request') === 'true',
-    target: request.get('hx-target'),
-    triggeredBy: request.get('hx-trigger'),
-    currentUrl: request.get('hx-current-url'),
+    get request() { return request.get('hx-request') === 'true' },
+    get boosted() { return request.get('hx-boosted') === 'true' },
+    get historyRestore() { return request.get('hx-history-restore-request') === 'true' },
+    get target() { return request.get('hx-target') },
+    get triggeredBy() { return request.get('hx-trigger') },
+    get currentUrl() { return request.get('hx-current-url') },
     trigger(name, detail = null) {
       events[name] = detail
       response.set(HX_HEADERS.Trigger, triggerHeader(events))

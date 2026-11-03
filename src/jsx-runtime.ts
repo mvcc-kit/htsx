@@ -4,39 +4,47 @@ import { serializeAttrs } from './attrs'
 import { VOID_ELEMENTS, RAW_TEXT_ELEMENTS } from './elements'
 import { strictFail } from './strict'
 
-export class HtmlSafeString extends String {
+/** HTML pronto, que não passa por escape. Sem herdar de `String`: é criado a cada elemento. */
+export class HtmlSafeString {
   readonly __htmlSafe = true as const
+  constructor(private readonly html: string) {}
+  toString(): string { return this.html }
+  valueOf(): string { return this.html }
 }
 
 export function raw(html: string): HtmlSafeString {
   return new HtmlSafeString(html)
 }
 
-interface RenderCtx {
-  escape: boolean
-  tag?: string
-}
-
-function renderChildren(c: unknown, ctx: RenderCtx): string | Promise<string> {
-  if (c === null || c === undefined || c === false || c === true) return ''
-  if (typeof c === 'number') return String(c)
-  if (c instanceof HtmlSafeString) return c.toString()
+function renderChildren(c: unknown, escape: boolean, tag: string | undefined): string | Promise<string> {
+  // Em ordem de frequência: é o caminho mais quente do render.
   if (typeof c === 'string') {
-    if (ctx.escape) return escapeHtml(c)
+    if (escape) return escapeHtml(c)
     throw new Error(
-      `htsx: texto comum dentro de <${ctx.tag}> pode fechar a tag; use raw() só com conteúdo gerado pelo servidor, ou raw(safeJson(dados)) para dados`,
+      `htsx: texto comum dentro de <${tag}> pode fechar a tag; use raw() só com conteúdo gerado pelo servidor, ou raw(safeJson(dados)) para dados`
     )
   }
-  if (c instanceof Promise) return c.then(v => renderChildren(v, ctx))
-  if (Array.isArray(c)) {
-    const parts = c.map(x => renderChildren(x, ctx))
-    if (parts.some(p => p instanceof Promise)) {
-      return Promise.all(parts).then(arr => arr.join(''))
-    }
-    return (parts as string[]).join('')
-  }
-  strictFail(`filho ${describeChild(c)} em <${ctx.tag ?? 'componente'}> não é desenhado; ${childFix(c)}`)
+  if (c instanceof HtmlSafeString) return c.toString()
+  if (c === null || c === undefined || c === false || c === true) return ''
+  if (typeof c === 'number') return String(c)
+  if (Array.isArray(c)) return renderList(c, escape, tag)
+  if (c instanceof Promise) return c.then(v => renderChildren(v, escape, tag))
+  strictFail(`filho ${describeChild(c)} em <${tag ?? 'componente'}> não é desenhado; ${childFix(c)}`)
   return ''
+}
+
+function renderList(list: readonly unknown[], escape: boolean, tag: string | undefined): string | Promise<string> {
+  let out = ''
+  for (let i = 0; i < list.length; i++) {
+    const part = renderChildren(list[i], escape, tag)
+    if (typeof part !== 'string') {
+      // Só aqui paga por promessas: o resto da lista continua na ordem.
+      const rest = [part, ...list.slice(i + 1).map(x => renderChildren(x, escape, tag))]
+      return Promise.all(rest).then(parts => out + parts.join(''))
+    }
+    out += part
+  }
+  return out
 }
 
 function describeChild(c: unknown): string {
@@ -53,6 +61,15 @@ function childFix(c: unknown): string {
 }
 
 const VALID_TAG = /^[a-zA-Z][a-zA-Z0-9:._-]*$/
+// Os nomes usados são poucos e se repetem; o limite cobre nomes gerados em tempo de execução.
+const knownTags = new Set<string>()
+
+/** O nome sai sem escape no HTML: nome vindo de fora injetaria atributos. */
+function assertValidTag(tag: string): void {
+  if (knownTags.has(tag)) return
+  if (!VALID_TAG.test(tag)) throw new Error(`htsx: nome de elemento inválido ${JSON.stringify(tag)}`)
+  if (knownTags.size < 1000) knownTags.add(tag)
+}
 
 type Tag<P extends Record<string, unknown>> = string | ((props: P) => unknown)
 
@@ -65,45 +82,37 @@ export function createElement<P extends Record<string, unknown>>(
   props: P | null,
   ...extraChildren: unknown[]
 ): HtmlSafeString | Promise<HtmlSafeString> {
-  const { children: propsChildren, ...rest } = props ?? ({} as P)
+  const given = (props ?? {}) as P & { children?: unknown }
   // merge extra children (React.createElement style) with props.children
   const children = extraChildren.length > 0
-    ? (propsChildren !== undefined
-        ? [propsChildren, ...extraChildren]
+    ? (given.children !== undefined
+        ? [given.children, ...extraChildren]
         : extraChildren.length === 1 ? extraChildren[0] : extraChildren)
-    : propsChildren
+    : given.children
 
   // component function
   if (typeof tag === 'function') {
-    const result = tag({ ...rest, children } as unknown as P)
+    const result = tag((extraChildren.length > 0 ? { ...given, children } : given) as unknown as P)
     if (result instanceof HtmlSafeString) return result
     // retorno passa pelo mesmo caminho dos filhos: texto é escapado
-    return toSafe(renderChildren(result, { escape: true }))
+    return toSafe(renderChildren(result, true, undefined))
   }
 
-  // o nome sai sem escape no HTML: nome vindo de fora injetaria atributos
-  if (!VALID_TAG.test(tag)) throw new Error(`htsx: nome de elemento inválido ${JSON.stringify(tag)}`)
-  const attrs = serializeAttrs(rest as Record<string, unknown>, tag)
-  const open = `<${tag}${attrs}>`
+  assertValidTag(tag)
+  const open = `<${tag}${serializeAttrs(given, tag)}>`
 
   if (VOID_ELEMENTS.has(tag)) {
     return new HtmlSafeString(open)
   }
 
-  const isRaw = RAW_TEXT_ELEMENTS.has(tag)
-  const ctx: RenderCtx = { escape: !isRaw, tag }
+  const childResult = renderChildren(children, !RAW_TEXT_ELEMENTS.has(tag), tag)
 
-  const childResult = renderChildren(children, ctx)
-
-  if (childResult instanceof Promise) {
-    return childResult.then(c => new HtmlSafeString(`${open}${c}</${tag}>`))
-  }
-
-  return new HtmlSafeString(`${open}${childResult}</${tag}>`)
+  if (typeof childResult === 'string') return new HtmlSafeString(`${open}${childResult}</${tag}>`)
+  return childResult.then(c => new HtmlSafeString(`${open}${c}</${tag}>`))
 }
 
 function toSafe(r: string | Promise<string>): HtmlSafeString | Promise<HtmlSafeString> {
-  return r instanceof Promise ? r.then(c => new HtmlSafeString(c)) : new HtmlSafeString(r)
+  return typeof r === 'string' ? new HtmlSafeString(r) : r.then(c => new HtmlSafeString(c))
 }
 
 /**
@@ -123,5 +132,5 @@ export async function toHtml(node: unknown): Promise<string> {
 }
 
 export function Fragment(props: { children?: unknown }): HtmlSafeString | Promise<HtmlSafeString> {
-  return toSafe(renderChildren(props.children, { escape: true }))
+  return toSafe(renderChildren(props.children, true, undefined))
 }

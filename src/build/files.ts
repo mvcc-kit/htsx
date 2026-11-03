@@ -6,6 +6,7 @@ import pins from '../../vendor/pins.json'
 import type { PrerenderedFile } from './prerender'
 import { VENDOR_PATH } from '../vendor-path'
 import { NAVIGATION_FILES } from '../navigation'
+import { etagMatches } from '../app/etag'
 
 // Resolvido pelo pacote (exports './vendor/*').
 export const VENDOR_DIR = path.dirname(new URL(resolveVendor()).pathname)
@@ -116,6 +117,15 @@ const VENDOR_FILES = new Map(Object.values(pins).map(p => [VENDOR_PATH + p.file,
 const NAVIGATION_BY_PATH = new Map(Object.entries(NAVIGATION_FILES).map(([file, body]) => [VENDOR_PATH + file, body]))
 const IMMUTABLE = 'public, max-age=31536000, immutable'
 
+/** Arquivo que o navegador já tem volta como 304, sem trafegar de novo. */
+function fileResponse(req: Request, abs: string): Response {
+  const stats = statSync(abs)
+  const etag = `W/"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`
+  const headers = { etag, 'x-content-type-options': 'nosniff' }
+  if (etagMatches(req.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers })
+  return new Response(Bun.file(abs), { headers })
+}
+
 /**
  * Servidor de arquivos de uma pasta: devolve a resposta ou `null` (segue para o app).
  * Lê o disco a cada pedido (arquivo novo aparece sem reiniciar) e recusa `..`, `\0` e
@@ -153,7 +163,7 @@ export function fileServer(dir: string, opts: FileServerOptions = {}): (request:
     for (const c of candidates) {
       if (c.endsWith('/')) continue
       const hit = file(c)
-      if (hit) return new Response(Bun.file(hit))
+      if (hit) return fileResponse(req, hit)
     }
     return null
   }
