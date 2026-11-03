@@ -28,12 +28,12 @@ async function violations(files: string[], forbidden: (spec: string) => boolean)
   return out
 }
 
-const isUi = (s: string) => s.startsWith('@mvcc-kit/htsx-ui') || s === 'ui' || s.startsWith('ui/')
+const isUi = (s: string) => s.startsWith('htsx-ui') || s === 'ui' || s.startsWith('ui/')
 const isAdapterOrBuild = (s: string) => /^src\/(adapters|build)(\/|$)/.test(s) || /^adapter-/.test(s)
 const isNodeOnly = (s: string) => s.startsWith('node:') && s !== 'node:async_hooks'
 
 describe('camadas', () => {
-  it('núcleo não importa do design system (@mvcc-kit/htsx-ui, ui/)', async () => {
+  it('núcleo não importa do design system (htsx-ui, ui/)', async () => {
     const core = ['index.ts', 'testing.ts', 'store.ts', 'app.ts', 'adapter-static.ts', 'adapter-cloudflare.ts', 'adapter-cloudflare-build.ts', 'config.ts', 'project.ts', 'adapter-bun.ts', 'jsx.d.ts', ...await glob('src/**/*.{ts,tsx}')]
     expect(await violations(core, isUi)).toEqual([])
   })
@@ -53,7 +53,7 @@ describe('camadas', () => {
 
   it('a checagem pega import relativo, pelo nome do pacote e dinâmico', () => {
     expect(imports('src/x.ts', `import { Button } from '../ui/index'`).filter(isUi)).toEqual(['ui/index'])
-    expect(imports('index.ts', `export { Badge } from "@mvcc-kit/htsx-ui"`).filter(isUi)).toEqual(['@mvcc-kit/htsx-ui'])
+    expect(imports('index.ts', `export { Badge } from "htsx-ui"`).filter(isUi)).toEqual(['htsx-ui'])
     expect(imports('src/app/x.ts', `const m = await import('../adapters/cloudflare')`).filter(isAdapterOrBuild)).toEqual(['src/adapters/cloudflare'])
     expect(imports('src/x.ts', `import fs from 'node:fs'; import { A } from 'node:async_hooks'`).filter(isNodeOnly)).toEqual(['node:fs'])
   })

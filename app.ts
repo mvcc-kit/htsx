@@ -1,5 +1,5 @@
-// Núcleo da aplicação, sem plataforma: `import { defineApp, route } from '@mvcc-kit/htsx/app'`.
-// Os modos de entrega ficam em @mvcc-kit/htsx/adapter-static e @mvcc-kit/htsx/adapter-cloudflare.
+// Núcleo da aplicação, sem plataforma: `import { defineApp, route } from 'htsx/app'`.
+// Os modos de entrega ficam em htsx/adapter-static e htsx/adapter-cloudflare.
 export { defineApp, route, sequence, getRequestEvent } from './src/app/app'
 export type { App, AppOptions, Route, RouteDef, RequestEvent, PageProps, Platform, Layout, Handle, HandleError, RespondOptions } from './src/app/app'
 export { error, redirect, fail, HttpError, Redirect, ActionFailure } from './src/app/errors'

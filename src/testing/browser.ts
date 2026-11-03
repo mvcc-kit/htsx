@@ -184,6 +184,17 @@ export async function open(handler: Handler, pathname = '/', opts: OpenOpts = {}
   const inPage = <T>(sel: string, body: string) =>
     evaluate<T>(`(async () => { ${PAGE_HELPERS} const sel = ${JSON.stringify(sel)}; ${body} })()`)
 
+  /** Durante uma transição de página, o navegador engole os cliques. */
+  async function settled() {
+    const deadline = Date.now() + timeout
+    // as animações só existem depois do próximo quadro: antes disso, a checagem não veria a transição
+    const running = () => evaluate<boolean>(`new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(document.getAnimations().some(a => String(a.effect?.pseudoElement).startsWith('::view-transition'))))))`)
+    while (await running()) {
+      if (Date.now() > deadline) throw new Error('press: a transição de página não terminou')
+      await Bun.sleep(10)
+    }
+  }
+
   async function waitFor(selector: string, o: { timeout?: number } = {}) {
     const ms = o.timeout ?? timeout
     await inPage<void>(selector, `
@@ -216,6 +227,7 @@ export async function open(handler: Handler, pathname = '/', opts: OpenOpts = {}
     },
     async press(selector) {
       await waitFor(selector)
+      await settled()
       const box = await inPage<{ x: number; y: number }>(selector, `
         const el = find(sel); el.scrollIntoView({ block: 'center', inline: 'center' });
         const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };`)

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@mvcc-kit/htsx",
+      "name": "htsx",
       "devDependencies": {
         "@types/bun": "1.4.2",
         "typescript": "5.9.2",

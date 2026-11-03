@@ -225,7 +225,7 @@ async function generateSkill() {
   // .claude/skills/htsx/SKILL.md → nome workspace (para dev local)
   await Bun.write(
     path.join('..', '..', '.claude', 'skills', 'htsx', 'SKILL.md'),
-    template.replaceAll('{{PKG}}', '@mvcc-kit/htsx'),
+    template.replaceAll('{{PKG}}', 'htsx'),
   )
 
   console.log('✅ skill gerada (dist/ + .claude/skills/htsx/)')

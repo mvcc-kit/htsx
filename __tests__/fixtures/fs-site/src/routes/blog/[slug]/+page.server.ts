@@ -1,4 +1,4 @@
-import { error, fail } from '@mvcc-kit/htsx/app'
+import { error, fail } from 'htsx/app'
 import type { Actions, PageServerLoad } from './$types'
 import { posts } from '../../../posts'
 

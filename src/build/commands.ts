@@ -87,7 +87,7 @@ export async function loadApp(config?: HtsxConfig, root = '.', opts: LoadOptions
 function workerEntry(config: HtsxConfig, adapter: CloudflareAdapter, root: string, manifest: object): string {
   const out = outDirOf(config, root)
   const rel = (abs: string) => JSON.stringify(path.relative(out, abs).split(path.sep).join('/').replace(/^(?!\.)/, './').replace(/\.(tsx?|jsx?)$/, ''))
-  const pkg = config.pkg ?? '@mvcc-kit/htsx'
+  const pkg = config.pkg ?? 'htsx'
   const hooks = hooksFile(config, root)
   const extra = optionalFile(root, adapter.worker ?? 'src/worker')
   if (adapter.worker && !extra) throw new Error(`htsx: cloudflare.worker aponta para ${adapter.worker}, que não existe`)
@@ -143,7 +143,7 @@ async function buildWith(app: App, config: HtsxConfig, root: string): Promise<{ 
       format: 'esm',
       minify: true,
       // JSX do htsx explícito: não depende do tsconfig do projeto ser lido pelo bundler
-      jsx: { runtime: 'automatic', importSource: config.pkg ?? '@mvcc-kit/htsx', development: false },
+      jsx: { runtime: 'automatic', importSource: config.pkg ?? 'htsx', development: false },
       // node:async_hooks vem da flag nodejs_als; cloudflare:* é do próprio runtime
       external: ['node:*', 'cloudflare:*'],
     })

@@ -5,7 +5,9 @@ import { navigationTags, type NavigationOpts } from '../navigation'
 import { escapeAttr } from '../escape'
 import type { Children } from '../jsx-types'
 import { collect } from './collector'
-import { linkKey, metaKey, TITLE_KEY, type Attrs } from './logic'
+import { linkKey, metaKey, resolveAlpineOptions, resolveHtmxConfig, TITLE_KEY, type Attrs } from './logic'
+import { OUTLET_ID } from '../outlet'
+import { VENDOR_PATH } from '../vendor-path'
 
 type Rendered = HtmlSafeString | Promise<HtmlSafeString>
 
@@ -41,4 +43,40 @@ export function Htmx(props: HtmxOpts & { config?: Record<string, unknown> } = {}
 
 export function Navigation(props: NavigationOpts = {}): Rendered {
   return place('navigation', raw(navigationTags(props)))
+}
+
+export interface HeadProps {
+  /** Padrão `true`. `false` desliga; objeto configura o htmx (soma ao padrão). */
+  htmx?: boolean | Record<string, unknown>
+  /** Padrão `true`. `false` desliga; objeto escolhe os plugins. */
+  alpine?: boolean | Pick<AlpineOpts, 'plugins' | 'version'>
+  /** Transição e pré-carregamento. Padrão `true`. */
+  navigation?: boolean
+  /** Pasta que serve Alpine, htmx e a navegação. Padrão `VENDOR_PATH`. */
+  vendor?: string
+  nonce?: string
+  children?: Children
+}
+
+/** `<head>` com charset, viewport, htmx, Alpine e navegação, todos ligados por padrão. */
+export function Head(props: HeadProps = {}): Rendered {
+  const vendor = props.vendor ?? VENDOR_PATH
+  const { nonce } = props
+  const config = resolveHtmxConfig(props.htmx)
+  const alpine = resolveAlpineOptions(props.alpine)
+  return jsx('head', {
+    children: [
+      Meta({ charset: 'utf-8' }),
+      Meta({ name: 'viewport', content: 'width=device-width, initial-scale=1' }),
+      props.navigation === false ? null : Navigation({ base: vendor, nonce }),
+      config ? Htmx({ vendor, nonce, config, defer: true }) : null,
+      alpine ? Alpine({ ...alpine, vendor, nonce }) : null,
+      props.children,
+    ],
+  })
+}
+
+/** Onde o conteúdo fica no layout. Com `hx-boost` no `<body>`, a navegação troca só este trecho. */
+export function Outlet(props: { children?: Children }): Rendered {
+  return jsx('div', { id: OUTLET_ID, children: props.children })
 }

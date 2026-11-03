@@ -33,7 +33,7 @@ export interface SyncOptions {
   params?: string
   /** Pasta gerada. Padrão `.htsx`. */
   out?: string
-  /** Nome do pacote nos imports gerados. Padrão `@mvcc-kit/htsx`. */
+  /** Nome do pacote nos imports gerados. Padrão `htsx`. */
   pkg?: string
 }
 
@@ -104,7 +104,7 @@ export async function syncRoutes(opts: SyncOptions = {}): Promise<SyncResult> {
   const root = path.resolve(opts.root ?? '.')
   const routesDir = opts.routes ?? 'src/routes'
   const out = path.resolve(root, opts.out ?? '.htsx')
-  const pkg = opts.pkg ?? '@mvcc-kit/htsx'
+  const pkg = opts.pkg ?? 'htsx'
   const dirs = await scanRoutes(root, routesDir)
 
   // ── manifesto ──

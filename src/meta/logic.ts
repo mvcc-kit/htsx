@@ -88,3 +88,18 @@ export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
   }
   return { html: head + unique.map(tag => tag.html).join('') + html.slice(end), dropped: [] }
 }
+
+/** Padrão do <Head>: mesma transição da navegação e histórico sem cópia de páginas no aparelho. */
+export const DEFAULT_HTMX_CONFIG = { globalViewTransitions: true, historyCacheSize: 0 } as const
+
+/** `false` desliga, `true` usa o padrão, objeto soma ao padrão. `null`: não carregar. */
+export function resolveHtmxConfig(value: boolean | Record<string, unknown> | undefined): Record<string, unknown> | null {
+  if (value === false) return null
+  return { ...DEFAULT_HTMX_CONFIG, ...(typeof value === 'object' ? value : {}) }
+}
+
+/** `false` desliga; `true` e vazio carregam sem opções. `null`: não carregar. */
+export function resolveAlpineOptions<T extends object>(value: boolean | T | undefined): T | Record<string, never> | null {
+  if (value === false) return null
+  return typeof value === 'object' ? value : {}
+}

@@ -15,12 +15,21 @@ export const navigationCss = '@media (prefers-reduced-motion:no-preference){@vie
   + '[x-cloak]{display:none!important}'
 
 /**
+ * Com \`hx-boost\` e \`<Outlet>\`, a navegação troca só o conteúdo da página; se a resposta não tiver
+ * esse conteúdo ou for um erro, cai para a navegação completa.
  * Baixa antes o HTML do link, ao passar o mouse, focar ou tocar. Fica de fora: outra origem,
  * `target`, `download`, htmx (a resposta seria outra) e `data-no-prefetch`, que todo link GET
  * com efeito colateral (como `/logout`) precisa ter. Respeita economia de dados e rede 2G.
  */
 export const navigationJs = `(function(){
 var d=document,c=navigator.connection,seen={},timer;
+function outlet(){return d.getElementById('htsx-page')}
+d.addEventListener('htmx:configRequest',function(e){if(e.detail.boosted&&outlet())e.detail.headers['HX-Target']='htsx-page'});
+d.addEventListener('htmx:beforeSwap',function(e){
+var x=e.detail,r=x.requestConfig,o=outlet();
+if(!r||!r.boosted||r.verb!=='get'||!o)return;
+if(x.isError||x.serverResponse.indexOf('id="htsx-page"')<0){x.shouldSwap=false;location.href=x.pathInfo.responsePath||x.pathInfo.finalRequestPath;return}
+x.target=o;x.selectOverride='#htsx-page';x.swapOverride='outerHTML show:window:top'});
 if(c&&(c.saveData||/2g/.test(c.effectiveType||'')))return;
 var probe=d.createElement('link');
 if(!probe.relList||!probe.relList.supports||!probe.relList.supports('prefetch'))return;

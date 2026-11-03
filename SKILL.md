@@ -129,7 +129,7 @@ A lógica do app (rotas, dados, páginas, ações) fica separada da implementaç
 | **Servidor Bun** | `Bun.serve` com as rotas, `static/` e o vendor | `bunAdapter()` |
 
 ```ts arquivo=htsx.config.ts
-import { cloudflareAdapter, defineConfig } from '@mvcc-kit/htsx/config'
+import { cloudflareAdapter, defineConfig } from 'htsx/config'
 
 export default defineConfig({
   adapter: cloudflareAdapter(),          // ou staticAdapter() / bunAdapter({ port: 3000 })
@@ -150,11 +150,11 @@ export default defineConfig({
 | `bun htsx.config.ts start` | servidor Bun de produção |
 | `bun htsx.config.ts sync` | só gera os tipos `./$types` (útil antes do `tsc` no CI) |
 
-Em código (testes, scripts): `import { loadApp, build, start, sync } from '@mvcc-kit/htsx/project'`. `await loadApp()` acha o `htsx.config.ts`, monta as rotas e a plataforma do modo, e devolve o app pronto para `app.respond(request)`. Feche com `app.close()`. `app.platform.env` serve para preparar dados no teste (ex.: criar a tabela no D1 local). É o mesmo app do `dev` e do Worker, sem build:
+Em código (testes, scripts): `import { loadApp, build, start, sync } from 'htsx/project'`. `await loadApp()` acha o `htsx.config.ts`, monta as rotas e a plataforma do modo, e devolve o app pronto para `app.respond(request)`. Feche com `app.close()`. `app.platform.env` serve para preparar dados no teste (ex.: criar a tabela no D1 local). É o mesmo app do `dev` e do Worker, sem build:
 
 ```ts arquivo=src/app.test.ts
 import { afterAll, expect, it } from 'bun:test'
-import { loadApp } from '@mvcc-kit/htsx/project'
+import { loadApp } from 'htsx/project'
 
 const app = await loadApp()
 afterAll(() => app.close())
@@ -264,7 +264,7 @@ src/
 Os tipos de cada pasta (`./$types`) são gerados sozinhos sempre que `dev`, `build`, `start`, `sync` ou `loadApp` rodam. No `tsconfig.json`: `"extends": "./.htsx/tsconfig.json"` (põe `.htsx/types` em `rootDirs`), com o `jsxImportSource` no próprio arquivo. Ponha `.htsx/` no `.gitignore`.
 
 ```ts arquivo=src/hooks.server.ts
-import type { Handle, HandleError } from '@mvcc-kit/htsx/app'
+import type { Handle, HandleError } from 'htsx/app'
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.user = event.cookies.get('user')   // chega em todo load como event.locals
@@ -287,7 +287,7 @@ export const load = (async ({ parent, locals }) => {
 ```
 
 ```ts arquivo=src/routes/blog/[slug]/+page.server.ts
-import { error, fail } from '@mvcc-kit/htsx/app'
+import { error, fail } from 'htsx/app'
 import type { Actions, PageServerLoad } from './$types'
 
 export const load = (async ({ params }) => {
@@ -354,7 +354,7 @@ Segue o `adapter-cloudflare` do SvelteKit. O build pré-renderiza as rotas com `
 D1, R2, KV, Queues, Durable Objects, Workers AI e os outros bindings chegam em `env`, igual a um Worker comum. Os tipos saem do `wrangler types`, que gera a interface global `Env`:
 
 ```ts arquivo=src/routes/api/notas/+server.ts
-import { cloudflarePlatform } from '@mvcc-kit/htsx/adapter-cloudflare'
+import { cloudflarePlatform } from 'htsx/adapter-cloudflare'
 import type { RequestHandler } from './$types'
 
 export const POST = (async event => {
@@ -431,7 +431,7 @@ export const html = await renderToString(() => (
 ))
 ```
 
-Componentes prontos (Button, Field, Panel, Badge e tokens em variáveis CSS) ficam no pacote à parte `@mvcc-kit/htsx-ui`: `import { Button, Field, Panel, Badge, uiCss } from '@mvcc-kit/htsx-ui'` e `<style>{raw(uiCss)}</style>`. O núcleo nunca importa dele.
+Componentes prontos (Button, Field, Panel, Badge e tokens em variáveis CSS) ficam no pacote à parte `htsx-ui`: `import { Button, Field, Panel, Badge, uiCss } from 'htsx-ui'` e `<style>{raw(uiCss)}</style>`. O núcleo nunca importa dele.
 
 ### Atributos
 
@@ -567,6 +567,50 @@ export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpi
 
 ---
 
+## `<Head>` e `<Outlet>`: o jeito simples
+
+`<Head>` já traz charset, viewport, htmx, Alpine e navegação. `false` desliga; objeto configura. Os arquivos vêm de `VENDOR_PATH`, que os adaptadores servem.
+
+```tsx
+import { type Children } from '{{PKG}}'
+import { defineApp, route } from '{{PKG}}/app'
+import { Head, Outlet, Title } from '{{PKG}}/meta'
+
+const Layout = ({ children }: { children?: Children }) => (
+  <html lang="pt-br">
+    <Head htmx={{ timeout: 5000 }} alpine={{ plugins: ['collapse'] }}>
+      <Title>Site</Title>
+    </Head>
+    <body hx-boost="true">
+      <nav><a href="/">Início</a> <a href="/sobre">Sobre</a></nav>
+      <Outlet>{children}</Outlet>
+    </body>
+  </html>
+)
+
+export const app = defineApp({
+  layout: Layout,
+  routes: [
+    route('/', { page: () => <main><Title>Início</Title>Olá</main> }),
+    route('/sobre', { page: () => <main><Title>Sobre</Title>Sobre nós</main> }),
+  ],
+})
+```
+
+Com `hx-boost` no `<body>` e `<Outlet>` no layout, cada link troca só o conteúdo:
+
+- **Com servidor:** a resposta traz só a página e o título, sem renderizar o layout.
+- **Em site estático:** o arquivo inteiro chega, e o cliente usa só o trecho do `Outlet`.
+- `hx-get` dentro da página continua funcionando como antes.
+- Erro ou resposta sem `Outlet` (como rota com layout próprio) cai para a navegação completa. Voltar e avançar funcionam.
+- **Cada página precisa do próprio `<Title>`:** sem ele, o título da página anterior continua.
+- **O que fica fora do `Outlet` não muda na navegação.** Se depender da página (como o idioma ou o link ativo), ponha dentro dele.
+- **Script de uma página específica vai dentro do conteúdo**, não no `<head>`: o `<head>` não é trocado. Evite `type="module"`, porque o navegador não o executa de novo.
+- Padrão do htmx no `<Head>`: `globalViewTransitions: true` e `historyCacheSize: 0`, para não deixar cópias de páginas no `localStorage`.
+- CSP estrita: o Alpine padrão precisa de `unsafe-eval`, e o htmx, de `includeIndicatorStyles: false` e `allowEval: false`.
+
+---
+
 ## `<head>` em componentes: `/meta`
 
 Escreva `<Title>`, `<Meta>` e `<Link>` em qualquer componente; eles vão para o `<head>` da página. Funciona em `renderPage` e no `defineApp`. `head()` continua existindo e pode ser usado junto.
@@ -603,6 +647,7 @@ export const html = await renderPage(() => (
 - Resposta parcial do htmx: só o `Title` sai, porque o htmx o aplica sozinho.
 - Fora de `renderPage` e do app (`renderToString`), a tag sai onde foi escrita.
 - Regras em `src/meta/logic.ts`, sem renderização; os componentes só geram o HTML.
+- `Htmx`, `Alpine` e `Navigation` também existem soltos, para quem não usa `<Head>`.
 
 ---
 

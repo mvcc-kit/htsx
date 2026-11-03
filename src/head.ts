@@ -51,7 +51,7 @@ export interface HeadOpts {
 }
 
 export interface AlpineOpts { version?: string; plugins?: AlpinePluginName[]; vendor?: string; nonce?: string }
-export interface HtmxOpts { version?: string; vendor?: string; nonce?: string }
+export interface HtmxOpts { version?: string; vendor?: string; nonce?: string; defer?: boolean }
 
 const nonceOf = (nonce: string | undefined) => (nonce ? ` nonce="${escapeAttr(nonce)}"` : '')
 
@@ -65,7 +65,7 @@ export function alpineTags(opts: AlpineOpts = {}): string[] {
 }
 
 export function htmxTags(opts: HtmxOpts = {}): string {
-  return `<script ${vendorSrc('htmx', opts.vendor, opts.version)}${nonceOf(opts.nonce)}></script>`
+  return `<script ${opts.defer ? 'defer ' : ''}${vendorSrc('htmx', opts.vendor, opts.version)}${nonceOf(opts.nonce)}></script>`
 }
 
 export function head(opts: HeadOpts = {}): string {

@@ -1,9 +1,9 @@
 /**
- * @mvcc-kit/htsx-ui — tokens e componentes base sobre o @mvcc-kit/htsx.
+ * htsx-ui — tokens e componentes base sobre o htsx.
  * Camada acima do núcleo: o núcleo (`src/`) nunca importa daqui.
  * Estilo por variáveis CSS (`tokens`) e classes `ui-*` (`uiCss`); sem Tailwind.
  */
-import { Field as CoreField, clx, type Children, type FieldProps } from '@mvcc-kit/htsx'
+import { Field as CoreField, clx, type Children, type FieldProps } from 'htsx'
 
 /** Variáveis CSS do tema. Troque os valores para mudar a marca. */
 export const tokens = {
