@@ -41,11 +41,11 @@ describe('regras', () => {
     expect(existingTagPattern('link:rel:canonical')!.test('<link href="/x" rel="canonical">')).toBe(true)
   })
 
-  it('entra antes de </head> e troca o que já existia', () => {
+  it('título no começo, o resto antes de </head>, e troca o que já existia', () => {
     const { html } = applyMeta('<html><head><title>velho</title><meta name="d" content="v"><meta name="e"></head><body>x</body></html>', [
       tag('title', '<title>novo</title>'), tag('meta:name:d', '<meta name="d" content="n">'),
     ])
-    expect(html).toBe('<html><head><meta name="e"><title>novo</title><meta name="d" content="n"></head><body>x</body></html>')
+    expect(html).toBe('<html><head><title>novo</title><meta name="e"><meta name="d" content="n"></head><body>x</body></html>')
   })
 
   it('parcial leva só o título; <html> sem <head> avisa o que ficou de fora', () => {
@@ -185,5 +185,22 @@ describe.skipIf(!findChrome())('/meta no Chrome real', () => {
     expect(await chrome.text('id:n')).toBe('7')
     await chrome.press('text:Carregar')
     await chrome.waitFor('text:Fragmento')
+  })
+})
+
+describe('ordem do <head>', () => {
+  it('charset, viewport e título vêm primeiro, antes de CSS e scripts', () => {
+    const { html } = applyMeta('<html><head><link rel="stylesheet" href="/a.css"><meta name="theme-color" content="#000"></head><body></body></html>', [
+      { key: 'link:x', html: '<script src="/a.js"></script>' },
+      { key: 'title', html: '<title>T</title>' },
+      { key: 'meta:name:viewport', html: '<meta name="viewport" content="w">' },
+      { key: 'meta:charset', html: '<meta charset="utf-8">' },
+    ])
+    const position = (text: string) => html.indexOf(text)
+    expect(position('<meta charset')).toBeLessThan(position('<meta name="viewport"'))
+    expect(position('<meta name="viewport"')).toBeLessThan(position('<title>'))
+    expect(position('<title>')).toBeLessThan(position('/a.css'))
+    expect(position('<title>')).toBeLessThan(position('theme-color'))
+    expect(position('/a.css')).toBeLessThan(position('/a.js'))
   })
 })

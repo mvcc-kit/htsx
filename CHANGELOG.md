@@ -2,6 +2,12 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.3-beta (03/11/2026)
+
+### Melhorado
+
+- `applyMeta` põe `charset`, `viewport` e `<title>` no começo do `<head>`, antes de CSS e scripts e de tags escritas à mão.
+
 ## 0.1.2-beta (03/11/2026)
 
 ### Adicionado

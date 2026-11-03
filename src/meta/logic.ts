@@ -11,6 +11,8 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 
 export const TITLE_KEY = 'title'
 
+const HEAD_FIRST = ['meta:charset', 'meta:name:viewport', TITLE_KEY]
+
 export function metaKey(attrs: Attrs): string | null {
   if (attrs.charset !== undefined) return 'meta:charset'
   for (const attr of ['name', 'property', 'http-equiv']) {
@@ -88,7 +90,13 @@ export function applyMeta(html: string, tags: readonly MetaTag[]): AppliedMeta {
     const pattern = key === null ? null : existingTagPattern(key)
     if (pattern) head = head.replace(pattern, '')
   }
-  return { html: head + unique.map(tag => tag.html).join('') + html.slice(end), dropped: [] }
+  // charset, viewport e título vêm antes de tudo: o navegador precisa deles logo nos primeiros bytes.
+  const first = HEAD_FIRST.flatMap(key => unique.filter(tag => tag.key === key))
+  const rest = unique.filter(tag => !first.includes(tag))
+  const open = /<head(\s[^>]*)?>/i.exec(head)
+  const start = open ? open.index + open[0].length : 0
+  head = head.slice(0, start) + first.map(tag => tag.html).join('') + head.slice(start)
+  return { html: head + rest.map(tag => tag.html).join('') + html.slice(end), dropped: [] }
 }
 
 /**
