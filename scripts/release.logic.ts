@@ -2,7 +2,6 @@
 export interface Version { major: number; minor: number; patch: number; beta: boolean }
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)(-beta)?$/
-const DAY_MS = 24 * 60 * 60 * 1000
 
 /** Títulos aceitos nas notas de uma versão. */
 export const NOTE_HEADINGS = ['Adicionado', 'Melhorado', 'Corrigido', 'Segurança', 'Mudanças de quebra'] as const
@@ -68,15 +67,6 @@ export function versionProblem(version: string, tags: readonly string[], changel
   const notes = changelogSection(changelog, version)
   if (!notes) return `CHANGELOG.md não tem a seção "## ${version}" com conteúdo`
   return notesProblem(notes)
-}
-
-/** Motivo para esperar, ou null. No máximo uma versão por dia, salvo falha de segurança descrita nas notas. */
-export function cadenceProblem(lastReleaseMs: number | null, nowMs: number, security: boolean, notes = ''): string | null {
-  if (security && !/^### Segurança$/m.test(notes)) return '--security exige a seção "### Segurança" nas notas, dizendo qual é a falha'
-  if (security || lastReleaseMs === null) return null
-  const waitMs = lastReleaseMs + DAY_MS - nowMs
-  if (waitMs <= 0) return null
-  return `no máximo uma versão por dia; faltam ${Math.ceil(waitMs / (60 * 60 * 1000))} h. Só falha de segurança usa --security`
 }
 
 /** Entradas públicas de `exports` que dá para importar (sem curingas nem JSX). */

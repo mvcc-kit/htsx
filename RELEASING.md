@@ -18,13 +18,13 @@ Uma versão é uma tag no GitHub, com uma release que diz o que mudou. Quem usa 
    - `### Mudanças de quebra`
 
    Use só os títulos que tiverem itens. O texto vai do `CHANGELOG.md` para a release.
-4. **Subir devagar:** no máximo uma versão por dia. Junte as mudanças. Só falha de segurança passa disso, com `--security`, e ela precisa estar descrita em `### Segurança`.
+4. **Subir devagar:** junte as mudanças em vez de publicar uma versão para cada uma.
 5. **Só publique o que foi testado em um projeto real.** A versão nova entra no app antes de receber outra por cima.
 6. **Tag publicada não muda nem é apagada.** Versão ruim se corrige com a seguinte.
 7. **Só o comando cria tag.** Nada de `git tag` à mão.
 8. **Nada privado no repositório.** Ele é público, inclusive o histórico: nome de cliente, caminho de outro projeto e segredo ficam de fora.
 
-O comando recusa número errado, notas sem título ou sem itens e segunda versão no mesmo dia.
+O comando recusa número errado e notas sem título ou sem itens.
 
 ## O fluxo
 
@@ -47,7 +47,7 @@ O comando recusa número errado, notas sem título ou sem itens e segunda versã
 
 Nesta ordem, e para no primeiro erro:
 
-1. Confere: `main`, sem mudanças soltas, igual ao GitHub, número certo, notas e intervalo de um dia.
+1. Confere: `main`, sem mudanças soltas, igual ao GitHub, número certo e notas.
 2. Roda testes e tipos.
 3. Instala o que está no Git num projeto vazio e importa todas as entradas públicas.
 4. Grava o número em `package.json`, faz o commit e cria a tag anotada.

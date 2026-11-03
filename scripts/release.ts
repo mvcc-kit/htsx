@@ -1,14 +1,13 @@
 #!/usr/bin/env bun
-// Publica uma versão: bun run release <versão> [--dry-run] [--security]. O fluxo está em RELEASING.md.
+// Publica uma versão: bun run release <versão> [--dry-run]. O fluxo está em RELEASING.md.
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { cadenceProblem, changelogSection, importableEntries, latestVersion, parseVersion, versionProblem } from './release.logic'
+import { changelogSection, importableEntries, parseVersion, versionProblem } from './release.logic'
 
 const ROOT = path.join(import.meta.dir, '..')
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-const security = args.includes('--security')
 const version = args.find(a => !a.startsWith('--'))
 
 function fail(message: string): never {
@@ -37,10 +36,6 @@ const tags = run(['git', 'tag', '--list']).split('\n').filter(Boolean)
 const changelog = await Bun.file(path.join(ROOT, 'CHANGELOG.md')).text()
 const problem = versionProblem(version, tags, changelog)
 if (problem) fail(problem)
-const latest = latestVersion(tags)
-const lastReleaseMs = latest ? Number(run(['git', 'log', '-1', '--format=%ct', `v${latest}`])) * 1000 : null
-const tooSoon = cadenceProblem(lastReleaseMs, Date.now(), security, changelogSection(changelog, version) ?? '')
-if (tooSoon) fail(tooSoon)
 
 step('Rodando testes e tipos')
 run(['bun', 'test'])

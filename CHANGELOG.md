@@ -2,7 +2,7 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
-## 0.1.1-beta (04/11/2026)
+## 0.1.1-beta (03/11/2026)
 
 ### Adicionado
 
@@ -26,7 +26,6 @@ Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 ### Segurança
 
 - `event.locals` é copiado a cada requisição: objeto fixo passado em `respond(request, { locals })` não vaza entre requisições.
-- `--security` no comando de release exige a seção `### Segurança` nas notas.
 
 ### Mudanças de quebra
 

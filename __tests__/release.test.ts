@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { cadenceProblem, changelogSection, compareVersions, importableEntries, latestVersion, nextVersion, notesProblem, parseVersion, versionProblem } from '../scripts/release.logic'
+import { changelogSection, compareVersions, importableEntries, latestVersion, nextVersion, notesProblem, parseVersion, versionProblem } from '../scripts/release.logic'
 
 const v = (text: string) => parseVersion(text)!
 const CHANGELOG = '# Changelog\n\n## 0.1.1-beta (03/11/2026)\n\n### Corrigido\n\n- Corrige algo.\n\n## 0.1.0-beta (02/11/2026)\n\n### Adicionado\n\n- Primeira.\n\n## 0.1.2-beta\n\n## 0.1.3-beta\n\nSem título.\n'
@@ -55,24 +55,6 @@ describe('notesProblem', () => {
     expect(notesProblem('- Algo solto.')).toContain('pelo menos um')
     expect(notesProblem('### Novidades\n\n- Algo.')).toContain('não existe')
     expect(notesProblem('### Corrigido\n\n### Melhorado\n\n- Algo.')).toContain('"Corrigido" está sem itens')
-  })
-})
-
-describe('cadenceProblem', () => {
-  const HOUR = 60 * 60 * 1000
-  it('permite a primeira versão e a que vem depois de 24 h', () => {
-    expect(cadenceProblem(null, 0, false)).toBeNull()
-    expect(cadenceProblem(0, 24 * HOUR, false)).toBeNull()
-  })
-
-  it('segura antes de 24 h, salvo falha de segurança', () => {
-    expect(cadenceProblem(0, 23 * HOUR, false)).toContain('faltam 1 h')
-    expect(cadenceProblem(0, HOUR, true, '### Segurança\n\n- Falha.')).toBeNull()
-  })
-
-  it('--security sem a falha descrita nas notas é recusado', () => {
-    expect(cadenceProblem(0, HOUR, true, '### Melhorado\n\n- Algo.')).toContain('exige a seção')
-    expect(cadenceProblem(0, HOUR, true)).toContain('exige a seção')
   })
 })
 
