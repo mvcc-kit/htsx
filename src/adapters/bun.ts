@@ -46,14 +46,14 @@ export function serve(app: App | (() => App), opts: BunServeOptions = {}) {
 }
 
 // O mesmo conteúdo não precisa ser comprimido de novo: ETag ou arquivo imutável identificam a versão.
-const gzipCache = new Map<string, Uint8Array>()
+const gzipCache = new Map<string, Uint8Array<ArrayBuffer>>()
 const GZIP_CACHE_ENTRIES = 200
 const GZIP_CACHE_MAX_BYTES = 1024 * 1024
 
-function gzipOnce(key: string | null, body: Uint8Array): Uint8Array {
+function gzipOnce(key: string | null, body: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   const known = key ? gzipCache.get(key) : undefined
   if (known) return known
-  const out = Bun.gzipSync(body)
+  const out = Bun.gzipSync(body) as Uint8Array<ArrayBuffer>
   if (key && body.byteLength <= GZIP_CACHE_MAX_BYTES) {
     if (gzipCache.size >= GZIP_CACHE_ENTRIES) gzipCache.clear()
     gzipCache.set(key, out)
