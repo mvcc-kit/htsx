@@ -798,6 +798,7 @@ Continua sendo navegação real: scripts, Alpine, voltar e histórico não mudam
 - **Link GET com efeito colateral precisa de `data-no-prefetch`.** `/logout`, `/signout` e `/sair` já ficam de fora. O pré-carregamento faz o GET antes do clique. Links com `hx-get`, dentro de `hx-boost`, de outra origem, com `target` ou `download` já ficam de fora.
 - Com `base` (ou `vendor` em `head()`), o CSS e o JS vêm de arquivos, para CSP sem `unsafe-inline`. Os adaptadores servem `VENDOR_PATH`; pasta própria serve `NAVIGATION_FILES`. Sem `base`, saem embutidos, com o `nonce` informado.
 - Site sem Alpine nem htmx: `buildStatic(app, { vendor: 'navigation' })` copia só esses dois arquivos.
+- Cache longo no CSS e no JS do projeto: depois de gerar tudo, `await fingerprintAssets('build', ['/styles.css', '/app.js'])`, de `{{PKG}}/adapter-static`. Os arquivos vão para `/_htsx/assets/` com o hash no nome e os HTML são atualizados; no host, dê a essa pasta `Cache-Control: public, max-age=31536000, immutable`.
 
 ```tsx
 import { Navigation, renderPage, VENDOR_PATH } from '{{PKG}}'

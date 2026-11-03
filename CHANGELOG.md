@@ -2,7 +2,11 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
-## 0.1.2-beta (a publicar)
+## 0.1.2-beta (03/11/2026)
+
+### Adicionado
+
+- `fingerprintAssets(outDir, files)` em `htsx/adapter-static`: põe o hash no nome dos arquivos do projeto e atualiza os HTML, para o host dar cache longo sem misturar versões depois de um deploy.
 
 ### Corrigido
 
