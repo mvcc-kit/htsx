@@ -89,3 +89,47 @@ describe('inlineStyles', () => {
     await expect(inlineStyles(dir, ['/../fora.css'])).rejects.toThrow('dentro da saída')
   })
 })
+
+describe('fingerprintAssets: arquivo que ninguém cita', () => {
+  it('recusa antes de mover qualquer coisa', async () => {
+    await setup()
+    await write('solto.js', 'x()')
+    await expect(fingerprintAssets(dir, ['/support.js', '/solto.js'])).rejects.toThrow('/solto.js')
+    expect(await Bun.file(path.join(dir, 'support.js')).exists()).toBe(true)
+    expect(await read('index.html')).toContain('src="/support.js"')
+  })
+})
+
+describe('inlineStyles: o que muda ao sair do arquivo', () => {
+  it('mantém o media do link', async () => {
+    await setup()
+    await write('print.css', 'b{}')
+    await write('index.html', '<link rel="stylesheet" media="print" href="/print.css">')
+    await inlineStyles(dir, ['/print.css'])
+    expect(await read('index.html')).toBe('<style media="print">b{}</style>')
+  })
+
+  it('recusa endereço relativo no CSS: dentro do HTML, ele passaria a valer a partir da página', async () => {
+    for (const css of ['a{background:url(x.png)}', "a{background:url( '../x.png' )}", '@import "b.css";', '@import url(b.css);']) {
+      await setup()
+      await write('styles.css', css)
+      await expect(inlineStyles(dir, ['/styles.css'])).rejects.toThrow('relativo')
+      expect(await Bun.file(path.join(dir, 'styles.css')).exists()).toBe(true)
+    }
+  })
+
+  it('aceita endereço absoluto, data e comentário', async () => {
+    await setup()
+    await write('styles.css', '/* url(x.png) */a{background:url(/x.png)}b{background:url("https://c.d/e.png")}i{background:url(data:image/png;base64,AA)}u{fill:url(#g)}@import url(/b.css);')
+    await inlineStyles(dir, ['/styles.css'])
+    expect(await read('index.html')).toContain('<style>/* url(x.png) */')
+  })
+
+  it('recusa CSS que nenhuma página cita, sem apagar nem alterar nada', async () => {
+    await setup()
+    await write('solto.css', 'c{}')
+    await expect(inlineStyles(dir, ['/styles.css', '/solto.css'])).rejects.toThrow('/solto.css')
+    expect(await Bun.file(path.join(dir, 'solto.css')).exists()).toBe(true)
+    expect(await read('index.html')).toContain('href="/styles.css"')
+  })
+})

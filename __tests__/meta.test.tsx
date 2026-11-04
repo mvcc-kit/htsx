@@ -204,3 +204,26 @@ describe('ordem do <head>', () => {
     expect(position('/a.css')).toBeLessThan(position('/a.js'))
   })
 })
+
+describe('tag escrita à mão com media', () => {
+  const dark = '<meta name="theme-color" media="(prefers-color-scheme: dark)" content="old">'
+  const light = '<meta name="theme-color" media="(prefers-color-scheme: light)" content="keep">'
+
+  it('a tag da página troca só a do mesmo media', () => {
+    const key = metaKey({ name: 'theme-color', media: '(prefers-color-scheme: dark)' })
+    const { html } = applyMeta(`<html><head>${dark}${light}</head></html>`, [{ key, html: '<meta new>' }])
+    expect(html).not.toContain('content="old"')
+    expect(html).toContain('content="keep"')
+    expect(html).toContain('<meta new>')
+  })
+
+  it('a tag sem media não apaga a que tem media', () => {
+    const { html } = applyMeta(`<html><head>${dark}</head></html>`, [{ key: metaKey({ name: 'theme-color' }), html: '<meta new>' }])
+    expect(html).toContain('content="old"')
+  })
+
+  it('não confunde data-name com name', () => {
+    const { html } = applyMeta('<html><head><meta data-name="d" content="keep"></head></html>', [{ key: metaKey({ name: 'd' }), html: '<meta new>' }])
+    expect(html).toContain('content="keep"')
+  })
+})

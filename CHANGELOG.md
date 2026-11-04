@@ -2,6 +2,19 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.5-beta (04/11/2026)
+
+### Corrigido
+
+- `inlineStyles` mantém o `media` do link. Antes, um CSS de impressão passava a valer na tela.
+- `applyMeta` troca só a tag escrita à mão com o mesmo `media`. Antes, a tag com `media` nunca era trocada, e a sem `media` podia apagar a que tinha.
+- `applyMeta` não confunde `data-name` com `name`.
+
+### Mudanças de quebra
+
+- `inlineStyles` recusa CSS com endereço relativo, porque dentro do HTML ele contaria a partir da página. O que fazer: usar um caminho a partir da raiz, como `url(/x.png)`.
+- `inlineStyles` e `fingerprintAssets` recusam arquivo que nenhum HTML cita, sem alterar nada. Antes, o arquivo era apagado ou movido em silêncio. O que fazer: citar o arquivo em um `href` ou `src` de HTML, ou tirá-lo da lista.
+
 ## 0.1.4-beta (03/11/2026)
 
 ### Adicionado

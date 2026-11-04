@@ -11,6 +11,9 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 
 export const TITLE_KEY = 'title'
 
+// Nem `name` nem `media` têm quebra de linha, e os dois podem ter ":".
+const MEDIA_SEPARATOR = '\n'
+
 const HEAD_FIRST = ['meta:charset', 'meta:name:viewport', TITLE_KEY]
 
 export function metaKey(attrs: Attrs): string | null {
@@ -19,7 +22,7 @@ export function metaKey(attrs: Attrs): string | null {
     const value = text(attrs[attr])
     // A mesma tag pode valer para media diferente, como theme-color no claro e no escuro.
     const media = text(attrs.media)
-    if (value) return media ? `meta:${attr}:${value}:${media}` : `meta:${attr}:${value}`
+    if (value) return media ? `meta:${attr}:${value}${MEDIA_SEPARATOR}${media}` : `meta:${attr}:${value}`
   }
   return null
 }
@@ -59,9 +62,13 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 export function existingTagPattern(key: string): RegExp | null {
   if (key === TITLE_KEY) return /<title(\s[^>]*)?>[\s\S]*?<\/title\s*>\s*/i
   if (key === 'meta:charset') return /<meta\b[^>]*\bcharset=[^>]*>\s*/i
-  const [tag, attr, value] = key.split(/:(.*?):(.*)/s).filter(Boolean)
-  if (!tag || !attr || !value) return null
-  return new RegExp(`<${tag}\\b[^>]*\\b${escapeRegExp(attr)}="${escapeRegExp(value)}"[^>]*>\\s*`, 'i')
+  const [tag, attr, rest] = key.split(/:(.*?):(.*)/s).filter(Boolean)
+  if (!tag || !attr || !rest) return null
+  const [value, media] = rest.split(MEDIA_SEPARATOR)
+  const has = (name: string, wanted: string) => `(?=[^>]*\\s${escapeRegExp(name)}="${escapeRegExp(wanted)}")`
+  // Sem media na chave, a tag escrita com media é outra informação e fica.
+  const sameMedia = media ? has('media', media) : '(?![^>]*\\smedia=)'
+  return new RegExp(`<${tag}\\b${has(attr, value!)}${sameMedia}[^>]*>\\s*`, 'i')
 }
 
 export interface AppliedMeta {
