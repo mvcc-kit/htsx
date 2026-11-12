@@ -846,7 +846,7 @@ export async function save(req: Request, sessionId: string): Promise<Response> {
 
 ## Flash messages
 
-Mensagens assinadas num cookie, lidas na próxima requisição.
+Mensagens assinadas num cookie, lidas na próxima requisição. Cookie e token vencem juntos em 120 segundos; `parse` aceita `maxAge` para mudar.
 
 ```ts
 import { flash } from '{{PKG}}'
@@ -909,7 +909,7 @@ export const html = await renderPage(() => <><Hello /><Optional /></>, { context
 
 ### Cache por requisição — `cache`
 
-Memoriza uma função dentro de uma renderização. Precisa de `cacheContext()` no contexto.
+Memoriza uma função dentro de uma renderização. Precisa de `cacheContext()` no contexto; fora dele, a função roda sem memorizar. Chamadas simultâneas iguais rodam a função uma vez, e erro não fica guardado. Passou de `maxSize` (padrão 1000), roda sem guardar; no modo estrito, vira erro.
 
 ```tsx
 import { cache, cacheContext, renderToString } from '{{PKG}}'
@@ -1030,5 +1030,5 @@ export async function e2e(handler: (req: Request) => Promise<Response>) {
 - ❌ Concatenar HTML com strings (`'<div>' + variavel`): use JSX para o escape funcionar
 - ❌ Tipar `children?: unknown` ou usar `children as JSX.Element`: use `children?: Children`
 - ❌ Atributo inexistente (`clas=`) ou `on*`: o compilador recusa; use `$click` (Alpine) ou `hx-on`
-- ❌ Compartilhar `cache()` entre requisições sem contexto: lança erro de propósito
+- ❌ Esperar que `cache()` memorize sem `cacheContext()`: fora do contexto, a função roda a cada chamada
 - ❌ `raw()` em conteúdo de usuário: o escape é a proteção contra XSS

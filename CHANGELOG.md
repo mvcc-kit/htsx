@@ -2,6 +2,26 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.6-beta (12/11/2026)
+
+### Segurança
+
+- `htmxResponse({ redirect })` recusa `javascript:` e outros esquemas perigosos, como `redirect()` e `event.htmx` já faziam. Antes, a URL ia direto para o `HX-Redirect`, que o htmx abre com `location.href`.
+
+### Corrigido
+
+- Worker: o 308 de página pré-renderizada com acento põe no `Location` o caminho codificado. Antes, ia o caminho decodificado (`/olá`), que não cabe no cabeçalho.
+- `applyMeta` troca a tag escrita à mão com `&` ou aspas no valor. Antes, o valor escapado no HTML (`&amp;`) não era reconhecido, e a tag ficava duplicada.
+
+### Melhorado
+
+- `cache()` guarda a promessa, como o `cache()` do React: chamadas simultâneas iguais rodam a função uma vez só. Erro continua fora do cache.
+- `cache()` acima de `maxSize` roda a função sem guardar, e a página não quebra mais. No modo estrito, vira erro com a correção.
+
+### Mudanças de quebra
+
+- `flash.parse` aceita o token por 120 segundos, o mesmo prazo do cookie de `flash.setCookie`. Antes, aceitava por 300. O que fazer: para manter o prazo antigo, passar `maxAge: 300` a `flash.parse`.
+
 ## 0.1.5-beta (04/11/2026)
 
 ### Corrigido
