@@ -5,6 +5,7 @@ import { head, raw, renderPage, renderToString } from '../index'
 import { Alpine, Htmx, Link, Meta, Navigation, Title } from '../meta'
 import { defineApp, route } from '../app'
 import { applyMeta, dedupeTags, existingTagPattern, linkKey, metaKey, metaMarker, resolveMarkers } from '../src/meta/logic'
+import { escapeAttr } from '../src/escape'
 import { withoutStrictMode } from './setup'
 import { findChrome, open, type App } from '../testing'
 
@@ -220,6 +221,20 @@ describe('tag escrita à mão com media', () => {
   it('a tag sem media não apaga a que tem media', () => {
     const { html } = applyMeta(`<html><head>${dark}</head></html>`, [{ key: metaKey({ name: 'theme-color' }), html: '<meta new>' }])
     expect(html).toContain('content="old"')
+  })
+
+  it('troca a tag com & ou aspas no valor, que saem escapados no HTML', () => {
+    const written = '<meta name="a&amp;b" media="x&quot;y" content="old">'
+    const key = metaKey({ name: 'a&b', media: 'x"y' }, escapeAttr)
+    const { html } = applyMeta(`<html><head>${written}</head></html>`, [{ key, html: '<meta new>' }])
+    expect(html).not.toContain('content="old"')
+    expect(html).toContain('<meta new>')
+  })
+
+  it('<Meta> com & no name troca a do layout', async () => {
+    const html = await renderPage(() => <html><head><meta name="a&b" content="old" /></head><body><Meta name="a&b" content="new" /></body></html>)
+    expect(html).not.toContain('content="old"')
+    expect(html).toContain('content="new"')
   })
 
   it('não confunde data-name com name', () => {

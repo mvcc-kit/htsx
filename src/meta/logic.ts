@@ -16,12 +16,20 @@ const MEDIA_SEPARATOR = '\n'
 
 const HEAD_FIRST = ['meta:charset', 'meta:name:viewport', TITLE_KEY]
 
-export function metaKey(attrs: Attrs): string | null {
+/**
+ * `encode`: o escape de atributo do HTML. A chave guarda o valor como sai no HTML (`&` → `&amp;`),
+ * para achar a tag que o layout já escreveu com o mesmo valor.
+ */
+export function metaKey(attrs: Attrs, encode: (value: string) => string = value => value): string | null {
   if (attrs.charset !== undefined) return 'meta:charset'
+  const encoded = (value: unknown) => {
+    const t = text(value)
+    return t === null ? null : encode(t)
+  }
   for (const attr of ['name', 'property', 'http-equiv']) {
-    const value = text(attrs[attr])
+    const value = encoded(attrs[attr])
     // A mesma tag pode valer para media diferente, como theme-color no claro e no escuro.
-    const media = text(attrs.media)
+    const media = encoded(attrs.media)
     if (value) return media ? `meta:${attr}:${value}${MEDIA_SEPARATOR}${media}` : `meta:${attr}:${value}`
   }
   return null

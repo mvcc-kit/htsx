@@ -26,7 +26,7 @@ export function Title(props: { children?: Children }): Rendered {
 }
 
 export function Meta(props: Attrs): Rendered {
-  return place(metaKey(props), jsx('meta', props))
+  return place(metaKey(props, escapeAttr), jsx('meta', props))
 }
 
 export function Link(props: Attrs): Rendered {
