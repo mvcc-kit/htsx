@@ -111,7 +111,7 @@ describe('integration: cache + context', () => {
     expect(dbCalls).toBe(1) // ✅ deduplicado
   })
 
-  it('NOTA: chamadas concorrentes não dedupam in-flight (limitação documentada)', async () => {
+  it('chamadas concorrentes iguais rodam a função uma vez (guarda a promessa)', async () => {
     let dbCalls = 0
     const getUser = cache(async (id: string) => {
       dbCalls++
@@ -119,12 +119,11 @@ describe('integration: cache + context', () => {
       return { id }
     })
     await withContext(cacheContext(), async () => {
-      // disparadas concorrentemente — ambas miss cache antes da 1ª resolver
+      // disparadas ao mesmo tempo: a segunda espera a promessa da primeira
       await Promise.all([getUser('a'), getUser('a')])
-      expect(dbCalls).toBe(2)
-      // depois que ambas resolveram, próxima call hit cache
+      expect(dbCalls).toBe(1)
       await getUser('a')
-      expect(dbCalls).toBe(2)
+      expect(dbCalls).toBe(1)
     })
   })
 })

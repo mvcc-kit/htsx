@@ -9,6 +9,7 @@
  */
 
 import { maybeContext } from './context'
+import { strictFail } from './strict'
 
 const CACHE_SYMBOL = Symbol.for('htsx.cache')
 
@@ -56,8 +57,8 @@ export interface CacheOptions<Args extends unknown[]> {
  *
  * - Args devem ser JSON-serializáveis (ou passe `opts.key`)
  * - Resultados de erro NÃO são cacheados (próxima call tenta de novo)
- * - Calls concorrentes podem executar a função mais de uma vez (sem dedup
- *   de in-flight promises — feature opt-in via cacheInflight se quiser depois)
+ * - Guarda a promessa, como o `cache()` do React: chamadas simultâneas iguais rodam a função uma vez
+ * - Passou de `maxSize`: roda sem guardar (no modo estrito, erro com a correção)
  */
 export function cache<Args extends unknown[], R>(
   fn: (...args: Args) => R | Promise<R>,
@@ -70,13 +71,16 @@ export function cache<Args extends unknown[], R>(
 
     const argsKey = opts.key ? opts.key(...args) : JSON.stringify(args)
     const key = `${id}:${argsKey}`
-    if (state.store.has(key)) return state.store.get(key) as R
+    if (state.store.has(key)) return state.store.get(key) as Promise<R>
     if (state.store.size >= state.maxSize) {
-      throw new Error(`htsx: cache: limite de ${state.maxSize} entries excedido`)
+      strictFail(`cache: limite de ${state.maxSize} entradas excedido; aumente maxSize em cacheContext(maxSize)`)
+      return await fn(...args)
     }
-    const result = await fn(...args)
-    state.store.set(key, result)
-    return result
+    const pending = Promise.resolve().then(() => fn(...args))
+    state.store.set(key, pending)
+    // Erro não fica guardado: a próxima chamada tenta de novo.
+    pending.catch(() => { if (state.store.get(key) === pending) state.store.delete(key) })
+    return pending
   }
 }
 

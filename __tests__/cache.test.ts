@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { withoutStrictMode } from './setup'
 import { cache, cacheContext, cacheSize } from '../src/cache'
 import { withContext } from '../index'
 
@@ -97,6 +98,49 @@ describe('cache: limites e segurança', () => {
         await fn(4) // estoura
       }),
     ).rejects.toThrow(/limite/)
+  })
+
+  describe('fora do modo estrito', () => {
+    withoutStrictMode()
+
+    it('maxSize excedido: roda sem guardar, e a página não quebra', async () => {
+      let calls = 0
+      const fn = cache(async (x: number) => { calls++; return x })
+      await withContext(cacheContext(1), async () => {
+        expect(await fn(1)).toBe(1)
+        expect(await fn(2)).toBe(2)
+        expect(await fn(2)).toBe(2)
+        expect(cacheSize()).toBe(1)
+      })
+      expect(calls).toBe(3)
+    })
+  })
+
+  it('maxSize excedido no modo estrito: erro com a correção', async () => {
+    const fn = cache(async (x: number) => x)
+    await expect(withContext(cacheContext(1), async () => { await fn(1); await fn(2) })).rejects.toThrow(/aumente maxSize em cacheContext/)
+  })
+
+  it('chamadas simultâneas iguais rodam a função uma vez só', async () => {
+    let calls = 0
+    const fn = cache(async (x: number) => { calls++; await Promise.resolve(); return { x } })
+    await withContext(cacheContext(), async () => {
+      const [a, b] = await Promise.all([fn(1), fn(1)])
+      expect(a).toBe(b)
+    })
+    expect(calls).toBe(1)
+  })
+
+  it('erro em chamadas simultâneas não fica guardado', async () => {
+    let calls = 0
+    const fn = cache(async () => { calls++; await Promise.resolve(); if (calls === 1) throw new Error('fail'); return 'ok' })
+    await withContext(cacheContext(), async () => {
+      const results = await Promise.allSettled([fn(), fn()])
+      expect(results.map(r => r.status)).toEqual(['rejected', 'rejected'])
+      expect(await fn()).toBe('ok')
+      expect(cacheSize()).toBe(1)
+    })
+    expect(calls).toBe(2)
   })
 
   it('maxSize < 1 → throw na criação do context', () => {
