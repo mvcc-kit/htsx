@@ -2,7 +2,7 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
-## 0.1.6-beta (12/11/2026)
+## 0.1.7-beta (12/11/2026)
 
 ### Segurança
 
