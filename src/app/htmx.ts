@@ -1,6 +1,6 @@
 // `event.htmx`: o que o htmx mandou no pedido e o que a resposta manda ele fazer.
 import { HX_HEADERS, HX_REQUEST, triggerHeader } from '../htmx-headers'
-import { safeUrl } from '../safe-url'
+import { assertSafeNavigation } from '../safe-url'
 
 export interface HtmxContext {
   /** O pedido veio do htmx. */
@@ -32,9 +32,8 @@ export interface HtmxContext {
 export function createHtmxContext(request: Headers, response: Headers): HtmxContext {
   const events: Record<string, unknown> = {}
   const set = (name: string) => (value: string | false) => { response.set(name, String(value)) }
-  // o htmx faz location.href = valor, então `javascript:` executaria na página
   const navigate = (name: string) => (url: string) => {
-    if (safeUrl(url) !== url) throw new Error('htsx: event.htmx recusou uma URL com esquema perigoso')
+    assertSafeNavigation(url, 'event.htmx')
     response.set(name, url)
   }
   return {

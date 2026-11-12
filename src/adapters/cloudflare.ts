@@ -62,7 +62,8 @@ export function cloudflare<Env extends object = Record<string, unknown>>(app: Ap
         try { pathname = decodeURIComponent(pathname) } catch { /* URL inválida: segue como veio */ }
         const stripped = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname
         if (prerendered.has(stripped)) {
-          if (stripped !== pathname) return new Response(null, { status: 308, headers: { location: stripped + url.search } })
+          // Location com o caminho como chegou, codificado: texto com acento não cabe no cabeçalho.
+          if (stripped !== pathname) return new Response(null, { status: 308, headers: { location: url.pathname.replace(/\/$/, '') + url.search } })
           const assets = (env as Record<string, unknown>)[binding] as AssetsFetcher | undefined
           if (!assets?.fetch) {
             throw new Error(`htsx: binding "${binding}" não existe no env; declare "assets": { "binding": "${binding}", "directory": ".htsx/cloudflare" } no wrangler.jsonc`)

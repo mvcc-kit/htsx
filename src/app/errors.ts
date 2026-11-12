@@ -1,5 +1,5 @@
 // Saídas de controle das rotas, como no SvelteKit: error(), redirect() e fail().
-import { safeUrl } from '../safe-url'
+import { assertSafeNavigation } from '../safe-url'
 
 /** Erro HTTP esperado (404, 403...). A mensagem é mostrada ao usuário. */
 export class HttpError extends Error {
@@ -26,8 +26,7 @@ export function error(status: number, message: string): never {
 
 /** Interrompe a rota com redirecionamento. Use 303 depois de um POST. */
 export function redirect(status: 301 | 302 | 303 | 307 | 308, location: string): never {
-  // o htmx faz location.href = valor, então `javascript:` executaria na página
-  if (safeUrl(location) !== location) throw new Error('htsx: redirect() recusou uma URL com esquema perigoso')
+  assertSafeNavigation(location, 'redirect()')
   throw new Redirect(status, location)
 }
 

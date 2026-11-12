@@ -120,5 +120,14 @@ describe('modo Cloudflare: Worker', () => {
     expect(seen).toEqual(['assets'])
     expect(await res.text()).toBe('<p>oi</p>')
   })
+
+  it('barra no fim de página pré-renderizada com acento → 308 com o caminho codificado', async () => {
+    const { defineApp, route } = await import('../app')
+    const app = defineApp({ prerender: true, routes: [route('/olá', { page: () => <p>oi</p> })] })
+    const w = cloudflare(app, { manifest: { prerendered: ['/olá'] } })
+    const res = await w.fetch(new Request('https://x/ol%C3%A1/?a=1'), { ASSETS: { fetch: async () => new Response('') } }, ctx)
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe('/ol%C3%A1?a=1')
+  })
 })
 

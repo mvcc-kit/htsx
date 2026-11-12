@@ -62,6 +62,11 @@ describe('javascript: em redirecionamento', () => {
     hx.redirect('/ok')
     expect(response.get('hx-redirect')).toBe('/ok')
   })
+
+  it('htmxResponse({ redirect }) recusa', async () => {
+    await expect(htmxResponse(() => null, { redirect: JS })).rejects.toThrow(/esquema perigoso/)
+    expect((await htmxResponse(() => null, { redirect: '/ok' })).headers.get('hx-redirect')).toBe('/ok')
+  })
 })
 
 describe('atributos e elementos', () => {

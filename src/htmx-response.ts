@@ -3,6 +3,7 @@
  */
 import { HX_HEADERS, triggerHeader } from './htmx-headers'
 import { toHtml } from './jsx-runtime'
+import { assertSafeNavigation } from './safe-url'
 
 export interface HtmxResponseOpts {
   trigger?:   string | Record<string, unknown>
@@ -19,6 +20,7 @@ export async function htmxResponse(
   factory: () => unknown,
   opts: HtmxResponseOpts = {},
 ): Promise<Response> {
+  if (opts.redirect) assertSafeNavigation(opts.redirect, 'htmxResponse({ redirect })')
   const body = await toHtml(factory())
   const headers: Record<string, string> = {
     'Content-Type': 'text/html; charset=utf-8',
