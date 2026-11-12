@@ -50,7 +50,7 @@ export interface CookieOpts {
   name?: string
   /** Path. Default '/'. */
   path?: string
-  /** maxAge em segundos. Default 120 (suficiente pra redirect + render). */
+  /** maxAge em segundos. Default 120 (suficiente pra redirect + render), a mesma validade do token em `parse`. */
   maxAge?: number
   /** Secure flag. Default true (force HTTPS). */
   secure?: boolean
@@ -60,7 +60,8 @@ export interface CookieOpts {
   sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
-const DEFAULT_MAX_AGE = 300
+/** Cookie e token vencem juntos: um prazo só. */
+const DEFAULT_MAX_AGE = 120
 
 /** Prefixo separa do CSRF, caso usem o mesmo segredo. */
 const signed = (payload: string) => `flash:${payload}`
@@ -110,7 +111,7 @@ export const flash = {
     assertCookieAttr('domain', opts.domain)
     const parts: string[] = [`${name}=${value}`]
     parts.push(`Path=${opts.path ?? '/'}`)
-    parts.push(`Max-Age=${opts.maxAge ?? 120}`)
+    parts.push(`Max-Age=${opts.maxAge ?? DEFAULT_MAX_AGE}`)
     parts.push('HttpOnly')
     parts.push(`SameSite=${opts.sameSite ?? 'Strict'}`)
     if (opts.secure !== false) parts.push('Secure')

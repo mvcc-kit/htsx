@@ -1,5 +1,5 @@
 // Falhas reproduzidas na auditoria de 02/11/2026. Cada teste falhava antes da correção.
-import { afterAll, describe, expect, it } from 'bun:test'
+import { afterAll, describe, expect, it, setSystemTime } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -402,6 +402,21 @@ describe('auditoria 2: utilitários', () => {
     expect(await flash.parse(token, { secret })).toHaveLength(1)
     expect(await flash.parse(token, { secret, maxAge: -1 })).toEqual([])
     expect(await csrf.verify(token, { secret, sessionId: 's' })).toBe(false)
+  })
+
+  it('flash: o token vale o mesmo tempo que o cookie (120 s)', async () => {
+    const secret = 'x'.repeat(32)
+    const token = await flash.serialize([{ type: 'info', text: 'oi' }], { secret })
+    expect(flash.setCookie(token)).toContain('Max-Age=120')
+    const now = Date.now()
+    try {
+      setSystemTime(new Date(now + 119_000))
+      expect(await flash.parse(token, { secret })).toHaveLength(1)
+      setSystemTime(new Date(now + 121_000))
+      expect(await flash.parse(token, { secret })).toEqual([])
+    } finally {
+      setSystemTime()
+    }
   })
 
   it('cookies com prefixo seguem as regras, em vez de sumir no navegador', () => {
