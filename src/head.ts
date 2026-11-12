@@ -75,7 +75,7 @@ export function htmxTags(opts: HtmxOpts = {}): string {
 
 export function head(opts: HeadOpts = {}): string {
   const parts: string[] = []
-  const nonceAttr = opts.nonce ? ` nonce="${escapeAttr(opts.nonce)}"` : ''
+  const nonce = nonceOf(opts.nonce)
 
   parts.push(`<meta charset="${escapeAttr(opts.charset ?? 'UTF-8')}">`)
   parts.push(`<meta name="viewport" content="${escapeAttr(opts.viewport ?? 'width=device-width, initial-scale=1')}">`)
@@ -101,14 +101,13 @@ export function head(opts: HeadOpts = {}): string {
 
   for (const s of opts.scripts ?? []) {
     if (typeof s === 'string') {
-      parts.push(`<script src="${escapeAttr(s)}"${nonceAttr}></script>`)
+      parts.push(`<script src="${escapeAttr(s)}"${nonce}></script>`)
     } else {
       const attrs: string[] = [`src="${escapeAttr(s.src)}"`]
       if (s.defer) attrs.push('defer')
       if (s.async) attrs.push('async')
       if (s.type)  attrs.push(`type="${escapeAttr(s.type)}"`)
-      if (opts.nonce) attrs.push(`nonce="${escapeAttr(opts.nonce)}"`)
-      parts.push(`<script ${attrs.join(' ')}></script>`)
+      parts.push(`<script ${attrs.join(' ')}${nonce}></script>`)
     }
   }
 

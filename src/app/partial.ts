@@ -4,6 +4,7 @@ import { HtmlSafeString, jsx, raw, toHtml } from '../jsx-runtime'
 import { getRequestEvent, type RequestEvent } from './app'
 import { error } from './errors'
 import { withMeta } from '../meta/collector'
+import { HTML_CONTENT_TYPE } from './response'
 import { PARTIAL_NAME, partialAttrs, partialUrl, queryToInput, type PartialRequestAttrs, type PartialRequestOpts, type StandardSchema } from './partial-logic'
 
 type Params = Record<string, string>
@@ -68,7 +69,7 @@ export function partial<I = Record<never, never>, D = undefined, P = Params>(def
   })
 
   component.respond = async props => new Response(await withMeta(() => html(props, getRequestEvent())), {
-    headers: { 'content-type': 'text/html; charset=utf-8' },
+    headers: { 'content-type': HTML_CONTENT_TYPE },
   })
 
   component.bind = (next, owner) => {

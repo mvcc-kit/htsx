@@ -1,6 +1,8 @@
 // Montagem da resposta: cabeçalhos, cookies e 304. Sem rotas nem renderização.
 import { etagMatches, weakEtag } from './etag'
 
+export const HTML_CONTENT_TYPE = 'text/html; charset=utf-8'
+
 /** Valem para toda resposta do app, menos o que a rota já definiu. */
 export const DEFAULT_SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'x-content-type-options': 'nosniff',

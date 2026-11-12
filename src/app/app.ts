@@ -10,7 +10,7 @@ import { OUTLET_ID, wantsOutlet } from '../outlet'
 import { createHtmxContext, type HtmxContext } from './htmx'
 import { HX_REQUEST } from '../htmx-headers'
 import { canonicalPath, htmxRedirectHeaders, isCrossSiteForm, routePath, secureCookiesByDefault, wantsHtml, wantsJsonOnly } from './request'
-import { HTMX_VARY, htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
+import { HTML_CONTENT_TYPE, HTMX_VARY, htmlResponse, mergeHeaders, withCookies, withSecurityHeaders } from './response'
 import { partialNameFromQuery } from './partial-logic'
 import { ActionFailure, HttpError, Redirect } from './errors'
 import { createCookies, type Cookies } from './cookies'
@@ -231,7 +231,7 @@ export function defineApp(options: AppOptions): App {
       console.error('htsx: a página de erro falhou ao renderizar', err)
       page = await plain()
     }
-    headers.set('content-type', 'text/html; charset=utf-8')
+    headers.set('content-type', HTML_CONTENT_TYPE)
     headers.append('vary', HTMX_VARY)
     return new Response(event.isFragment ? page : `<!DOCTYPE html>${page}`, { status, headers })
   }
@@ -248,15 +248,14 @@ export function defineApp(options: AppOptions): App {
       if (partial) return `<div id="${OUTLET_ID}" hx-history-elt="true">${body}</div>`
       return `<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`
     })
-    headers.set('content-type', 'text/html; charset=utf-8')
+    headers.set('content-type', HTML_CONTENT_TYPE)
     if (layout) headers.append('vary', HTMX_VARY)
     return htmlResponse(event.request, html, status, headers, options.etag)
   }
 
   async function runAction(route: Route, event: RequestEvent, headers: Headers): Promise<Response> {
     const actions = route.def.actions!
-    const key = [...event.url.searchParams.keys()].find(k => k.startsWith('/'))
-    const name = key ? key.slice(1) : 'default'
+    const name = partialNameFromQuery(event.url.searchParams) ?? 'default'
     const action = actions[name]
     if (!action) {
       // A lista de ações ajuda quem programa, mas não deve ir para qualquer visitante.
@@ -277,27 +276,26 @@ export function defineApp(options: AppOptions): App {
     if (!match) return errorResponse(event, 404, 'Não encontrado', headers)
     const { def } = match.route
     const method = event.request.method.toUpperCase() as Method | 'HEAD'
+    // HEAD responde como GET, sem corpo
+    const bodyless = (res: Response) => method === 'HEAD' ? new Response(null, res) : res
     if (def.partials && (method === 'GET' || method === 'HEAD')) {
       const name = partialNameFromQuery(event.url.searchParams)
       if (name !== null) {
         if (!Object.hasOwn(def.partials, name)) return errorResponse(event, 404, 'Não encontrado', headers)
         await def.guard?.(event as never)
         const html = await withMeta(() => def.partials![name]!.handle(event))
-        headers.set('content-type', 'text/html; charset=utf-8')
+        headers.set('content-type', HTML_CONTENT_TYPE)
         // pedaço de página: não deve aparecer em buscadores
         headers.set('x-robots-tag', 'noindex')
-        const res = await htmlResponse(event.request, html, 200, headers, options.etag)
-        return method === 'HEAD' ? new Response(null, res) : res
+        return bodyless(await htmlResponse(event.request, html, 200, headers, options.etag))
       }
     }
     const endpoint = def[method === 'HEAD' ? 'GET' : method as Method]
     if (endpoint && !(method === 'GET' && def.page && wantsHtml(event.request.headers.get('accept')))) {
-      const res = mergeHeaders(await endpoint(event), headers)
-      return method === 'HEAD' ? new Response(null, res) : res
+      return bodyless(mergeHeaders(await endpoint(event), headers))
     }
     if (def.page && (method === 'GET' || method === 'HEAD')) {
-      const res = await renderPage(match.route, event, undefined, 200, headers)
-      return method === 'HEAD' ? new Response(null, res) : res
+      return bodyless(await renderPage(match.route, event, undefined, 200, headers))
     }
     if (def.actions && method === 'POST') return runAction(match.route, event, headers)
     const allow = METHODS.filter(m => def[m] || (m === 'GET' && def.page) || (m === 'POST' && def.actions))
