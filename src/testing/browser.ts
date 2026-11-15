@@ -92,11 +92,16 @@ class Cdp {
       if (msg.id !== undefined) {
         const p = this.pending.get(msg.id)
         this.pending.delete(msg.id)
-        if (msg.error) p?.reject(new Error(`CDP: ${msg.error.message}`))
+        if (msg.error) p?.reject(new Error(`htsx: CDP: ${msg.error.message}`))
         else p?.resolve(msg.result)
       } else {
         for (const l of this.listeners) l(msg)
       }
+    })
+    // Chrome fechou ou caiu: sem isto, cada pedido esperaria até o tempo limite do teste, sem dizer por quê.
+    ws.addEventListener('close', () => {
+      for (const p of this.pending.values()) p.reject(new Error('htsx: a conexão com o Chrome fechou antes da resposta'))
+      this.pending.clear()
     })
   }
 
@@ -190,7 +195,7 @@ export async function open(handler: Handler, pathname = '/', opts: OpenOpts = {}
     // as animações só existem depois do próximo quadro: antes disso, a checagem não veria a transição
     const running = () => evaluate<boolean>(`new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(document.getAnimations().some(a => String(a.effect?.pseudoElement).startsWith('::view-transition'))))))`)
     while (await running()) {
-      if (Date.now() > deadline) throw new Error('press: a transição de página não terminou')
+      if (Date.now() > deadline) throw new Error('htsx: press: a transição de página não terminou')
       await Bun.sleep(10)
     }
   }
