@@ -2,7 +2,7 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
-## 0.1.6-beta (12/11/2026)
+## 0.1.6-beta (14/11/2026)
 
 ### Segurança
 
@@ -12,11 +12,17 @@ Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
 - Worker: o 308 de página pré-renderizada com acento põe no `Location` o caminho codificado. Antes, ia o caminho decodificado (`/olá`), que não cabe no cabeçalho.
 - `applyMeta` troca a tag escrita à mão com `&` ou aspas no valor. Antes, o valor escapado no HTML (`&amp;`) não era reconhecido, e a tag ficava duplicada.
+- Worker: o 308 de página pré-renderizada segue o `trailingSlash` do app. Antes, sempre tirava a barra, e com `trailingSlash: 'always'` o Worker e o app redirecionavam um para o outro.
+- Atributo com objeto ou lista usa o nome traduzido: `x-bind-class={{ ... }}` sai como `x-bind:class`, `x-transition_enter={[...]}` como `x-transition.enter` e `className` como `class`. Antes, saía o nome cru, e o Alpine ignorava o atributo.
+- Página sem layout que devolve `<html>` responde com `Vary` nos cabeçalhos do htmx. Antes, um cache compartilhado podia entregar a versão sem `<!DOCTYPE html>` a uma navegação normal.
+- Cookie com `maxAge` que não é número finito, ou com `expires` inválido, vira erro no modo estrito, com a correção. Antes, saía `Max-Age=NaN`, e o navegador tratava o cookie como de sessão.
+- `htsx/testing`: os pedidos ao Chrome falham com mensagem clara quando a conexão fecha. Antes, o teste ficava parado até o tempo limite.
 
 ### Melhorado
 
 - `cache()` guarda a promessa, como o `cache()` do React: chamadas simultâneas iguais rodam a função uma vez só. Erro continua fora do cache.
 - `cache()` acima de `maxSize` roda a função sem guardar, e a página não quebra mais. No modo estrito, vira erro com a correção.
+- Mensagens de erro de `useContext`, `flash`, `storeInit`, `htmx-detect` e `htsx/testing` começam com `htsx:` e estão em português, como as demais.
 
 ### Mudanças de quebra
 
