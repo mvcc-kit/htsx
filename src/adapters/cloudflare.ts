@@ -3,6 +3,7 @@
 // Segue o worker do adapter-cloudflare do SvelteKit. Sem APIs só do Node, exceto
 // AsyncLocalStorage (flag `nodejs_als` ou `nodejs_compat` no wrangler).
 import type { App, RequestEvent } from '../app/app'
+import { canonicalPath } from '../app/request'
 
 /** Mínimo do Static Assets binding (`env.ASSETS`). */
 export interface AssetsFetcher {
@@ -52,6 +53,7 @@ export interface Worker<Env> {
 export function cloudflare<Env extends object = Record<string, unknown>>(app: App, opts: CloudflareOptions = {}): Worker<Env> {
   const binding = opts.assetsBinding ?? 'ASSETS'
   const prerendered = new Set(opts.manifest?.prerendered ?? [])
+  const slash = app.options.trailingSlash ?? 'never'
 
   return {
     async fetch(request, env, ctx, fetchOpts) {
@@ -62,8 +64,10 @@ export function cloudflare<Env extends object = Record<string, unknown>>(app: Ap
         try { pathname = decodeURIComponent(pathname) } catch { /* URL inválida: segue como veio */ }
         const stripped = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname
         if (prerendered.has(stripped)) {
+          // A mesma barra do app (`trailingSlash`), senão os dois redirecionam em sentidos opostos.
           // Location com o caminho como chegou, codificado: texto com acento não cabe no cabeçalho.
-          if (stripped !== pathname) return new Response(null, { status: 308, headers: { location: url.pathname.replace(/\/$/, '') + url.search } })
+          const canonical = canonicalPath(url.pathname, slash)
+          if (canonical !== url.pathname) return new Response(null, { status: 308, headers: { location: canonical + url.search } })
           const assets = (env as Record<string, unknown>)[binding] as AssetsFetcher | undefined
           if (!assets?.fetch) {
             throw new Error(`htsx: binding "${binding}" não existe no env; declare "assets": { "binding": "${binding}", "directory": ".htsx/cloudflare" } no wrangler.jsonc`)

@@ -129,5 +129,18 @@ describe('modo Cloudflare: Worker', () => {
     expect(res.status).toBe(308)
     expect(res.headers.get('location')).toBe('/ol%C3%A1?a=1')
   })
+
+  it("trailingSlash: 'always': o Worker segue a mesma barra do app, sem redirecionar em laço", async () => {
+    const { defineApp, route } = await import('../app')
+    const app = defineApp({ trailingSlash: 'always', routes: [route('/sobre', { prerender: true, page: () => <p>oi</p> })] })
+    const w = cloudflare(app, { manifest: { prerendered: ['/sobre'] } })
+    const env = { ASSETS: { fetch: async () => new Response('<p>oi</p>') } }
+    const withSlash = await w.fetch(new Request('https://x/sobre/'), env, ctx)
+    expect(withSlash.status).toBe(200)
+    const without = await w.fetch(new Request('https://x/sobre?a=1'), env, ctx)
+    expect(without.status).toBe(308)
+    expect(without.headers.get('location')).toBe('/sobre/?a=1')
+    expect((await app.respond(new Request('https://x/sobre?a=1'))).headers.get('location')).toBe('/sobre/?a=1')
+  })
 })
 
