@@ -76,6 +76,16 @@ describe('Navigation nos arquivos', () => {
     const app = defineApp({ routes: [route('/', { page: () => <b>oi</b> })] })
     expect(await (await app.respond(new Request('http://x/'))).text()).toBe('<b>oi</b>')
   })
+
+  it('sem layout, página com <html> varia com o htmx: um cache não entrega o trecho sem doctype', async () => {
+    const app = defineApp({ routes: [route('/', { page: () => <html><body>oi</body></html> })] })
+    const full = await app.respond(new Request('http://x/'))
+    const part = await app.respond(new Request('http://x/', { headers: { 'hx-request': 'true' } }))
+    expect(await full.text()).toStartWith('<!DOCTYPE html>')
+    expect(await part.text()).toStartWith('<html>')
+    expect(full.headers.get('vary')).toContain('HX-Request')
+    expect(part.headers.get('vary')).toContain('HX-Request')
+  })
 })
 
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'"

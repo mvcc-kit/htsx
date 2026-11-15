@@ -240,16 +240,19 @@ export function defineApp(options: AppOptions): App {
     const data = route.def.load ? await route.def.load(event) : undefined
     const layout = route.def.layout === false ? undefined : route.def.layout ?? options.layout
     const partial = route.def.layout === undefined && wantsOutlet(event.request.headers)
+    let fullDocument = false
     const html = await withMeta(async () => {
       const body = await renderNode(route.def.page!({ params: event.params, data, form, event }))
+      fullDocument = !layout && /^\s*<html[\s>]/i.test(body)
       if (event.isFragment) return body
-      if (!layout) return /^\s*<html[\s>]/i.test(body) ? `<!DOCTYPE html>${body}` : body
+      if (!layout) return fullDocument ? `<!DOCTYPE html>${body}` : body
       // Layout próprio da rota pode ser outro: nesse caso vai a página inteira, e o cliente escolhe o trecho.
       if (partial) return `<div id="${OUTLET_ID}" hx-history-elt="true">${body}</div>`
       return `<!DOCTYPE html>${await renderNode(layout({ children: raw(body), event }))}`
     })
     headers.set('content-type', HTML_CONTENT_TYPE)
-    if (layout) headers.append('vary', HTMX_VARY)
+    // Sem layout, o `<!DOCTYPE html>` da página com `<html>` também depende do pedido do htmx.
+    if (layout || fullDocument) headers.append('vary', HTMX_VARY)
     return htmlResponse(event.request, html, status, headers, options.etag)
   }
 
