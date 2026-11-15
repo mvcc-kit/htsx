@@ -18,7 +18,7 @@ function assertCookieAttr(attr: string, text: string | undefined): void {
 
 function assertCookieName(name: string): void {
   if (!COOKIE_NAME.test(name)) {
-    throw new Error(`htsx: flash: invalid cookie name "${name}" — must be RFC 6265 token`)
+    throw new Error(`htsx: flash: nome de cookie inválido "${name}"; use só letras, números e !#$%&'*+-.^_\`|~ (RFC 6265)`)
   }
 }
 

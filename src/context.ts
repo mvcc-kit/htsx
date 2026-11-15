@@ -32,7 +32,7 @@ export function useContext<Ctx>(): Ctx {
   const ctx = ctxStorage.getStore()
   if (ctx === undefined) {
     throw new Error(
-      'useContext: chamado fora de withContext/renderPage. ' +
+      'htsx: useContext() chamado fora de withContext/renderPage. ' +
       'Envolva o render com renderPage(..., { context: {...} }) ' +
       'ou withContext({...}, () => ...).',
     )

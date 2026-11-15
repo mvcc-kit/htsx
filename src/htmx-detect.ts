@@ -21,7 +21,7 @@ function getHeaders(r: ReqLike): Headers {
     }
     return h
   }
-  throw new Error('htmx-detect: argumento sem .headers válido')
+  throw new Error('htsx: htmx-detect: argumento sem .headers válido')
 }
 
 /** `HX-Request: true` → request feita pelo HTMX (não navegação direta). */

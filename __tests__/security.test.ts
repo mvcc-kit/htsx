@@ -254,11 +254,11 @@ describe('flash.setCookie: validação de nome de cookie', () => {
   it('throw em nome com \\r\\n (header injection)', () => {
     expect(() =>
       flash.setCookie('val', { name: '_flash\r\nX-Evil: injected' })
-    ).toThrow(/invalid cookie name/)
+    ).toThrow(/nome de cookie inválido/)
   })
 
   it('throw em nome com espaço', () => {
-    expect(() => flash.setCookie('val', { name: 'bad name' })).toThrow(/invalid cookie name/)
+    expect(() => flash.setCookie('val', { name: 'bad name' })).toThrow(/nome de cookie inválido/)
   })
 
   it('nome válido não lança', () => {
