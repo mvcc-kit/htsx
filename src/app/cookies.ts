@@ -2,6 +2,7 @@
 // (HttpOnly, Secure, SameSite=Lax, Path=/), como no SvelteKit.
 
 import { COOKIE_NAME, UNSAFE_COOKIE_ATTR } from '../patterns'
+import { strictFail } from '../strict'
 
 export interface CookieOptions {
   path?: string
@@ -57,6 +58,9 @@ export function createCookies(request: Request, secureByDefault: boolean): Cooki
     }
     if (name.startsWith('__Secure-') && o.secure === false) throw new Error(`htsx: cookie "${name}" com prefixo __Secure- exige Secure`)
     if (o.sameSite === 'None' && o.secure === false) throw new Error(`htsx: cookie "${name}" com SameSite=None precisa de Secure; o navegador o recusaria`)
+    // O navegador ignora a validade inválida em silêncio, e o cookie vira de sessão.
+    if (o.maxAge !== undefined && !Number.isFinite(o.maxAge)) strictFail(`maxAge do cookie "${name}" não é um número finito; passe os segundos, ex.: 60 * 60`)
+    if (o.expires && Number.isNaN(o.expires.getTime())) strictFail(`expires do cookie "${name}" é uma data inválida; confira o new Date(...)`)
     const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${o.path ?? '/'}`]
     if (o.domain) parts.push(`Domain=${o.domain}`)
     if (o.maxAge !== undefined) parts.push(`Max-Age=${Math.floor(o.maxAge)}`)

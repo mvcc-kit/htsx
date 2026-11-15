@@ -429,6 +429,14 @@ describe('auditoria 2: utilitários', () => {
     expect(() => jar.set('big', 'x'.repeat(5000))).toThrow(/bytes/)
   })
 
+  it('validade inválida de cookie dá erro no modo estrito, em vez de virar cookie de sessão', () => {
+    const jar = createCookies(new Request('http://localhost'), false)
+    expect(() => jar.set('sid', 'v', { maxAge: Number.NaN })).toThrow('htsx: maxAge do cookie "sid" não é um número finito')
+    expect(() => jar.set('sid', 'v', { expires: new Date('x') })).toThrow('htsx: expires do cookie "sid" é uma data inválida')
+    jar.set('sid', 'v', { maxAge: 60, expires: new Date(0) })
+    expect(jar.headers.at(-1)).toContain('Max-Age=60; Expires=Thu, 01 Jan 1970 00:00:00 GMT')
+  })
+
   describe('fileServer', () => {
     const made: string[] = []
     afterAll(async () => { await Promise.all(made.map(d => rm(d, { recursive: true, force: true }))) })
