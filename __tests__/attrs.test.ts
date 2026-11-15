@@ -39,6 +39,12 @@ describe('x-bind-* → x-bind:*', () => {
     expect(attrs({ 'x-bind-aria-label': 'msg' })).toBe('x-bind:aria-label="msg"'))
   it('x-bind-aria-expanded → x-bind:aria-expanded', () =>
     expect(attrs({ 'x-bind-aria-expanded': 'open' })).toBe('x-bind:aria-expanded="open"'))
+  it('valor objeto também troca o nome (x-bind-class={{...}} → x-bind:class)', () =>
+    expect(attrs({ 'x-bind-class': { hidden: true } })).toBe(`x-bind:class='{"hidden":true}'`))
+  it('valor objeto em modificador e em className', () => {
+    expect(attrs({ 'x-transition_enter': ['a'] })).toBe(`x-transition.enter='["a"]'`)
+    expect(attrs({ className: ['a'] })).toBe(`class='["a"]'`)
+  })
 })
 
 describe('x-*_* → x-*.* (modificadores)', () => {

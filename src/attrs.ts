@@ -136,7 +136,7 @@ export function serializeAttrs(props: Record<string, unknown>, tag = 'elemento')
     if (typeof value === 'object') {
       out += key === 'style'
         ? ` style="${serializeStyle(value as Record<string, string | number>, tag)}"`
-        : ` ${key}='${attrJson(value)}'`
+        : ` ${info.name}='${attrJson(value)}'`
       continue
     }
 
