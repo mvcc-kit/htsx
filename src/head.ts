@@ -34,13 +34,23 @@ function vendorSrc(name: VendorName, vendorBase: string | undefined, version: st
   return `src="${escapeAttr(url)}" integrity="sha256-${hexToBase64(pin.sha256)}" crossorigin="anonymous"`
 }
 
+export type CrossOrigin = 'anonymous' | 'use-credentials'
+
+/** `integrity` e `crossorigin`. Com `integrity` e sem `crossorigin`, usa `anonymous`: sem CORS o navegador não confere o hash de outro domínio. */
+function sriAttrs(s: { integrity?: string; crossorigin?: CrossOrigin }): string[] {
+  if (!s.integrity) return s.crossorigin ? [`crossorigin="${escapeAttr(s.crossorigin)}"`] : []
+  return [`integrity="${escapeAttr(s.integrity)}"`, `crossorigin="${escapeAttr(s.crossorigin ?? 'anonymous')}"`]
+}
+
 export interface HeadOpts {
   title?:       string
   description?: string
   charset?:     string
   viewport?:    string
-  styles?:      string[]
-  scripts?:     Array<string | { src: string; defer?: boolean; async?: boolean; type?: string }>
+  /** CSS. Objeto com `integrity` (SRI) para arquivo de outro domínio. */
+  styles?:      Array<string | { href: string; integrity?: string; crossorigin?: CrossOrigin }>
+  /** Scripts. Objeto com `integrity` (SRI) para arquivo de outro domínio. */
+  scripts?:     Array<string | { src: string; defer?: boolean; async?: boolean; type?: string; integrity?: string; crossorigin?: CrossOrigin }>
   alpine?:      boolean | { version?: string; plugins?: AlpinePluginName[] }
   htmx?:        boolean | { version?: string }
   nonce?:       string
@@ -83,8 +93,10 @@ export function head(opts: HeadOpts = {}): string {
   if (opts.title)       parts.push(`<title>${escapeHtml(opts.title)}</title>`)
   if (opts.description) parts.push(`<meta name="description" content="${escapeAttr(opts.description)}">`)
 
-  for (const href of opts.styles ?? []) {
-    parts.push(`<link rel="stylesheet" href="${escapeAttr(href)}">`)
+  for (const s of opts.styles ?? []) {
+    const style = typeof s === 'string' ? { href: s } : s
+    const attrs = [`rel="stylesheet"`, `href="${escapeAttr(style.href)}"`, ...sriAttrs(style)]
+    parts.push(`<link ${attrs.join(' ')}>`)
   }
 
   if (opts.navigation) {
@@ -107,6 +119,7 @@ export function head(opts: HeadOpts = {}): string {
       if (s.defer) attrs.push('defer')
       if (s.async) attrs.push('async')
       if (s.type)  attrs.push(`type="${escapeAttr(s.type)}"`)
+      attrs.push(...sriAttrs(s))
       parts.push(`<script ${attrs.join(' ')}${nonce}></script>`)
     }
   }

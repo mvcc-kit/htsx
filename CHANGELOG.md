@@ -2,6 +2,13 @@
 
 Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 
+## 0.1.7-beta (17/11/2026)
+
+### Adicionado
+
+- `head({ scripts, styles })` aceita `integrity` e `crossorigin` no objeto, para script e CSS de outro domínio com SRI. Com `integrity` e sem `crossorigin`, sai `crossorigin="anonymous"`. Antes, só dava para escrever a tag à mão.
+- `styles` aceita objeto `{ href, integrity?, crossorigin? }`, além de string.
+
 ## 0.1.6-beta (14/11/2026)
 
 ### Segurança
