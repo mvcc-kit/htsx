@@ -60,6 +60,30 @@ describe('coverage: head() script object', () => {
     expect(out).toContain('<script src="/all.js" defer async type="module" nonce="abc"></script>')
   })
 
+  it('script de outro domínio com integrity sai com crossorigin anonymous', () => {
+    const out = head({ scripts: [{ src: 'https://cdn.x.dev/a.js', integrity: 'sha384-abc' }] })
+    expect(out).toContain('<script src="https://cdn.x.dev/a.js" integrity="sha384-abc" crossorigin="anonymous"></script>')
+  })
+
+  it('crossorigin explícito vale, com ou sem integrity', () => {
+    expect(head({ scripts: [{ src: '/b.js', integrity: 'sha256-x', crossorigin: 'use-credentials' }] }))
+      .toContain('<script src="/b.js" integrity="sha256-x" crossorigin="use-credentials"></script>')
+    expect(head({ scripts: [{ src: '/c.js', crossorigin: 'anonymous' }] }))
+      .toContain('<script src="/c.js" crossorigin="anonymous"></script>')
+  })
+
+  it('integrity com aspas é escapado', () => {
+    const out = head({ scripts: [{ src: '/d.js', integrity: 'sha256-"><script>' }] })
+    expect(out).not.toContain('"><script>')
+    expect(out).toContain('integrity="sha256-&quot;&gt;&lt;script&gt;"')
+  })
+
+  it('styles aceita string e objeto com integrity', () => {
+    const out = head({ styles: ['/a.css', { href: 'https://cdn.x.dev/b.css', integrity: 'sha384-def' }] })
+    expect(out).toContain('<link rel="stylesheet" href="/a.css">')
+    expect(out).toContain('<link rel="stylesheet" href="https://cdn.x.dev/b.css" integrity="sha384-def" crossorigin="anonymous">')
+  })
+
   it('múltiplos scripts mixados (string + object)', () => {
     const out = head({
       scripts: ['/simple.js', { src: '/complex.js', defer: true }],

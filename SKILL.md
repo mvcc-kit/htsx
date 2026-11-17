@@ -574,11 +574,17 @@ export const Page = () => (
 - Sem `vendor`, usa CDN na versão fixada em `vendor/pins.json`, com `integrity` (SRI) e `crossorigin`.
 - `version` diferente da fixada sai sem `integrity` (erro no modo estrito).
 - Para atualizar os pinos: `bun run vendor` ou `bun scripts/vendor.ts alpinejs 3.18.0`. O script confere a integridade do pacote npm e regrava o sha256.
+- Script ou CSS de outro domínio: passe objeto com `integrity` (SRI). Sem `crossorigin`, sai `anonymous`, que o navegador exige para conferir o hash.
 
 ```ts
 import { head } from '{{PKG}}'
 
 export const HEAD = head({ title: 'App', description: 'Painel', htmx: true, alpine: true, nonce: 'abc', vendor: '/static/vendor/' })
+
+export const WITH_CDN = head({
+  scripts: [{ src: 'https://cdn.example.com/lib@1.2.3/lib.min.js', integrity: 'sha384-...' }],
+  styles: [{ href: 'https://cdn.example.com/lib@1.2.3/lib.css', integrity: 'sha384-...' }],
+})
 ```
 
 ---
