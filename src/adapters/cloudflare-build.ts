@@ -93,12 +93,10 @@ export function jsxConfigProblem(tsconfig: string | null, pkg: string): string |
   return null
 }
 
-function headersFile(userHeaders: string): string {
+function headersFile(userHeaders: string, vendor: boolean): string {
   const ours = [
-    `${VENDOR_PATH}*`,
-    '  Cache-Control: public, max-age=31536000, immutable',
-    '  X-Robots-Tag: noindex',
-    '',
+    // Sem vendor copiado (`vendor: false`), a regra apontaria para uma pasta que não existe.
+    ...(vendor ? [`${VENDOR_PATH}*`, '  Cache-Control: public, max-age=31536000, immutable', '  X-Robots-Tag: noindex', ''] : []),
     `${PARTIALS_PATH}/*`,
     '  Cache-Control: public, max-age=300, stale-while-revalidate=86400',
     '  X-Robots-Tag: noindex',
@@ -143,7 +141,7 @@ export async function prepareCloudflareAssets(opts: CloudflareBuildOptions = {})
 export async function writeAssetRules(cwd: string, outDir: string, redirects: Array<{ from: string; to: string; status: number }> = []): Promise<void> {
   const at = (f: string) => path.join(cwd, f)
   const userHeaders = existsSync(at('_headers')) ? await Bun.file(at('_headers')).text() : ''
-  await Bun.write(path.join(outDir, '_headers'), headersFile(userHeaders))
+  await Bun.write(path.join(outDir, '_headers'), headersFile(userHeaders, existsSync(path.join(outDir, VENDOR_PATH))))
   const lines = [
     existsSync(at('_redirects')) ? (await Bun.file(at('_redirects')).text()).trimEnd() : '',
     ...redirects.map(r => `${r.from} ${r.to} ${r.status}`),

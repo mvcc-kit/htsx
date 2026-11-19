@@ -325,7 +325,7 @@ Regras:
 
 ### Modo estático
 
-`staticAdapter({ outDir: 'build', fallback: '404.html', strict: true })`. O build apaga e recria `outDir`, por isso recusa a raiz do projeto, uma pasta que contenha `src/` e a própria pasta `static`. Todas as rotas precisam de `prerender` (herdado de um `+layout.server.ts` ou em `options`). Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
+`staticAdapter({ outDir: 'build', fallback: '404.html', strict: true, vendor: true })` (`vendor`: `'auto'` publica só o que as páginas citam; `'navigation'`, só a navegação; `false`, nada). O build apaga e recria `outDir`, por isso recusa a raiz do projeto, uma pasta que contenha `src/` e a própria pasta `static`. Todas as rotas precisam de `prerender` (herdado de um `+layout.server.ts` ou em `options`). Se alguma precisar de servidor (ação, POST, `prerender: false`), o build falha e lista as rotas e as opções. O crawler segue os `<a href>` e falha se achar link quebrado. Também falha num endpoint sem extensão e numa rota com `prerender` que nenhuma página alcança.
 
 No modo estático, um `hx-get` para uma página recebe a página inteira. Para fragmentos, use rotas com `layout: false` ou `hx-select`.
 
@@ -390,6 +390,7 @@ export default {
 ```
 
 - **O mesmo `env` em todo lugar, sem build.** No `dev`, nos testes (`loadApp()`) e no prerender, `event.platform` é emulado a partir do mesmo `wrangler.jsonc`, como o `emulate()` do SvelteKit. Com o `wrangler` instalado no projeto (`bun add -d wrangler`), D1, R2, KV e os outros bindings são locais de verdade (`getPlatformProxy`), com o estado em `.wrangler/state`, o mesmo do `wrangler dev`. Sem ele, valem as `vars` do `wrangler.jsonc` e o `.dev.vars`, e um binding acessado dá erro dizendo para instalar o wrangler. Opções do `getPlatformProxy`: `cloudflareAdapter({ platformProxy: { persist: false } })`.
+- **Vendor no Worker:** o build copia Alpine, htmx e a navegação para o Static Assets. Site que não usa nenhum dos três: `cloudflareAdapter({ vendor: false })`; só a navegação: `vendor: 'navigation'`.
 - **Sem configuração**, com rotas à mão: `cloudflare(app, { manifest })` em `{{PKG}}/adapter-cloudflare` e `buildCloudflare(app)` em `{{PKG}}/adapter-cloudflare/build`. `assetsFromDir(dir)` faz o papel do `env.ASSETS` nos testes.
 
 ### Servidor Bun
@@ -800,7 +801,7 @@ Continua sendo navegação real: scripts, Alpine, voltar e histórico não mudam
 
 - **Link GET com efeito colateral precisa de `data-no-prefetch`.** `/logout`, `/signout` e `/sair` já ficam de fora. O pré-carregamento faz o GET antes do clique. Links com `hx-get`, dentro de `hx-boost`, de outra origem, com `target` ou `download` já ficam de fora.
 - Com `base` (ou `vendor` em `head()`), o CSS e o JS vêm de arquivos, para CSP sem `unsafe-inline`. Os adaptadores servem `VENDOR_PATH`; pasta própria serve `NAVIGATION_FILES`. Sem `base`, saem embutidos, com o `nonce` informado.
-- Site sem Alpine nem htmx: `buildStatic(app, { vendor: 'navigation' })` copia só esses dois arquivos.
+- Site sem Alpine nem htmx: `staticAdapter({ vendor: 'navigation' })` (ou `buildStatic(app, { vendor: 'navigation' })`) copia só esses dois arquivos; `cloudflareAdapter({ vendor: 'navigation' })` faz o mesmo no Worker.
 - Cache longo no CSS e no JS do projeto: depois de gerar tudo, `await fingerprintAssets('build', ['/styles.css', '/app.js'])`, de `{{PKG}}/adapter-static`. Os arquivos vão para `/_htsx/assets/` com o hash no nome e os HTML são atualizados; no host, dê a essa pasta `Cache-Control: public, max-age=31536000, immutable`. Só troca `href` e `src` nos HTML, e recusa arquivo que nenhum HTML cita.
 - CSS pequeno na primeira visita: `const { cspHashes } = await inlineStyles('build', ['/styles.css'])`, antes de `fingerprintAssets`. Põe o CSS dentro de cada HTML; com CSP, some `cspHashes` a `style-src`. Mantém o `media`, e recusa CSS com endereço relativo ou que nenhum HTML cita.
 
