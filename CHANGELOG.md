@@ -7,6 +7,7 @@ Regras e fluxo: [`RELEASING.md`](RELEASING.md).
 ### Adicionado
 
 - `vendor` no `cloudflareAdapter` (`true`, `'navigation'` ou `false`) e no `staticAdapter` (também `'auto'`), repassado no `build` e no `dev`. Antes só dava para escolher chamando `buildCloudflare`/`buildStatic` direto; pelo `htsx.config.ts`, o vendor inteiro ia sempre, mesmo em site que não usa Alpine nem htmx.
+- Sem vendor copiado, o `_headers` do Cloudflare não ganha mais a regra de cache para a pasta do vendor.
 
 ## 0.1.7-beta (17/11/2026)
 

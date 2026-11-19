@@ -292,10 +292,13 @@ describe('rotas por arquivos no modo Cloudflare Workers (src/server.ts como main
     await Bun.write(path.join(tmp, 'tsconfig.json'), JSON.stringify({ compilerOptions: { jsx: 'react-jsx', jsxImportSource: 'htsx' } }))
     await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: '.htsx/server.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
     const vendorDir = path.join(tmp, '.htsx', 'cloudflare', VENDOR_PATH.replace(/^\//, ''))
+    const headers = () => Bun.file(path.join(tmp, '.htsx', 'cloudflare', '_headers')).text()
     await build({ ...config, adapter: cloudflareAdapter({ vendor: false }) }, tmp)
     expect([...new Bun.Glob('**/*').scanSync({ cwd: path.join(tmp, '.htsx', 'cloudflare') })].filter(f => f.startsWith(VENDOR_PATH.replace(/^\//, '')))).toEqual([])
+    expect(await headers()).not.toContain(VENDOR_PATH)
     await build({ ...config, adapter: cloudflareAdapter({}) }, tmp)
     expect([...new Bun.Glob('*').scanSync(vendorDir)].some(f => f.includes('htmx'))).toBe(true)
+    expect(await headers()).toContain(`${VENDOR_PATH}*`)
   })
 
   it('wrangler com main errado → erro dizendo a entrada do servidor', async () => {
