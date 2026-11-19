@@ -151,14 +151,14 @@ async function buildWith(app: App, config: HtsxConfig, root: string): Promise<{ 
   const assets = config.assets ?? 'static'
 
   if (adapter.name === 'static') {
-    const r = await buildStatic(app, { root, assets, outDir: adapter.outDir, fallback: adapter.fallback, strict: adapter.strict })
+    const r = await buildStatic(app, { root, assets, outDir: adapter.outDir, fallback: adapter.fallback, strict: adapter.strict, vendor: adapter.vendor })
     console.log(`htsx: site estático em ${path.relative(root, r.outDir)} (${r.files.length} arquivos)`)
     return r
   }
 
   if (adapter.name === 'cloudflare') {
     const main = serverMain(config, adapter, root)
-    const r = await buildCloudflare(app, { root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, manifest: manifestPath(config, root), expectMain: main })
+    const r = await buildCloudflare(app, { root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, vendor: adapter.vendor, manifest: manifestPath(config, root), expectMain: main })
     await assertJsxConfig(config, root)
     await writeServerEntry(config, adapter, root)
     console.log(`htsx: assets em ${path.relative(root, r.outDir)}; main ${path.relative(root, main)}; rotas dinâmicas: ${r.dynamic.join(', ') || 'nenhuma'}. Publique com wrangler deploy`)
@@ -248,7 +248,7 @@ async function devCloudflare(config: HtsxConfig, adapter: CloudflareAdapter, roo
   await rm(manifestPath(config, root), { force: true })
   await sync(config, root)
   await assertJsxConfig(config, root)
-  const { cwd, outDir } = await prepareCloudflareAssets({ root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, expectMain: serverMain(config, adapter, root) })
+  const { cwd, outDir } = await prepareCloudflareAssets({ root, assets, outDir: adapter.outDir, wrangler: adapter.wrangler, vendor: adapter.vendor, expectMain: serverMain(config, adapter, root) })
   await writeAssetRules(cwd, outDir)
   const port = process.env.PORT
   const child = Bun.spawn([wrangler, 'dev', '--live-reload', '--define', '__HTSX_DEV__:true', ...(port ? ['--port', port] : [])], { cwd: root, stdio: ['inherit', 'inherit', 'inherit'] })

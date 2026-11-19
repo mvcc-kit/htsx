@@ -5,7 +5,8 @@ import { defineApp, fileRoutes, route, type App } from '../app'
 import type { AssetsFetcher, WorkerContext } from '../adapter-cloudflare'
 import { assetsFromDir } from '../adapter-cloudflare-build'
 import { jsxConfigProblem } from '../src/adapters/cloudflare-build'
-import { staticAdapter } from '../config'
+import { cloudflareAdapter, staticAdapter } from '../config'
+import { VENDOR_PATH } from '../index'
 import { build, loadApp, sync, type LoadedApp } from '../project'
 import { scanRoutes } from '../src/build/routes'
 import { page } from '../testing'
@@ -159,6 +160,16 @@ describe('rotas por arquivos: dados descendo dos layouts', () => {
     expect(await (await page(await Bun.file(path.join(out, 'about.html')).text())).text('header b')).toBe('Meu site')
   })
 
+  it('vendor no staticAdapter: false não copia nada; padrão copia Alpine e htmx', async () => {
+    const vendorFiles = async (vendor?: false | 'auto') => {
+      const out = path.join(import.meta.dir, '..', '.cache', `fs-static-vendor-${String(vendor)}`)
+      await build({ ...config, adapter: staticAdapter({ outDir: path.relative(ROOT, out), strict: false, ...(vendor === undefined ? {} : { vendor }) }) }, ROOT)
+      return [...new Bun.Glob('**/*').scanSync({ cwd: out })].filter(f => f.startsWith(VENDOR_PATH.replace(/^\//, '')))
+    }
+    expect((await vendorFiles()).some(f => f.includes('htmx'))).toBe(true)
+    expect(await vendorFiles(false)).toEqual([])
+  })
+
 
 })
 
@@ -272,6 +283,19 @@ describe('rotas por arquivos no modo Cloudflare Workers (src/server.ts como main
     expect(jsxConfigProblem('{ "compilerOptions": { "jsx": "react" } }', 'htsx')).toContain('"jsxImportSource": "htsx"')
     expect(jsxConfigProblem('{ "compilerOptions": { "jsx": "react-jsx", "jsxImportSource": "htsx" } }', 'htsx')).toBeNull()
     expect(jsxConfigProblem('{ "extends": "./base.json" }', 'htsx')).toBeNull()
+  })
+
+  it('vendor: false no cloudflareAdapter não publica Alpine nem htmx', async () => {
+    const tmp = path.join(import.meta.dir, '..', '.cache', 'fs-cf-vendor')
+    await rm(tmp, { recursive: true, force: true })
+    await Bun.write(path.join(tmp, 'src', 'routes', '+page.tsx'), 'export default () => "x"\n')
+    await Bun.write(path.join(tmp, 'tsconfig.json'), JSON.stringify({ compilerOptions: { jsx: 'react-jsx', jsxImportSource: 'htsx' } }))
+    await Bun.write(path.join(tmp, 'wrangler.jsonc'), JSON.stringify({ main: '.htsx/server.ts', compatibility_flags: ['nodejs_als'], assets: { binding: 'ASSETS', directory: '.htsx/cloudflare' } }))
+    const vendorDir = path.join(tmp, '.htsx', 'cloudflare', VENDOR_PATH.replace(/^\//, ''))
+    await build({ ...config, adapter: cloudflareAdapter({ vendor: false }) }, tmp)
+    expect([...new Bun.Glob('**/*').scanSync({ cwd: path.join(tmp, '.htsx', 'cloudflare') })].filter(f => f.startsWith(VENDOR_PATH.replace(/^\//, '')))).toEqual([])
+    await build({ ...config, adapter: cloudflareAdapter({}) }, tmp)
+    expect([...new Bun.Glob('*').scanSync(vendorDir)].some(f => f.includes('htmx'))).toBe(true)
   })
 
   it('wrangler com main errado → erro dizendo a entrada do servidor', async () => {

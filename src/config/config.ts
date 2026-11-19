@@ -2,6 +2,7 @@
 // Rodar o próprio arquivo executa os comandos: `bun htsx.config.ts dev | build | start | sync`.
 // Este módulo é leve: o código de build só é carregado (import dinâmico) quando o arquivo é executado.
 import type { AppOptions } from '../app/app'
+import type { VendorOption } from '../build/files'
 
 export interface StaticAdapter {
   name: 'static'
@@ -11,6 +12,11 @@ export interface StaticAdapter {
   fallback?: string | false
   /** `false` aceita rotas dinâmicas (ficam de fora). Padrão `true`. */
   strict?: boolean
+  /**
+   * Alpine, htmx e a navegação em `VENDOR_PATH`. Padrão `true` (todos); `'auto'` copia só o que
+   * as páginas geradas citam; `'navigation'`, só a navegação; `false`, nada.
+   */
+  vendor?: VendorOption
 }
 
 export interface CloudflareAdapter {
@@ -21,6 +27,12 @@ export interface CloudflareAdapter {
   wrangler?: string | false
   /** Binding dos assets (`assets.binding`). Padrão `ASSETS`. */
   assetsBinding?: string
+  /**
+   * Alpine, htmx e a navegação em `VENDOR_PATH` na pasta de Static Assets. Padrão `true`;
+   * `'navigation'` copia só a navegação; `false`, nada (site que não usa nenhum dos três).
+   * Sem `'auto'`: as páginas do Worker só existem em tempo de execução.
+   */
+  vendor?: boolean | 'navigation'
   /**
    * Entrada do servidor, seu arquivo: o `main` do wrangler. Recebe cada requisição antes das rotas
    * e pode exportar Durable Objects, `scheduled` e `queue`. Padrão `src/server.ts`; sem ele, o
